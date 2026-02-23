@@ -25,12 +25,21 @@ export const dashboardRouter = Router();
 dashboardRouter.get('/summary', requireAuth, (req, res) => {
     const userId = req.userId;
     const projects = db.prepare('SELECT id, name, created_at, updated_at FROM projects ORDER BY updated_at DESC LIMIT 10').all();
+    const pendingByProject = db.prepare(`SELECT project_id, COUNT(*) as count FROM decisions
+     WHERE status IN ('pending', 'in_review') GROUP BY project_id`).all();
+    const pendingMap = Object.fromEntries(pendingByProject.map((p) => [p.project_id, p.count]));
     const decisions = db.prepare(`SELECT d.id, d.title, d.status, d.created_at, d.project_id, p.name as project_name
      FROM decisions d
      LEFT JOIN projects p ON d.project_id = p.id
      ORDER BY d.created_at DESC
      LIMIT 10`).all();
     const pendingCount = db.prepare("SELECT COUNT(*) as count FROM decisions WHERE status IN ('pending', 'in_review')").get();
+    const pendingApprovals = db.prepare(`SELECT d.id, d.title, d.project_id, p.name as project_name
+     FROM decisions d
+     LEFT JOIN projects p ON d.project_id = p.id
+     WHERE d.status IN ('pending', 'in_review')
+     ORDER BY d.created_at DESC
+     LIMIT 10`).all();
     const recentDecisions = decisions.map((d) => ({
         id: d.id,
         title: d.title,
@@ -50,9 +59,15 @@ dashboardRouter.get('/summary', requireAuth, (req, res) => {
             status: 'active',
             createdAt: p.created_at,
             updatedAt: p.updated_at,
-            pendingApprovalsCount: 0,
+            pendingApprovalsCount: pendingMap[p.id] ?? 0,
         })),
         recentDecisions,
+        pendingApprovals: pendingApprovals.map((a) => ({
+            id: a.id,
+            title: a.title,
+            client: 'Client',
+            project: a.project_name ?? 'Unknown',
+        })),
         pendingApprovalsCount: pendingCount?.count ?? 0,
         quickActions,
     });

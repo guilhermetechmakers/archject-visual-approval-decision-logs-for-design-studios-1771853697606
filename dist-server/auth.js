@@ -689,7 +689,7 @@ authRouter.post('/logout', (req, res) => {
         return res.json({ message: 'Logged out' });
     }
 });
-authRouter.post('/password-reset-request', async (req, res) => {
+const handlePasswordResetRequest = async (req, res) => {
     try {
         const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
         const { email } = req.body;
@@ -721,7 +721,7 @@ authRouter.post('/password-reset-request', async (req, res) => {
         const userAgent = req.get('user-agent') ?? null;
         db.prepare(`INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, request_ip, request_user_agent)
        VALUES (?, ?, ?, ?, ?, ?)`).run(crypto.randomUUID(), user.id, tokenHash, expiresAt.toISOString(), ip, userAgent);
-        const resetUrl = `${VERIFY_BASE_URL}/password-reset?token=${encodeURIComponent(token)}`;
+        const resetUrl = `${VERIFY_BASE_URL}/auth/password-reset/reset?token=${encodeURIComponent(token)}`;
         const sent = await sendPasswordResetEmail({
             firstName: user.first_name,
             email: user.email,
@@ -741,8 +741,10 @@ authRouter.post('/password-reset-request', async (req, res) => {
         console.error('[Auth] Password reset request error:', err);
         return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
     }
-});
-authRouter.get('/password-reset-validate', (req, res) => {
+};
+authRouter.post('/password-reset-request', handlePasswordResetRequest);
+authRouter.post('/password-reset/request', handlePasswordResetRequest);
+const handlePasswordResetValidate = (req, res) => {
     try {
         const token = req.query.token;
         if (!token || typeof token !== 'string' || token.length < 16) {
@@ -760,7 +762,9 @@ authRouter.get('/password-reset-validate', (req, res) => {
         console.error('[Auth] Password reset validate error:', err);
         return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
     }
-});
+};
+authRouter.get('/password-reset-validate', handlePasswordResetValidate);
+authRouter.get('/password-reset/validate', handlePasswordResetValidate);
 const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
 async function handlePasswordReset(req, res, token, newPassword) {
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';

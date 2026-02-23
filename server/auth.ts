@@ -876,7 +876,7 @@ authRouter.post('/logout', (req: Request, res: Response) => {
   }
 })
 
-authRouter.post('/password-reset-request', async (req: Request, res: Response) => {
+const handlePasswordResetRequest = async (req: Request, res: Response) => {
   try {
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
     const { email } = req.body
@@ -912,7 +912,7 @@ authRouter.post('/password-reset-request', async (req: Request, res: Response) =
       `INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, request_ip, request_user_agent)
        VALUES (?, ?, ?, ?, ?, ?)`
     ).run(crypto.randomUUID(), user.id, tokenHash, expiresAt.toISOString(), ip, userAgent)
-    const resetUrl = `${VERIFY_BASE_URL}/password-reset?token=${encodeURIComponent(token)}`
+    const resetUrl = `${VERIFY_BASE_URL}/auth/password-reset/reset?token=${encodeURIComponent(token)}`
     const sent = await sendPasswordResetEmail({
       firstName: user.first_name,
       email: user.email,
@@ -931,9 +931,12 @@ authRouter.post('/password-reset-request', async (req: Request, res: Response) =
     console.error('[Auth] Password reset request error:', err)
     return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
   }
-})
+}
 
-authRouter.get('/password-reset-validate', (req: Request, res: Response) => {
+authRouter.post('/password-reset-request', handlePasswordResetRequest)
+authRouter.post('/password-reset/request', handlePasswordResetRequest)
+
+const handlePasswordResetValidate = (req: Request, res: Response) => {
   try {
     const token = req.query.token as string | undefined
     if (!token || typeof token !== 'string' || token.length < 16) {
@@ -952,7 +955,10 @@ authRouter.get('/password-reset-validate', (req: Request, res: Response) => {
     console.error('[Auth] Password reset validate error:', err)
     return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
   }
-})
+}
+
+authRouter.get('/password-reset-validate', handlePasswordResetValidate)
+authRouter.get('/password-reset/validate', handlePasswordResetValidate)
 
 const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/
 

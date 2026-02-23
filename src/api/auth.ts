@@ -113,17 +113,22 @@ export async function logout(): Promise<void> {
 }
 
 export async function requestPasswordReset(email: string): Promise<{ message: string }> {
-  return api.post<{ message: string }>('/auth/password-reset-request', { email })
+  return api.post<{ message: string }>('/auth/password-reset/request', { email })
 }
 
-export async function validatePasswordResetToken(token: string): Promise<{ valid: boolean }> {
+export interface ValidateTokenResponse {
+  valid: boolean
+  status?: 'valid' | 'expired' | 'invalid'
+}
+
+export async function validatePasswordResetToken(token: string): Promise<ValidateTokenResponse> {
   try {
-    const res = await api.get<{ valid: boolean }>(
-      `/auth/password-reset-validate?token=${encodeURIComponent(token)}`
+    const res = await api.get<ValidateTokenResponse>(
+      `/auth/password-reset/validate?token=${encodeURIComponent(token)}`
     )
     return res
   } catch {
-    return { valid: false }
+    return { valid: false, status: 'invalid' }
   }
 }
 
@@ -140,9 +145,9 @@ export interface PasswordResetConfirmResponse {
 }
 
 export async function confirmPasswordReset(data: PasswordResetConfirmRequest): Promise<PasswordResetConfirmResponse> {
-  return api.post<PasswordResetConfirmResponse>('/auth/password-reset', {
+  return api.post<PasswordResetConfirmResponse>('/auth/password-reset/confirm', {
     token: data.token,
-    password: data.newPassword,
+    newPassword: data.newPassword,
   })
 }
 

@@ -68,7 +68,7 @@ export function LoginEmailPasswordForm({
         <div className="flex items-center justify-between">
           <Label htmlFor="login-password">Password</Label>
           <Link
-            to="/password-reset"
+            to="/auth/password-reset/request"
             className="text-sm text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring rounded"
           >
             Forgot password?

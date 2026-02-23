@@ -81,7 +81,7 @@ export function PasswordResetConfirmPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Link to="/password-reset">
+              <Link to="/auth/password-reset/request">
                 <Button className="w-full">Request new reset link</Button>
               </Link>
             </CardContent>
