@@ -242,6 +242,39 @@ export function initDb() {
       if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
     }
   }
+
+  const authExtendedPath = path.join(process.cwd(), 'server', 'migrations', '013_auth_extended.sql')
+  if (fs.existsSync(authExtendedPath)) {
+    try {
+      const sql = fs.readFileSync(authExtendedPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+    // Add role and avatar_url to users if not present
+    try {
+      db.exec('ALTER TABLE users ADD COLUMN role TEXT DEFAULT "owner"')
+    } catch (e) {
+      if (!String(e).includes('duplicate column name')) throw e
+    }
+    try {
+      db.exec('ALTER TABLE users ADD COLUMN avatar_url TEXT')
+    } catch (e) {
+      if (!String(e).includes('duplicate column name')) throw e
+    }
+  }
 }
 
 function seedAnalyticsData() {

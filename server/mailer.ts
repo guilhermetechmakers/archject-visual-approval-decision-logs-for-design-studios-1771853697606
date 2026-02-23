@@ -71,3 +71,44 @@ export async function sendVerificationEmail(params: VerificationEmailParams): Pr
     return false
   }
 }
+
+export interface PasswordResetEmailParams {
+  firstName: string
+  email: string
+  resetUrl: string
+  expiresAt: Date
+}
+
+export async function sendPasswordResetEmail(params: PasswordResetEmailParams): Promise<boolean> {
+  const { firstName, resetUrl, expiresAt } = params
+  const expiryMinutes = Math.round((expiresAt.getTime() - Date.now()) / (60 * 1000))
+
+  if (!SENDGRID_API_KEY) {
+    console.warn('[Mailer] SENDGRID_API_KEY not set. Password reset email would be sent to:', params.email)
+    console.warn('[Mailer] Reset URL:', resetUrl)
+    return true
+  }
+
+  try {
+    const html = `
+      <h1>Reset your password</h1>
+      <p>Hi ${firstName},</p>
+      <p>Click the link below to reset your Archject password:</p>
+      <p><a href="${resetUrl}">Reset password</a></p>
+      <p>This link expires in ${expiryMinutes} minutes.</p>
+      <p>If you didn't request a password reset, you can ignore this email.</p>
+      <p>— ${APP_NAME}</p>
+    `
+    await sgMail.send({
+      to: params.email,
+      from: { email: FROM_EMAIL, name: APP_NAME },
+      subject: 'Reset your Archject password',
+      html,
+      categories: ['password-reset'],
+    })
+    return true
+  } catch (err) {
+    console.error('[Mailer] Password reset email error:', err)
+    return false
+  }
+}

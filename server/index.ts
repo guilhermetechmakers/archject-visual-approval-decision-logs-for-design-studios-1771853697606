@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 import path from 'path'
 import { initDb } from './db.js'
 import { requestIdMiddleware, errorHandler } from './error-middleware.js'
@@ -24,6 +25,7 @@ const app = express()
 const PORT = process.env.PORT ?? 3001
 
 app.use(cors({ origin: true, credentials: true }))
+app.use(cookieParser())
 app.use(express.json())
 app.use(requestIdMiddleware)
 

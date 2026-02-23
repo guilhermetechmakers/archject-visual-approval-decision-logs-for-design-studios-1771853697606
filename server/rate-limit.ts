@@ -67,3 +67,12 @@ export function checkResendRateLimit(
 
   return { allowed: true }
 }
+
+/** Auth rate limit: login/signup - 5 attempts per 15 min per IP */
+const authPerIp = new Map<string, RateLimitEntry>()
+const AUTH_IP_LIMIT = 5
+const AUTH_IP_WINDOW_MS = 15 * 60 * 1000
+
+export function checkAuthRateLimit(ip: string): { allowed: boolean; nextAllowedAt?: number } {
+  return checkLimit(authPerIp, ip, AUTH_IP_LIMIT, AUTH_IP_WINDOW_MS)
+}

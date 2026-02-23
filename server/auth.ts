@@ -3,16 +3,24 @@ import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { db } from './db.js'
-import { sendVerificationEmail } from './mailer.js'
-import { checkResendRateLimit } from './rate-limit.js'
+import { sendVerificationEmail, sendPasswordResetEmail } from './mailer.js'
+import { checkResendRateLimit, checkAuthRateLimit } from './rate-limit.js'
+import {
+  hashToken,
+  createAccessToken,
+  createRefreshToken,
+  setRefreshTokenCookie,
+  clearRefreshTokenCookie,
+  getRefreshTokenFromRequest,
+  storeRefreshToken,
+  validateRefreshToken,
+  revokeRefreshToken,
+  createSession,
+} from './auth-utils.js'
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
 const TOKEN_EXPIRY_HOURS = 24
-
-function hashToken(token: string): string {
-  const salt = process.env.HMAC_SECRET ?? 'archject-verification-salt'
-  return crypto.createHmac('sha256', salt).update(token).digest('hex')
-}
+const PASSWORD_RESET_EXPIRY_MINUTES = 60
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split('@')
