@@ -7,8 +7,10 @@ import {
   Zap,
   Plus,
   ArrowRight,
+  RotateCcw,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { getLastProject } from '@/components/layout/sidebar'
 import {
   getDashboardMetrics,
   getDashboardProjects,
@@ -68,6 +70,11 @@ export function DashboardOverview() {
 
   const projects = projectsData?.items ?? []
   const activities = activitiesData?.items ?? []
+  const lastProjectId = getLastProject()
+  const lastProject = lastProjectId
+    ? projects.find((p) => p.id === lastProjectId)
+    : null
+  const hasLastProject = !!lastProjectId
   const pendingApprovals = metrics?.pendingApprovals ?? summary?.pendingApprovalsCount ?? 0
   const pendingItems = summary?.pendingApprovals?.slice(0, 3).map((a) => ({
     id: a.id,
@@ -95,12 +102,23 @@ export function DashboardOverview() {
         </div>
       </div>
 
-      <SearchBarWithFilters
-        value={search}
-        onSearch={setSearch}
-        placeholder="Search projects, decisions, templates..."
-        className="max-w-md"
-      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <SearchBarWithFilters
+          value={search}
+          onSearch={setSearch}
+          placeholder="Search projects, decisions, templates..."
+          className="max-w-md"
+        />
+        {hasLastProject && (
+          <Link
+            to={`/dashboard/projects/${lastProjectId}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <RotateCcw className="h-4 w-4 text-muted-foreground" aria-hidden />
+            {lastProject ? `Resume: ${lastProject.name}` : 'Resume last project'}
+          </Link>
+        )}
+      </div>
 
       <QuickActionsPanel onActionComplete={refreshDashboard} />
 

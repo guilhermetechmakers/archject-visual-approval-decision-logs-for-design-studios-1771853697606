@@ -126,7 +126,7 @@ export function DecisionDetail() {
         </div>
       </div>
 
-      {/* Visual comparison hero */}
+      {/* Visual comparison panel - side-by-side options */}
       <Card>
         <CardHeader>
           <CardTitle>Options</CardTitle>
@@ -135,34 +135,52 @@ export function DecisionDetail() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {decision.options.map((opt) => (
-              <div
-                key={opt.id}
-                className={`relative overflow-hidden rounded-lg border-2 p-4 transition-all ${
-                  opt.selected || decision.approvedOptionId === opt.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
-                }`}
-              >
-                {opt.selected || decision.approvedOptionId === opt.id ? (
-                  <div className="absolute right-2 top-2 rounded-full bg-primary p-1">
-                    <Check className="h-4 w-4 text-primary-foreground" />
+          <div
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            role="grid"
+            aria-label="Decision options comparison"
+          >
+            {decision.options.map((opt) => {
+              const isSelected =
+                opt.selected || decision.approvedOptionId === opt.id
+              return (
+                <div
+                  key={opt.id}
+                  role="gridcell"
+                  className={`relative overflow-hidden rounded-xl border-2 p-4 transition-all duration-200 ${
+                    isSelected
+                      ? 'border-primary bg-primary/5 shadow-card'
+                      : 'border-border hover:border-primary/50 hover:shadow-sm'
+                  }`}
+                >
+                  {isSelected && (
+                    <div
+                      className="absolute right-2 top-2 rounded-full bg-primary p-1.5"
+                      aria-hidden
+                    >
+                      <Check className="h-4 w-4 text-primary-foreground" />
+                    </div>
+                  )}
+                  <div className="aspect-video rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                    {opt.imageUrl ? (
+                      <img
+                        src={opt.imageUrl}
+                        alt={opt.label}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No image</span>
+                    )}
                   </div>
-                ) : null}
-                <div className="aspect-video rounded-md bg-muted flex items-center justify-center">
-                  {opt.imageUrl ? (
-                    <img src={opt.imageUrl} alt={opt.label} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-muted-foreground text-sm">No image</span>
+                  <h4 className="mt-3 font-semibold">{opt.label}</h4>
+                  {opt.description && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {opt.description}
+                    </p>
                   )}
                 </div>
-                <h4 className="mt-2 font-medium">{opt.label}</h4>
-                {opt.description && (
-                  <p className="text-sm text-muted-foreground">{opt.description}</p>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>

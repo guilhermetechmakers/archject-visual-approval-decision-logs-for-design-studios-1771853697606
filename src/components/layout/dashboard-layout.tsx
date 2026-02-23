@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
-import { Menu, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Sidebar } from './sidebar'
-import { UserMenu } from '@/components/auth/user-menu'
-import { NotificationsBell } from '@/components/dashboard/notifications-bell'
+import { Topbar } from './topbar'
 
 const SIDEBAR_KEY = 'archject-sidebar-collapsed'
 
@@ -60,40 +56,20 @@ export function DashboardLayout() {
           collapsed ? 'lg:pl-[72px]' : 'lg:pl-[240px]'
         )}
       >
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-card px-4 lg:px-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+        <Topbar
+          onMenuClick={() => setMobileOpen(true)}
+          showMenuButton
+        />
 
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search projects, decisions... (Press / to search)"
-              className="pl-9 cursor-pointer"
-              aria-label="Search"
-              onClick={() => navigate('/dashboard/search')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === '/') {
-                  e.preventDefault()
-                  navigate('/dashboard/search')
-                }
-              }}
-              readOnly
-            />
+        <main
+          className="p-4 lg:p-8"
+          role="main"
+        >
+          <div className="grid grid-cols-12 gap-6 lg:gap-8">
+            <div className="col-span-12 min-w-0">
+              <Outlet />
+            </div>
           </div>
-
-          <NotificationsBell />
-          <UserMenu />
-        </header>
-
-        <main className="p-4 lg:p-8">
-          <Outlet />
         </main>
       </div>
     </div>

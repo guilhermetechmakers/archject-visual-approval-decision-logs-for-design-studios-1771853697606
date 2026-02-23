@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -10,18 +11,27 @@ import {
   FileText,
   Settings,
   Users,
+  Search,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 import { getLibraryFiles } from '@/api/library'
 import { getDashboardProjects } from '@/api/dashboard'
+import { DecisionCard } from '@/components/decisions'
+import { setLastProject } from '@/components/layout/sidebar'
 import type { Decision } from '@/types'
 
 export function ProjectWorkspace() {
   const { projectId } = useParams<{ projectId: string }>()
+
+  useEffect(() => {
+    if (projectId) {
+      setLastProject(projectId)
+    }
+  }, [projectId])
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
     queryFn: async () => {
@@ -34,11 +44,20 @@ export function ProjectWorkspace() {
     enabled: !!projectId,
   })
 
-  const { data: decisions = [] } = useQuery({
+  const { data: decisions = [], isLoading: decisionsLoading } = useQuery({
     queryKey: ['decisions', projectId],
     queryFn: () => api.get<Decision[]>(`/projects/${projectId}/decisions`),
     enabled: !!projectId,
   })
+
+  const [decisionFilter, setDecisionFilter] = useState('')
+  const filteredDecisions = decisionFilter
+    ? decisions.filter(
+        (d) =>
+          d.title.toLowerCase().includes(decisionFilter.toLowerCase()) ||
+          d.status.toLowerCase().includes(decisionFilter.toLowerCase())
+      )
+    : decisions
 
   const { data: libraryFiles = [] } = useQuery({
     queryKey: ['library-files', projectId, 'workspace'],
@@ -47,9 +66,6 @@ export function ProjectWorkspace() {
   })
 
   const recentFiles = libraryFiles.slice(0, 4)
-
-  const statusVariant = (s: string) =>
-    s === 'approved' ? 'success' : s === 'pending' ? 'warning' : 'secondary'
 
   return (
     <div className="space-y-8 animate-in">
@@ -90,43 +106,75 @@ export function ProjectWorkspace() {
         </div>
       </div>
 
-      {/* Tabs / Sections */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Decisions list */}
-        <div className="lg:col-span-2">
+      {/* Two-column layout: Decision Cards (left) | Drawings, Templates, Settings (right) */}
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Decision Cards - left pane with visual previews */}
+        <div className="lg:col-span-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2">
                 <FileCheck className="h-5 w-5" />
                 Decisions
               </CardTitle>
-              <Link to={`/dashboard/projects/${projectId}/decisions/new`}>
-                <Button size="sm" variant="outline">Add</Button>
-              </Link>
+              <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <div className="relative flex-1 max-w-xs">
+                  <Search
+                    className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    placeholder="Filter decisions..."
+                    value={decisionFilter}
+                    onChange={(e) => setDecisionFilter(e.target.value)}
+                    className="pl-9"
+                    aria-label="Filter decisions by title or status"
+                  />
+                </div>
+                <Link to={`/dashboard/projects/${projectId}/decisions/new`}>
+                  <Button size="sm" variant="outline">Add</Button>
+                </Link>
+              </div>
             </CardHeader>
             <CardContent>
-              {decisions.length === 0 ? (
+              {decisionsLoading ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-48 rounded-xl" />
+                  ))}
+                </div>
+              ) : filteredDecisions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <FileCheck className="h-12 w-12 text-muted-foreground" />
-                  <p className="mt-4 font-medium">No decisions yet</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Create a decision to get client approval
+                  <p className="mt-4 font-medium">
+                    {decisionFilter ? 'No matching decisions' : 'No decisions yet'}
                   </p>
-                  <Link to={`/dashboard/projects/${projectId}/decisions/new`} className="mt-4">
-                    <Button>Create decision</Button>
-                  </Link>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {decisionFilter
+                      ? 'Try adjusting your filter'
+                      : 'Create a decision to get client approval'}
+                  </p>
+                  {decisionFilter ? (
+                    <Button className="mt-4" onClick={() => setDecisionFilter('')}>
+                      Clear filter
+                    </Button>
+                  ) : (
+                    <Link
+                      to={`/dashboard/projects/${projectId}/decisions/new`}
+                      className="mt-4"
+                    >
+                      <Button>Create decision</Button>
+                    </Link>
+                  )}
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {decisions.map((d) => (
-                    <Link
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {filteredDecisions.map((d) => (
+                    <DecisionCard
                       key={d.id}
-                      to={`/dashboard/projects/${projectId}/decisions/${d.id}`}
-                      className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
-                    >
-                      <p className="font-medium">{d.title}</p>
-                      <Badge variant={statusVariant(d.status)}>{d.status}</Badge>
-                    </Link>
+                      decision={d}
+                      projectId={projectId!}
+                      showActions
+                    />
                   ))}
                 </div>
               )}
@@ -134,8 +182,8 @@ export function ProjectWorkspace() {
           </Card>
         </div>
 
-        {/* Sidebar: Library, Templates, Activity */}
-        <div className="space-y-4">
+        {/* Right pane: Drawings/Specs, Templates, Project Settings */}
+        <div className="lg:col-span-4 space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base">

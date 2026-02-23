@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Menu, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Menu, HelpCircle, ChevronLeft, ChevronRight, FileCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { TokenExpiryNotice } from './token-expiry-notice'
@@ -9,11 +9,29 @@ import { NotificationInbox } from './notification-inbox'
 import { getClientBranding, getClientTokenStatus } from '@/api/client-portal'
 import { cn } from '@/lib/utils'
 
+const CLIENT_PORTAL_SIDEBAR_KEY = 'archject-client-portal-sidebar-collapsed'
+
+function getInitialSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(CLIENT_PORTAL_SIDEBAR_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
 export function ClientPortalLayout() {
   const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsed)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CLIENT_PORTAL_SIDEBAR_KEY, String(sidebarCollapsed))
+    } catch {
+      // ignore
+    }
+  }, [sidebarCollapsed])
 
   const { data: tokenStatus } = useQuery({
     queryKey: ['client-token-status', token],
@@ -28,8 +46,8 @@ export function ClientPortalLayout() {
   })
 
   const navItems = [
-    { label: 'Decisions', to: token ? `/client/${token}` : '#' },
-    { label: 'Help', to: '/help' },
+    { label: 'Decisions', to: token ? `/client/${token}` : '#', icon: FileCheck },
+    { label: 'Help', to: '/help', icon: HelpCircle },
   ]
 
   if (!token) {
@@ -70,8 +88,8 @@ export function ClientPortalLayout() {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <SheetContent side="left" className="w-[240px] p-0">
-              <nav className="flex flex-col gap-1 p-4">
+            <SheetContent side="left" className="w-[240px] p-0" aria-label="Client portal navigation">
+              <nav className="flex flex-col gap-1 p-4" role="navigation">
                 {navItems.map((item) => (
                   <button
                     key={item.label}
@@ -83,8 +101,10 @@ export function ClientPortalLayout() {
                         setMobileOpen(false)
                       }
                     }}
-                    className="rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[rgb(17,24,39)] hover:bg-[rgb(243,244,246)]"
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[rgb(17,24,39)] hover:bg-[rgb(243,244,246)] focus:outline-none focus:ring-2 focus:ring-[rgb(0,82,204)] focus:ring-offset-2"
+                    aria-label={item.label}
                   >
+                    <item.icon className="h-5 w-5 shrink-0 text-[rgb(107,114,128)]" aria-hidden />
                     {item.label}
                   </button>
                 ))}
@@ -121,13 +141,15 @@ export function ClientPortalLayout() {
         </div>
       </header>
 
-      {/* Desktop sidebar - collapsible */}
+      {/* Desktop sidebar - collapsible, persistent state */}
       <aside
         className={cn(
           'fixed left-0 top-14 z-20 hidden h-[calc(100vh-3.5rem)] flex-col border-r border-[rgb(229,231,235)] bg-[#F5F6FA] transition-all duration-300 ease-in-out',
           'lg:flex',
           sidebarCollapsed ? 'w-[72px]' : 'w-[240px]'
         )}
+        role="navigation"
+        aria-label="Client portal navigation"
       >
         <nav className="flex flex-1 flex-col gap-1 p-4">
           {navItems.map((item) => (
@@ -141,11 +163,13 @@ export function ClientPortalLayout() {
                 }
               }}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[rgb(107,114,128)] transition-colors hover:bg-[rgb(229,231,235)] hover:text-[rgb(17,24,39)]',
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[rgb(107,114,128)] transition-colors hover:bg-[rgb(229,231,235)] hover:text-[rgb(17,24,39)] focus:outline-none focus:ring-2 focus:ring-[rgb(0,82,204)] focus:ring-offset-2',
                 sidebarCollapsed && 'justify-center px-2'
               )}
+              aria-label={item.label}
             >
-              <span>{item.label}</span>
+              <item.icon className="h-5 w-5 shrink-0" aria-hidden />
+              {!sidebarCollapsed && <span>{item.label}</span>}
             </button>
           ))}
         </nav>
