@@ -4,8 +4,7 @@
  */
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link2, FileText, Image, File, X, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Link2, FileText, Image, File, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   Dialog,
@@ -37,7 +36,6 @@ export interface AttachmentPickerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   projectId: string
-  decisionId?: string
   onSelect: (file: LibraryFile) => void
   excludeFileIds?: string[]
   /** When creating a decision, decisionId may not exist yet */
@@ -48,7 +46,6 @@ export function AttachmentPicker({
   open,
   onOpenChange,
   projectId,
-  decisionId,
   onSelect,
   excludeFileIds = [],
   mode = 'attach',

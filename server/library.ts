@@ -166,10 +166,19 @@ libraryRouter.post(
        VALUES (?, ?, 1, ?, ?, ?, ?, ?)`
     ).run(versionId, fileId, relPath, file.size, now, userId, 'Initial upload')
 
-    db.prepare(
-      `INSERT INTO library_files (id, project_id, filename, filepath, filetype, size, uploader_id, uploaded_at, current_version_id, is_archived, scan_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'CLEAN')`
-    ).run(fileId, projectId, file.originalname, relPath, file.mimetype, file.size, userId, now, versionId)
+    try {
+      db.prepare(
+        `INSERT INTO library_files (id, project_id, filename, filepath, filetype, size, uploader_id, uploaded_at, current_version_id, is_archived, scan_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'CLEAN')`
+      ).run(fileId, projectId, file.originalname, relPath, file.mimetype, file.size, userId, now, versionId)
+    } catch (e) {
+      if (String(e).includes('no such column: scan_status')) {
+        db.prepare(
+          `INSERT INTO library_files (id, project_id, filename, filepath, filetype, size, uploader_id, uploaded_at, current_version_id, is_archived)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+        ).run(fileId, projectId, file.originalname, relPath, file.mimetype, file.size, userId, now, versionId)
+      } else throw e
+    }
 
     const thumbUrl = file.mimetype.startsWith('image/')
       ? `/uploads/library/${projectId}/${file.filename}`
@@ -216,6 +225,8 @@ libraryRouter.get('/projects/:projectId/files/:fileId', requireAuth, (req: Reque
     currentVersion: version?.version_number ?? 1,
     isArchived: !!row.is_archived,
     thumbnailUrl: row.thumbnail_url,
+    scanStatus: row.scan_status ?? 'CLEAN',
+    previewUrl: row.preview_url ?? undefined,
   })
 })
 
@@ -459,8 +470,47 @@ libraryRouter.delete('/projects/:projectId/decisions/:decisionId/attachments/:at
   if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Attachment not found' })
 
   db.prepare('DELETE FROM library_file_attachments WHERE id = ?').run(attachmentId)
-  res.json({ removed: true })
+  res.json({ id: attachmentId, detached: true })
 })
+
+// POST /api/projects/:projectId/decisions/:decisionId/attachments - attach file to decision by fileId
+libraryRouter.post(
+  '/projects/:projectId/decisions/:decisionId/attachments',
+  requireAuth,
+  (req: Request, res: Response) => {
+    const userId = (req as Request & { userId: string }).userId
+    const { projectId, decisionId } = req.params
+    const { fileId, notes } = req.body as { fileId?: string; notes?: string }
+
+    if (!fileId) {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'fileId is required' })
+    }
+
+    const file = db.prepare('SELECT id FROM library_files WHERE id = ? AND project_id = ?').get(fileId, projectId)
+    if (!file) return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found' })
+
+    const decision = db.prepare('SELECT id FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, projectId)
+    if (!decision) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+
+    const existing = db.prepare(
+      'SELECT id FROM library_file_attachments WHERE file_id = ? AND decision_id = ?'
+    ).get(fileId, decisionId)
+    if (existing) {
+      db.prepare('UPDATE library_file_attachments SET notes = ?, attached_at = datetime("now") WHERE id = ?').run(
+        notes ?? null,
+        (existing as { id: string }).id
+      )
+      return res.json({ attached: true, attachmentId: (existing as { id: string }).id })
+    }
+
+    const attachmentId = crypto.randomUUID()
+    db.prepare(
+      'INSERT INTO library_file_attachments (id, file_id, decision_id, notes, attached_by) VALUES (?, ?, ?, ?, ?)'
+    ).run(attachmentId, fileId, decisionId, notes ?? null, userId)
+
+    res.status(201).json({ attachmentId, attached: true })
+  }
+)
 
 // POST /api/projects/:projectId/files/:fileId/attach
 libraryRouter.post('/projects/:projectId/files/:fileId/attach', requireAuth, (req: Request, res: Response) => {
@@ -497,7 +547,7 @@ libraryRouter.post('/projects/:projectId/files/:fileId/attach', requireAuth, (re
   res.status(201).json({ attachmentId, attached: true })
 })
 
-// GET /api/projects/:projectId/files/:fileId/download - serve file
+// GET /api/projects/:projectId/files/:fileId/download - serve file (download)
 libraryRouter.get('/projects/:projectId/files/:fileId/download', requireAuth, (req: Request, res: Response) => {
   const { projectId, fileId } = req.params
   const row = db.prepare(
@@ -509,4 +559,20 @@ libraryRouter.get('/projects/:projectId/files/:fileId/download', requireAuth, (r
   if (!fs.existsSync(fullPath)) return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found on disk' })
 
   res.download(fullPath, row.filename)
+})
+
+// GET /api/projects/:projectId/files/:fileId/preview - serve file inline for preview (images, PDFs)
+libraryRouter.get('/projects/:projectId/files/:fileId/preview', requireAuth, (req: Request, res: Response) => {
+  const { projectId, fileId } = req.params
+  const row = db.prepare(
+    'SELECT f.filepath, f.filename, f.filetype FROM library_files f WHERE f.id = ? AND f.project_id = ?'
+  ).get(fileId, projectId) as { filepath: string; filename: string; filetype: string } | undefined
+  if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found' })
+
+  const fullPath = path.join(process.cwd(), 'uploads', row.filepath)
+  if (!fs.existsSync(fullPath)) return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found on disk' })
+
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(row.filename)}"`)
+  if (row.filetype) res.setHeader('Content-Type', row.filetype)
+  res.sendFile(fullPath)
 })

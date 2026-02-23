@@ -1,58 +1,74 @@
-/**
- * File Preview Panel: inline preview for images and PDFs.
- * Used in Library page, Decision Detail, and Attachment Picker.
- */
-import { useState, useEffect } from 'react'
-import { FileText, Download, X, ExternalLink } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { FileText, Image, X, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { getFilePreviewBlobUrl } from '@/api/library'
+import type { LibraryFile } from '@/types'
 
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
+const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
+const PREVIEWABLE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
 
 export interface FilePreviewPanelProps {
-  filename: string
-  filetype: string
-  previewUrl?: string | null
-  downloadUrl?: string
-  /** For PDF preview: fetch blob URL when fileId/projectId provided */
-  fileId?: string
-  projectId?: string
+  file: LibraryFile | null
+  projectId: string
+  onClose: () => void
   onDownload?: () => void
-  onClose?: () => void
   className?: string
 }
 
 export function FilePreviewPanel({
-  filename,
-  filetype,
-  previewUrl,
-  downloadUrl,
-  fileId,
+  file,
   projectId,
-  onDownload,
   onClose,
+  onDownload,
   className,
 }: FilePreviewPanelProps) {
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
-  const [pdfError, setPdfError] = useState(false)
-  const isImage = IMAGE_TYPES.some((t) => filetype.toLowerCase().includes(t.split('/')[1]))
-  const isPdf = filetype.toLowerCase().includes('pdf')
+  const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null)
+  const objectUrlRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (isPdf && fileId && projectId && !previewUrl) {
-      let blobUrl: string | null = null
-      getFilePreviewBlobUrl(projectId, fileId)
-        .then((url) => {
-          blobUrl = url
-          setPdfBlobUrl(url)
-        })
-        .catch(() => setPdfError(true))
-      return () => {
-        if (blobUrl) URL.revokeObjectURL(blobUrl)
+    if (!file || !projectId) return
+    const isImage = PREVIEWABLE_IMAGE_TYPES.some((t) => file.filetype?.toLowerCase().includes(t.split('/')[1]))
+    const isPdf = file.filetype?.toLowerCase().includes('pdf')
+    if (!isImage && !isPdf) return
+
+    const staticUrl = file.thumbnailUrl ?? file.previewUrl
+    const hasStaticUrl = staticUrl && (staticUrl.startsWith('http') || staticUrl.startsWith('/'))
+    if (isImage && hasStaticUrl) return
+
+    const token = localStorage.getItem('auth_token')
+    const previewUrl = `${API_BASE}/projects/${projectId}/files/${file.id}/preview`
+    fetch(previewUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob)
+          objectUrlRef.current = url
+          setPreviewObjectUrl(url)
+        }
+      })
+      .catch(() => {})
+
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
       }
+      setPreviewObjectUrl(null)
     }
-  }, [isPdf, fileId, projectId, previewUrl])
+  }, [file?.id, projectId, file?.filetype, file?.thumbnailUrl, file?.previewUrl])
+
+  if (!file) return null
+
+  const isImage = PREVIEWABLE_IMAGE_TYPES.some((t) => file.filetype?.toLowerCase().includes(t.split('/')[1]))
+  const isPdf = file.filetype?.toLowerCase().includes('pdf')
+  const canPreview = isImage || isPdf
+
+  const staticUrl = file.thumbnailUrl ?? file.previewUrl
+  const srcUrl = previewObjectUrl ?? (staticUrl && (staticUrl.startsWith('http') || staticUrl.startsWith('/')) ? staticUrl : null)
+  const isLoading = canPreview && !srcUrl
 
   return (
     <div
@@ -61,95 +77,62 @@ export function FilePreviewPanel({
         className
       )}
       role="region"
-      aria-label={`Preview of ${filename}`}
+      aria-label="File preview"
     >
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <p className="truncate text-sm font-medium text-foreground" title={filename}>
-          {filename}
+        <p className="truncate text-sm font-medium" title={file.filename}>
+          {file.filename}
         </p>
         <div className="flex items-center gap-1 shrink-0">
           {onDownload && (
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
+              className="h-8 w-8"
               onClick={onDownload}
               aria-label="Download file"
             >
               <Download className="h-4 w-4" />
             </Button>
           )}
-          {onClose && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onClose}
-              aria-label="Close preview"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onClose}
+            aria-label="Close preview"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       </div>
-
-      {/* Preview content */}
-      <div className="relative flex-1 min-h-[200px] bg-muted/50 flex items-center justify-center overflow-auto">
-        {isImage && previewUrl ? (
-          <img
-            src={previewUrl}
-            alt={filename}
-            className="max-h-[400px] w-auto object-contain"
-          />
-        ) : isPdf && (previewUrl || pdfBlobUrl) && !pdfError ? (
-          <iframe
-            src={previewUrl ?? pdfBlobUrl ?? undefined}
-            title={`PDF preview: ${filename}`}
-            className="w-full h-[400px] min-h-[300px] border-0"
-            onError={() => setPdfError(true)}
-          />
-        ) : isPdf ? (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <FileText className="h-16 w-16 text-muted-foreground" />
-            <p className="mt-4 font-medium">PDF preview</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {downloadUrl ? (
-                <>
-                  <a
-                    href={downloadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-primary hover:underline"
-                  >
-                    Open in new tab
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                  {' or download to view'}
-                </>
-              ) : (
-                'Download to view'
-              )}
-            </p>
-            {onDownload && (
-              <Button variant="outline" size="sm" className="mt-4" onClick={onDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
-            )}
+      <div className="relative flex min-h-[200px] flex-1 items-center justify-center bg-muted/30 p-4">
+        {isLoading ? (
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm">Loading preview...</p>
           </div>
+        ) : isImage && srcUrl ? (
+          <img
+            src={srcUrl}
+            alt={file.filename}
+            className="max-h-[400px] max-w-full object-contain"
+          />
+        ) : isPdf && srcUrl ? (
+          <iframe
+            src={srcUrl}
+            title={file.filename}
+            className="h-[400px] w-full rounded-lg border border-border"
+          />
         ) : (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <FileText className="h-16 w-16 text-muted-foreground" />
-            <p className="mt-4 font-medium">No preview available</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Download the file to view its contents
-            </p>
-            {onDownload && (
-              <Button variant="outline" size="sm" className="mt-4" onClick={onDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            {file.filetype?.startsWith('image/') ? (
+              <Image className="h-16 w-16" />
+            ) : (
+              <FileText className="h-16 w-16" />
             )}
+            <p className="text-sm">Preview not available</p>
+            <p className="text-xs">Download to view this file</p>
           </div>
         )}
       </div>

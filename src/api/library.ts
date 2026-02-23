@@ -164,6 +164,28 @@ export async function attachFileToDecision(
   })
 }
 
+export async function attachFileToDecisionByFileId(
+  projectId: string,
+  decisionId: string,
+  fileId: string,
+  notes?: string
+): Promise<{ attachmentId: string; attached: boolean }> {
+  return api.post(`/projects/${projectId}/decisions/${decisionId}/attachments`, {
+    fileId,
+    notes,
+  })
+}
+
+export async function detachFileFromDecision(
+  projectId: string,
+  decisionId: string,
+  attachmentId: string
+): Promise<{ id: string; detached: boolean }> {
+  return api.delete(
+    `/projects/${projectId}/decisions/${decisionId}/attachments/${attachmentId}`
+  )
+}
+
 export async function removeAttachmentFromDecision(
   projectId: string,
   decisionId: string,

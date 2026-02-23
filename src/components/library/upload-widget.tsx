@@ -11,7 +11,8 @@ const ALLOWED_EXTENSIONS = [
 const MAX_SIZE_MB = 50
 
 export interface UploadWidgetProps {
-  onUpload: (files: File[]) => Promise<void>
+  /** (files, reportProgress) => Promise. reportProgress(0-100) can be called during upload */
+  onUpload: (files: File[], reportProgress?: (percent: number) => void) => Promise<void>
   disabled?: boolean
   className?: string
 }
@@ -49,7 +50,7 @@ export function UploadWidget({ onUpload, disabled, className }: UploadWidgetProp
       setUploading(true)
       setProgress(0)
       try {
-        await onUpload(files)
+        await onUpload(files, (p) => setProgress(p))
         setProgress(100)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Upload failed')

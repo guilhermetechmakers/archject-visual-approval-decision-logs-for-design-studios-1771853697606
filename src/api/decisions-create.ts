@@ -36,7 +36,10 @@ export interface AttachmentDraft {
   size?: number
   previewUrl?: string
   mimeType?: string
+  /** New file to upload */
   file?: File
+  /** Library file ID when attached from library */
+  libraryFileId?: string
 }
 
 export interface DraftDecision {

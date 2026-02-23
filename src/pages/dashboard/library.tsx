@@ -19,6 +19,7 @@ import {
   VersionHistoryModal,
   AttachToDecisionDrawer,
   FiltersPanel,
+  FilePreviewPanel,
 } from '@/components/library'
 import {
   getLibraryFiles,
@@ -55,6 +56,7 @@ export function LibraryPage() {
   const [includeArchived, setIncludeArchived] = useState(false)
   const [versionModalFile, setVersionModalFile] = useState<LibraryFile | null>(null)
   const [attachDrawerFile, setAttachDrawerFile] = useState<LibraryFile | null>(null)
+  const [previewFile, setPreviewFile] = useState<LibraryFile | null>(null)
 
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
@@ -77,21 +79,6 @@ export function LibraryPage() {
     enabled: !!projectId,
   })
 
-  const uploadMutation = useMutation({
-    mutationFn: async (filesToUpload: File[]) => {
-      const results: LibraryFile[] = []
-      for (const f of filesToUpload) {
-        const file = await uploadLibraryFile(projectId!, f)
-        results.push(file)
-      }
-      return results
-    },
-    onSuccess: (uploaded) => {
-      queryClient.invalidateQueries({ queryKey: ['library-files', projectId] })
-      toast.success(`Uploaded ${uploaded.length} file${uploaded.length > 1 ? 's' : ''}`)
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Upload failed'),
-  })
 
   const archiveMutation = useMutation({
     mutationFn: ({ file, isArchived }: { file: LibraryFile; isArchived: boolean }) =>
@@ -113,10 +100,23 @@ export function LibraryPage() {
   })
 
   const handleUpload = useCallback(
-    async (filesToUpload: File[]) => {
-      await uploadMutation.mutateAsync(filesToUpload)
+    async (filesToUpload: File[], reportProgress?: (p: number) => void) => {
+      const total = filesToUpload.length
+      try {
+        for (let i = 0; i < total; i++) {
+          await uploadLibraryFile(projectId!, filesToUpload[i], (p) => {
+            reportProgress?.(Math.round(((i + p / 100) / total) * 100))
+          })
+        }
+        reportProgress?.(100)
+        queryClient.invalidateQueries({ queryKey: ['library-files', projectId] })
+        toast.success(`Uploaded ${total} file${total > 1 ? 's' : ''}`)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Upload failed')
+        throw e
+      }
     },
-    [uploadMutation]
+    [projectId, queryClient]
   )
 
   const handleDownload = useCallback(
@@ -160,7 +160,7 @@ export function LibraryPage() {
       {/* Upload */}
       <UploadWidget
         onUpload={handleUpload}
-        disabled={!projectId || uploadMutation.isPending}
+        disabled={!projectId}
       />
 
       {/* Filters */}
@@ -235,6 +235,7 @@ export function LibraryPage() {
                 onDownload={handleDownload}
                 onArchive={handleArchive}
                 onDelete={(f) => deleteMutation.mutate(f)}
+                onPreview={() => setPreviewFile(file)}
               />
             </div>
           ))}
@@ -307,6 +308,28 @@ export function LibraryPage() {
         file={attachDrawerFile}
         projectId={projectId ?? ''}
       />
+
+      {previewFile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="File preview"
+          onClick={() => setPreviewFile(null)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FilePreviewPanel
+              file={previewFile}
+              projectId={projectId ?? ''}
+              onClose={() => setPreviewFile(null)}
+              onDownload={() => handleDownload(previewFile)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

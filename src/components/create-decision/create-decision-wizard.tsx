@@ -12,6 +12,7 @@ import {
   type DraftDecision,
   type DecisionOptionDraft,
 } from '@/api/decisions-create'
+import { uploadLibraryFile, attachFileToDecision } from '@/api/library'
 import { TemplateSelector } from './template-selector'
 import { OptionsEditor } from './options-editor'
 import { AttachmentsStep } from './attachments-step'
@@ -186,6 +187,21 @@ export function CreateDecisionWizard({
       const { clientLink } = await publishDecision(projectId, decisionId)
       setDraft((prev) => ({ ...prev, status: 'published', clientLink }))
 
+      // Attach files to decision (upload new files, attach library refs)
+      const attachments = draft.attachments ?? []
+      for (const att of attachments) {
+        let fileId: string
+        if (att.libraryFileId) {
+          fileId = att.libraryFileId
+        } else if (att.file) {
+          const uploaded = await uploadLibraryFile(projectId, att.file)
+          fileId = uploaded.id
+        } else {
+          continue
+        }
+        await attachFileToDecision(projectId, fileId, decisionId)
+      }
+
       toast.success('Decision published')
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
         await navigator.clipboard.writeText(clientLink)
@@ -207,7 +223,7 @@ export function CreateDecisionWizard({
     } finally {
       setIsPublishing(false)
     }
-  }, [projectId, draft, selectedTemplateId, onPublishSuccess, navigate])
+  }, [projectId, draft, draft.attachments, selectedTemplateId, onPublishSuccess, navigate])
 
   const canPublish =
     !!draft.title?.trim() &&
@@ -309,6 +325,7 @@ export function CreateDecisionWizard({
                 attachments={draft.attachments ?? []}
                 onAttachmentsChange={(a) => setDraft((p) => ({ ...p, attachments: a }))}
                 onContinue={handleStep3Continue}
+                projectId={projectId}
               />
             )}
             {step === 4 && (

@@ -53,6 +53,7 @@ export interface ThumbnailCardProps {
   onDownload?: (file: LibraryFile) => void
   onArchive?: (file: LibraryFile) => void
   onDelete?: (file: LibraryFile) => void
+  onPreview?: (file: LibraryFile) => void
   className?: string
 }
 
@@ -63,6 +64,7 @@ export function ThumbnailCard({
   onDownload,
   onArchive,
   onDelete,
+  onPreview,
   className,
 }: ThumbnailCardProps) {
   const hasPreview = PREVIEWABLE_TYPES.some((t) => file.filetype.includes(t.split('/')[1]))
@@ -77,8 +79,18 @@ export function ThumbnailCard({
         className
       )}
     >
-      {/* Thumbnail area */}
-      <div className="relative aspect-[4/3] bg-muted">
+      {/* Thumbnail area - clickable for preview */}
+      <div
+        role={onPreview ? 'button' : undefined}
+        tabIndex={onPreview ? 0 : undefined}
+        onClick={onPreview ? () => onPreview(file) : undefined}
+        onKeyDown={onPreview ? (e) => e.key === 'Enter' && onPreview(file) : undefined}
+        className={cn(
+          'relative aspect-[4/3] bg-muted',
+          onPreview && 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-inset'
+        )}
+        aria-label={onPreview ? `Preview ${file.filename}` : undefined}
+      >
         {thumbUrl && hasPreview ? (
           <img
             src={thumbUrl}
@@ -95,10 +107,18 @@ export function ThumbnailCard({
             <Badge variant="secondary">Archived</Badge>
           </div>
         )}
-        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute right-2 top-2 flex flex-col items-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <Badge variant="secondary" className="text-xs">
             v{file.currentVersion}
           </Badge>
+          {file.scanStatus && file.scanStatus !== 'CLEAN' && (
+            <Badge
+              variant={file.scanStatus === 'INFECTED' ? 'destructive' : file.scanStatus === 'PENDING' ? 'warning' : 'secondary'}
+              className="text-xs"
+            >
+              {file.scanStatus === 'INFECTED' ? 'Quarantined' : file.scanStatus === 'PENDING' ? 'Scanning' : file.scanStatus}
+            </Badge>
+          )}
         </div>
       </div>
 

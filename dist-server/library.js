@@ -85,15 +85,17 @@ libraryRouter.get('/projects/:projectId/files', requireAuth, (req, res) => {
         params.push(`%${fileType}%`);
     }
     const rows = db.prepare(`SELECT f.id, f.project_id, f.filename, f.filepath, f.filetype, f.size, f.uploader_id, f.uploaded_at,
-            f.current_version_id, f.is_archived, f.thumbnail_url,
+            f.current_version_id, f.is_archived, f.thumbnail_url, f.scan_status, f.preview_url,
             v.version_number as current_version
      FROM library_files f
      LEFT JOIN library_file_versions v ON f.current_version_id = v.id
      WHERE ${where}
      ORDER BY f.uploaded_at DESC`).all(...params);
     const files = rows.map((r) => {
-        const relPath = r.filepath.startsWith('uploads/') ? r.filepath : `uploads/library/${r.project_id}/${path.basename(r.filepath)}`;
-        const url = `${UPLOAD_BASE.replace('/uploads', '')}/uploads/library/${r.project_id}/${path.basename(r.filepath)}`;
+        const base = (UPLOAD_BASE || '/uploads').replace(/\/$/, '');
+        const thumbUrl = r.thumbnail_url ?? (r.filetype?.startsWith('image/')
+            ? `${base}/library/${r.project_id}/${path.basename(r.filepath)}`
+            : null);
         return {
             id: r.id,
             projectId: r.project_id,
@@ -106,7 +108,9 @@ libraryRouter.get('/projects/:projectId/files', requireAuth, (req, res) => {
             currentVersionId: r.current_version_id,
             currentVersion: r.current_version ?? 1,
             isArchived: !!r.is_archived,
-            thumbnailUrl: r.thumbnail_url,
+            thumbnailUrl: thumbUrl,
+            scanStatus: r.scan_status ?? 'CLEAN',
+            previewUrl: r.preview_url ?? undefined,
             downloadUrl: `/api/projects/${projectId}/files/${r.id}/download`,
         };
     });
@@ -129,8 +133,18 @@ libraryRouter.post('/projects/:projectId/files', requireAuth, upload.single('fil
     const relPath = `library/${projectId}/${file.filename}`;
     db.prepare(`INSERT INTO library_file_versions (id, file_id, version_number, filepath, size, uploaded_at, uploader_id, notes)
        VALUES (?, ?, 1, ?, ?, ?, ?, ?)`).run(versionId, fileId, relPath, file.size, now, userId, 'Initial upload');
-    db.prepare(`INSERT INTO library_files (id, project_id, filename, filepath, filetype, size, uploader_id, uploaded_at, current_version_id, is_archived)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`).run(fileId, projectId, file.originalname, relPath, file.mimetype, file.size, userId, now, versionId);
+    try {
+        db.prepare(`INSERT INTO library_files (id, project_id, filename, filepath, filetype, size, uploader_id, uploaded_at, current_version_id, is_archived, scan_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'CLEAN')`).run(fileId, projectId, file.originalname, relPath, file.mimetype, file.size, userId, now, versionId);
+    }
+    catch (e) {
+        if (String(e).includes('no such column: scan_status')) {
+            db.prepare(`INSERT INTO library_files (id, project_id, filename, filepath, filetype, size, uploader_id, uploaded_at, current_version_id, is_archived)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`).run(fileId, projectId, file.originalname, relPath, file.mimetype, file.size, userId, now, versionId);
+        }
+        else
+            throw e;
+    }
     const thumbUrl = file.mimetype.startsWith('image/')
         ? `/uploads/library/${projectId}/${file.filename}`
         : null;
@@ -167,6 +181,8 @@ libraryRouter.get('/projects/:projectId/files/:fileId', requireAuth, (req, res) 
         currentVersion: version?.version_number ?? 1,
         isArchived: !!row.is_archived,
         thumbnailUrl: row.thumbnail_url,
+        scanStatus: row.scan_status ?? 'CLEAN',
+        previewUrl: row.preview_url ?? undefined,
     });
 });
 // PUT /api/projects/:projectId/files/:fileId - soft delete / archive
@@ -335,6 +351,43 @@ libraryRouter.get('/projects/:projectId/decisions/:decisionId/attachments', requ
     }));
     res.json({ attachments });
 });
+// DELETE /api/projects/:projectId/decisions/:decisionId/attachments/:attachmentId
+libraryRouter.delete('/projects/:projectId/decisions/:decisionId/attachments/:attachmentId', requireAuth, (req, res) => {
+    const { projectId, decisionId, attachmentId } = req.params;
+    const decision = db.prepare('SELECT id FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, projectId);
+    if (!decision)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' });
+    const row = db.prepare(`SELECT a.id FROM library_file_attachments a
+     JOIN library_files f ON f.id = a.file_id AND f.project_id = ?
+     WHERE a.id = ? AND a.decision_id = ?`).get(projectId, attachmentId, decisionId);
+    if (!row)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Attachment not found' });
+    db.prepare('DELETE FROM library_file_attachments WHERE id = ?').run(attachmentId);
+    res.json({ id: attachmentId, detached: true });
+});
+// POST /api/projects/:projectId/decisions/:decisionId/attachments - attach file to decision by fileId
+libraryRouter.post('/projects/:projectId/decisions/:decisionId/attachments', requireAuth, (req, res) => {
+    const userId = req.userId;
+    const { projectId, decisionId } = req.params;
+    const { fileId, notes } = req.body;
+    if (!fileId) {
+        return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'fileId is required' });
+    }
+    const file = db.prepare('SELECT id FROM library_files WHERE id = ? AND project_id = ?').get(fileId, projectId);
+    if (!file)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found' });
+    const decision = db.prepare('SELECT id FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, projectId);
+    if (!decision)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' });
+    const existing = db.prepare('SELECT id FROM library_file_attachments WHERE file_id = ? AND decision_id = ?').get(fileId, decisionId);
+    if (existing) {
+        db.prepare('UPDATE library_file_attachments SET notes = ?, attached_at = datetime("now") WHERE id = ?').run(notes ?? null, existing.id);
+        return res.json({ attached: true, attachmentId: existing.id });
+    }
+    const attachmentId = crypto.randomUUID();
+    db.prepare('INSERT INTO library_file_attachments (id, file_id, decision_id, notes, attached_by) VALUES (?, ?, ?, ?, ?)').run(attachmentId, fileId, decisionId, notes ?? null, userId);
+    res.status(201).json({ attachmentId, attached: true });
+});
 // POST /api/projects/:projectId/files/:fileId/attach
 libraryRouter.post('/projects/:projectId/files/:fileId/attach', requireAuth, (req, res) => {
     const userId = req.userId;
@@ -358,7 +411,7 @@ libraryRouter.post('/projects/:projectId/files/:fileId/attach', requireAuth, (re
     db.prepare('INSERT INTO library_file_attachments (id, file_id, decision_id, notes, attached_by) VALUES (?, ?, ?, ?, ?)').run(attachmentId, fileId, decisionId, notes ?? null, userId);
     res.status(201).json({ attachmentId, attached: true });
 });
-// GET /api/projects/:projectId/files/:fileId/download - serve file
+// GET /api/projects/:projectId/files/:fileId/download - serve file (download)
 libraryRouter.get('/projects/:projectId/files/:fileId/download', requireAuth, (req, res) => {
     const { projectId, fileId } = req.params;
     const row = db.prepare('SELECT f.filepath, f.filename FROM library_files f WHERE f.id = ? AND f.project_id = ?').get(fileId, projectId);
@@ -368,4 +421,18 @@ libraryRouter.get('/projects/:projectId/files/:fileId/download', requireAuth, (r
     if (!fs.existsSync(fullPath))
         return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found on disk' });
     res.download(fullPath, row.filename);
+});
+// GET /api/projects/:projectId/files/:fileId/preview - serve file inline for preview (images, PDFs)
+libraryRouter.get('/projects/:projectId/files/:fileId/preview', requireAuth, (req, res) => {
+    const { projectId, fileId } = req.params;
+    const row = db.prepare('SELECT f.filepath, f.filename, f.filetype FROM library_files f WHERE f.id = ? AND f.project_id = ?').get(fileId, projectId);
+    if (!row)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found' });
+    const fullPath = path.join(process.cwd(), 'uploads', row.filepath);
+    if (!fs.existsSync(fullPath))
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found on disk' });
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(row.filename)}"`);
+    if (row.filetype)
+        res.setHeader('Content-Type', row.filetype);
+    res.sendFile(fullPath);
 });

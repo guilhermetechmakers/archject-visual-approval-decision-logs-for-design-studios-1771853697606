@@ -207,6 +207,8 @@ export interface NotificationCenterItem {
   attachments?: string[]
 }
 
+export type FileScanStatus = 'PENDING' | 'SCANNED' | 'CLEAN' | 'INFECTED'
+
 export interface LibraryFile {
   id: string
   projectId: string
@@ -221,6 +223,8 @@ export interface LibraryFile {
   isArchived: boolean
   thumbnailUrl?: string
   downloadUrl?: string
+  scanStatus?: FileScanStatus | string
+  previewUrl?: string
 }
 
 export interface LibraryFileVersion {

@@ -1,15 +1,16 @@
 import { useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Share2, Download, Check, MessageSquare, Paperclip, ListTodo, FileText } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Share2, Download, Check, MessageSquare, Paperclip, ListTodo, FileText, Link2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LoadingOverlay } from '@/components/loading-overlay'
+import { FilePreviewPanel, AttachmentPicker } from '@/components/library'
 import { createExport } from '@/api/exports-decision-logs'
 import { getDecision, getDecisionHistory, getDecisionAttachments } from '@/api/decisions'
-import { downloadLibraryFile } from '@/api/library'
+import { downloadLibraryFile, attachFileToDecision, removeAttachmentFromDecision } from '@/api/library'
 import { toast } from 'sonner'
 import type { Decision } from '@/types'
 
@@ -28,11 +29,28 @@ const mockDecision: Decision = {
   updatedAt: new Date().toISOString(),
 }
 
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+
+function getFullFileUrl(path: string | undefined): string | undefined {
+  if (!path) return undefined
+  if (path.startsWith('http')) return path
+  return API_BASE ? `${API_BASE}${path}` : path
+}
+
 export function DecisionDetail() {
   const { projectId, decisionId } = useParams<{ projectId: string; decisionId: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [exportJobId, setExportJobId] = useState<string | null>(null)
   const [exportOverlayOpen, setExportOverlayOpen] = useState(false)
+  const [attachPickerOpen, setAttachPickerOpen] = useState(false)
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    id: string
+    fileId: string
+    filename: string
+    filetype: string
+    thumbnailUrl?: string
+  } | null>(null)
 
   const handleExport = useCallback(async () => {
     if (!decisionId || !projectId) return
@@ -78,6 +96,33 @@ export function DecisionDetail() {
     enabled: !!projectId && !!decisionId,
   })
   const attachments = attachmentsData?.attachments ?? []
+
+  const attachMutation = useMutation({
+    mutationFn: (fileId: string) =>
+      attachFileToDecision(projectId!, fileId, decisionId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['decision-attachments', projectId, decisionId] })
+      toast.success('File attached')
+      setAttachPickerOpen(false)
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Attach failed'),
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: (attachmentId: string) =>
+      removeAttachmentFromDecision(projectId!, decisionId!, attachmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['decision-attachments', projectId, decisionId] })
+      toast.success('Attachment removed')
+      setPreviewAttachment(null)
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Remove failed'),
+  })
+
+  const handleAttachFromLibrary = useCallback(
+    (fileId: string) => attachMutation.mutate(fileId),
+    [attachMutation]
+  )
 
   const auditEntries = (historyData?.entries ?? []).map((e) => ({
     id: e.id,
@@ -289,13 +334,26 @@ export function DecisionDetail() {
       {/* Attachments gallery */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Paperclip className="h-5 w-5" />
-            Attachments
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Files and images attached to this decision
-          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Paperclip className="h-5 w-5" />
+                Attachments
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Files and images attached to this decision
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAttachPickerOpen(true)}
+              aria-label="Attach from library"
+            >
+              <Link2 className="mr-2 h-4 w-4" />
+              Attach from library
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {attachments.length === 0 ? (
@@ -305,53 +363,122 @@ export function DecisionDetail() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Attach drawings, specs, or reference images from the library
               </p>
-              <Link to={`/dashboard/projects/${projectId}/library`}>
-                <Button variant="outline" size="sm" className="mt-4">
-                  Go to library
-                </Button>
-              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => setAttachPickerOpen(true)}
+              >
+                <Link2 className="mr-2 h-4 w-4" />
+                Attach from library
+              </Button>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="group flex flex-col overflow-hidden rounded-lg border border-border bg-muted/30 p-3 transition-all hover:border-primary/30 hover:shadow-sm"
+                  className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-muted/30 p-3 transition-all duration-200 hover:border-primary/30 hover:shadow-sm"
                 >
-                  <div className="aspect-square flex items-center justify-center rounded bg-muted">
+                  <button
+                    type="button"
+                    className="aspect-square flex items-center justify-center rounded bg-muted overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    onClick={() =>
+                      setPreviewAttachment({
+                        id: att.id,
+                        fileId: att.fileId,
+                        filename: att.filename,
+                        filetype: att.filetype,
+                        thumbnailUrl: att.thumbnailUrl,
+                      })
+                    }
+                    aria-label={`Preview ${att.filename}`}
+                  >
                     {att.thumbnailUrl ? (
                       <img
-                        src={att.thumbnailUrl}
+                        src={getFullFileUrl(att.thumbnailUrl) ?? att.thumbnailUrl}
                         alt=""
                         className="h-full w-full object-cover"
                       />
                     ) : (
                       <FileText className="h-10 w-10 text-muted-foreground" />
                     )}
-                  </div>
+                  </button>
                   <p className="mt-2 truncate text-sm font-medium" title={att.filename}>
                     {att.filename}
                   </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 self-start"
-                    onClick={() =>
-                      projectId &&
-                      downloadLibraryFile(projectId, att.fileId, att.filename).then(
-                        () => toast.success('Download started'),
-                        () => toast.error('Download failed')
-                      )
-                    }
-                  >
-                    Download
-                  </Button>
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        projectId &&
+                        downloadLibraryFile(projectId, att.fileId, att.filename).then(
+                          () => toast.success('Download started'),
+                          () => toast.error('Download failed')
+                        )
+                      }
+                    >
+                      Download
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => removeMutation.mutate(att.id)}
+                      disabled={removeMutation.isPending}
+                      aria-label={`Remove ${att.filename}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <AttachmentPicker
+        open={attachPickerOpen}
+        onOpenChange={setAttachPickerOpen}
+        projectId={projectId ?? ''}
+        onSelect={(file) => handleAttachFromLibrary(file.id)}
+        excludeFileIds={attachments.map((a) => a.fileId)}
+        mode="attach"
+      />
+
+      {previewAttachment && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="File preview"
+          onClick={() => setPreviewAttachment(null)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FilePreviewPanel
+              file={{
+                id: previewAttachment.fileId,
+                projectId: projectId ?? '',
+                filename: previewAttachment.filename,
+                filepath: '',
+                filetype: previewAttachment.filetype,
+                size: 0,
+                uploadedAt: '',
+                currentVersion: 1,
+                isArchived: false,
+                thumbnailUrl: getFullFileUrl(previewAttachment.thumbnailUrl) ?? previewAttachment.thumbnailUrl,
+              }}
+              projectId={projectId ?? ''}
+              onClose={() => setPreviewAttachment(null)}
+            />
+          </div>
+        </div>
+      )}
 
       <LoadingOverlay
         jobId={exportJobId}
