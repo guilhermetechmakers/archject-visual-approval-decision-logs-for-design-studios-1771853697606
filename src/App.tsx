@@ -23,6 +23,7 @@ import { CreateDecisionPage } from '@/pages/dashboard/create-decision'
 import { TemplatesLibraryPage } from '@/pages/dashboard/templates-library'
 import { LibraryPage } from '@/pages/dashboard/library'
 import { ExportsPage } from '@/pages/dashboard/exports'
+import { SearchPage } from '@/pages/dashboard/search-page'
 import { NotificationsPage } from '@/pages/dashboard/notifications'
 import { BillingPage } from '@/pages/dashboard/billing'
 import { SettingsLayout } from '@/pages/dashboard/settings/settings-layout'
@@ -142,9 +143,11 @@ function App() {
                   <Route path="library" element={<Navigate to="/dashboard/projects" replace />} />
                   <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
                   <Route path="decisions" element={<DecisionsListPage />} />
+                  <Route path="search" element={<SearchPage />} />
                   <Route path="templates" element={<TemplatesLibraryPage />} />
                   <Route path="projects/:projectId/templates" element={<TemplatesLibraryPage />} />
                   <Route path="exports" element={<ExportsPage />} />
+                  <Route path="search" element={<SearchPage />} />
                   <Route path="success" element={<SuccessConfirmationPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="billing" element={<BillingPage />} />

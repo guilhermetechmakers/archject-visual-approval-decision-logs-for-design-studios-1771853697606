@@ -544,6 +544,131 @@ export function initDb() {
       if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
     }
   }
+
+  // 025: Search & Filter (search_index, saved_searches)
+  const searchPath = path.join(process.cwd(), 'server', 'migrations', '025_search.sql')
+  if (fs.existsSync(searchPath)) {
+    try {
+      const sql = fs.readFileSync(searchPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+    backfillSearchIndex()
+  }
+}
+
+function backfillSearchIndex() {
+  try {
+    const crypto = require('crypto')
+    const now = new Date().toISOString()
+
+    // Projects
+    const projects = db.prepare('SELECT id, name, created_at, updated_at FROM projects').all() as {
+      id: string
+      name: string
+      created_at: string
+      updated_at: string
+    }[]
+    const insertIdx = db.prepare(
+      `INSERT OR REPLACE INTO search_index (id, document_id, type, title, snippet, content, project_id, status, created_at, updated_at)
+       VALUES (?, ?, 'project', ?, ?, ?, ?, 'active', ?, ?)`
+    )
+    for (const p of projects) {
+      const id = `project-${p.id}`
+      insertIdx.run(id, p.id, p.name, p.name, p.name, p.id, p.created_at, p.updated_at)
+    }
+
+    // Decisions (updated_at may not exist in older schemas)
+    type DecisionRow = { id: string; title: string; status: string; created_at: string; updated_at: string; project_id: string; reviewer_id: string | null; tags: string | null }
+    let decisions: DecisionRow[]
+    try {
+      decisions = db.prepare(
+        `SELECT d.id, d.title, d.status, d.created_at, COALESCE(d.updated_at, d.created_at) as updated_at, d.project_id, d.reviewer_id, d.tags FROM decisions d`
+      ).all() as DecisionRow[]
+    } catch {
+      decisions = db.prepare(
+        `SELECT d.id, d.title, d.created_at as updated_at, d.status, d.created_at, d.project_id, d.reviewer_id, d.tags FROM decisions d`
+      ).all() as unknown as DecisionRow[]
+    }
+    const insertDec = db.prepare(
+      `INSERT OR REPLACE INTO search_index (id, document_id, type, title, snippet, content, project_id, status, assignee_id, tags, created_at, updated_at)
+       VALUES (?, ?, 'decision', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    for (const d of decisions) {
+      const id = `decision-${d.id}`
+      const content = [d.title, d.tags].filter(Boolean).join(' ')
+      insertDec.run(
+        id,
+        d.id,
+        d.title,
+        d.title,
+        content,
+        d.project_id,
+        d.status,
+        d.reviewer_id,
+        d.tags,
+        d.created_at,
+        d.updated_at ?? d.created_at
+      )
+    }
+
+    // Templates
+    const templates = db.prepare(
+      'SELECT id, name, description, type, tags_json, created_at, updated_at FROM templates_library WHERE is_deleted = 0'
+    ).all() as {
+      id: string
+      name: string
+      description: string | null
+      type: string
+      tags_json: string
+      created_at: string
+      updated_at: string
+    }[]
+    const insertTpl = db.prepare(
+      `INSERT OR REPLACE INTO search_index (id, document_id, type, title, snippet, content, status, tags, created_at, updated_at)
+       VALUES (?, ?, 'template', ?, ?, ?, 'published', ?, ?, ?)`
+    )
+    for (const t of templates) {
+      const id = `template-${t.id}`
+      const content = [t.name, t.description, t.tags_json].filter(Boolean).join(' ')
+      insertTpl.run(id, t.id, t.name, t.description ?? t.name, content, t.tags_json, t.created_at, t.updated_at)
+    }
+
+    // Library files
+    const files = db.prepare(
+      'SELECT id, filename, project_id, filetype, uploaded_at FROM library_files WHERE is_archived = 0'
+    ).all() as {
+      id: string
+      filename: string
+      project_id: string
+      filetype: string
+      uploaded_at: string
+    }[]
+    const insertFile = db.prepare(
+      `INSERT OR REPLACE INTO search_index (id, document_id, type, title, snippet, content, project_id, status, created_at, updated_at)
+       VALUES (?, ?, 'file', ?, ?, ?, ?, 'active', ?, ?)`
+    )
+    for (const f of files) {
+      const id = `file-${f.id}`
+      const content = [f.filename, f.filetype].join(' ')
+      insertFile.run(id, f.id, f.filename, f.filename, content, f.project_id, f.uploaded_at, f.uploaded_at)
+    }
+  } catch (e) {
+    if (!String(e).includes('UNIQUE')) console.error('[DB] backfillSearchIndex:', e)
+  }
 }
 
 function seedNotifications() {

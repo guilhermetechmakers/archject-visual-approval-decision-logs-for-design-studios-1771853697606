@@ -34,7 +34,7 @@ function runExportJobWorker(jobId) {
     const updateProgress = (percent, currentStep, stepIndex) => {
         const stepsCopy = steps.map((s, i) => ({
             ...s,
-            status: (i < stepIndex ? 'completed' : i === stepIndex ? 'in_progress' : 'pending'),
+            status: i < stepIndex ? 'completed' : i === stepIndex ? 'in_progress' : 'pending',
         }));
         db.prepare('UPDATE jobs SET status = ?, progress_percent = ?, current_step = ?, steps = ?, updated_at = ? WHERE id = ?').run('IN_PROGRESS', percent, currentStep, JSON.stringify(stepsCopy), new Date().toISOString(), jobId);
     };

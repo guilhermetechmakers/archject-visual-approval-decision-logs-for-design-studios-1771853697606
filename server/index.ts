@@ -30,6 +30,7 @@ import { libraryRouter } from './library.js'
 import { templatesRouter } from './templates.js'
 import { notificationsFeedRouter, notificationSettingsRouter, reminderTemplatesRouter } from './notifications.js'
 import { exportsDecisionLogsRouter } from './exports-decision-logs.js'
+import { searchRouter } from './search.js'
 
 initDb()
 
@@ -66,6 +67,7 @@ app.use('/api', templatesRouter)
 app.use('/api/notifications', notificationsFeedRouter)
 app.use('/api/notification-settings', notificationSettingsRouter)
 app.use('/api/reminder-templates', reminderTemplatesRouter)
+app.use('/api/search', searchRouter)
 app.use('/api', privacyRouter)
 app.use('/api/terms', termsRouter)
 app.use('/webhooks', webhooksRouter)

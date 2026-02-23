@@ -13,12 +13,14 @@ import {
   ChevronRight,
   Menu,
   HelpCircle,
+  Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/dashboard/search', icon: Search, label: 'Search' },
   { to: '/dashboard/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/dashboard/decisions', icon: FileCheck, label: 'Decisions' },
   { to: '/dashboard/library', icon: FileStack, label: 'Drawings & Specs' },

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { Menu, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,21 @@ function getInitialCollapsed(): boolean {
 }
 
 export function DashboardLayout() {
+  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(getInitialCollapsed)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+      e.preventDefault()
+      navigate('/dashboard/search')
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [navigate])
 
   const handleToggle = () => {
     const next = !collapsed
@@ -61,9 +74,17 @@ export function DashboardLayout() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search projects, decisions..."
-              className="pl-9"
+              placeholder="Search projects, decisions... (Press / to search)"
+              className="pl-9 cursor-pointer"
               aria-label="Search"
+              onClick={() => navigate('/dashboard/search')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === '/') {
+                  e.preventDefault()
+                  navigate('/dashboard/search')
+                }
+              }}
+              readOnly
             />
           </div>
 
