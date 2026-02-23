@@ -50,7 +50,11 @@ function runJobWorker(jobId) {
         db.prepare('UPDATE jobs SET status = ?, progress_percent = ?, current_step = ?, steps = ?, updated_at = ? WHERE id = ?').run('IN_PROGRESS', percent, currentStep, JSON.stringify(stepsCopy), new Date().toISOString(), jobId);
     };
     const failJob = (err) => {
-        db.prepare('UPDATE jobs SET status = ?, error = ?, updated_at = ?, completed_at = ? WHERE id = ?').run('FAILED', JSON.stringify(err), new Date().toISOString(), new Date().toISOString(), jobId);
+        const payload = {
+            ...err,
+            correlationId: err.correlationId ?? crypto.randomUUID(),
+        };
+        db.prepare('UPDATE jobs SET status = ?, error = ?, updated_at = ?, completed_at = ? WHERE id = ?').run('FAILED', JSON.stringify(payload), new Date().toISOString(), new Date().toISOString(), jobId);
         logJobHistory(jobId, 'SYSTEM', 'failed', err);
     };
     const completeJob = (resultUrls) => {

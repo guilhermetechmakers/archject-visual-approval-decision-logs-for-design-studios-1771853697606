@@ -17,7 +17,7 @@ export function requestIdMiddleware(req, _res, next) {
 }
 /**
  * Central error handler: catch unhandled exceptions, log with correlationId,
- * return standardized 500 response with incidentId.
+ * return standardized 500 response with incidentId, details, and retryable flag.
  */
 export function errorHandler(err, req, res, _next) {
     const requestId = req.requestId ?? crypto.randomUUID();
@@ -32,10 +32,33 @@ export function errorHandler(err, req, res, _next) {
     catch (dbErr) {
         console.error('[ErrorMiddleware] Failed to persist error:', dbErr);
     }
-    res.status(500).json({
+    const payload = {
         code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred',
-        incidentId,
+        message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message,
         correlationId: requestId,
+        incidentId,
+        retryable: true,
+    };
+    res.status(500).json(payload);
+}
+/** Helper to send structured 400 validation error with field-level details */
+export function sendValidationError(res, req, message, details) {
+    const requestId = req.requestId ?? crypto.randomUUID();
+    res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message,
+        details,
+        correlationId: requestId,
+        retryable: false,
+    });
+}
+/** Helper to send structured 404 */
+export function sendNotFound(res, req, message) {
+    const requestId = req.requestId ?? crypto.randomUUID();
+    res.status(404).json({
+        code: 'NOT_FOUND',
+        message,
+        correlationId: requestId,
+        retryable: false,
     });
 }

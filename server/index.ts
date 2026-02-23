@@ -25,6 +25,7 @@ import { v1Router } from './v1.js'
 import { leadsRouter } from './leads.js'
 import { brandingPreviewRouter } from './branding-preview.js'
 import { dashboardRouter } from './dashboard.js'
+import { projectsRouter } from './projects.js'
 import { decisionsRouter } from './decisions-router.js'
 import { libraryRouter } from './library.js'
 import { templatesRouter } from './templates.js'
@@ -60,6 +61,7 @@ app.use('/api/v1', v1Router)
 app.use('/api', leadsRouter)
 app.use('/api', brandingPreviewRouter)
 app.use('/api/dashboard', dashboardRouter)
+app.use('/api', projectsRouter)
 app.use('/api', decisionsRouter)
 app.use('/api', exportsDecisionLogsRouter)
 app.use('/api', libraryRouter)

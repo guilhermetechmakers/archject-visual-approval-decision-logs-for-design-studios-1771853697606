@@ -97,6 +97,13 @@ export async function deleteLibraryFile(projectId: string, fileId: string): Prom
   await api.delete(`/projects/${projectId}/files/${fileId}`)
 }
 
+export async function restoreLibraryFile(
+  projectId: string,
+  fileId: string
+): Promise<{ id: string; restored: boolean }> {
+  return api.post<{ id: string; restored: boolean }>(`/projects/${projectId}/files/${fileId}/restore`)
+}
+
 export async function getFileVersions(
   projectId: string,
   fileId: string

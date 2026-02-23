@@ -636,6 +636,92 @@ export function initDb() {
         }
         backfillSearchIndex();
     }
+    // 026: Idempotency keys for create decision, exports
+    const idempotencyPath = path.join(process.cwd(), 'server', 'migrations', '026_idempotency.sql');
+    if (fs.existsSync(idempotencyPath)) {
+        try {
+            const sql = fs.readFileSync(idempotencyPath, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+    }
+    // 027: CRUD soft delete, etag, version for Projects, Decisions, Files
+    for (const col of [
+        'description TEXT',
+        'branding TEXT',
+        'deleted_at TEXT',
+    ]) {
+        try {
+            db.exec(`ALTER TABLE projects ADD COLUMN ${col}`);
+        }
+        catch (e) {
+            if (!String(e).includes('duplicate column name'))
+                throw e;
+        }
+    }
+    try {
+        db.exec('CREATE INDEX IF NOT EXISTS idx_projects_deleted ON projects(deleted_at)');
+    }
+    catch (e) {
+        if (!String(e).includes('already exists'))
+            throw e;
+    }
+    for (const col of [
+        'deleted_at TEXT',
+        'etag TEXT',
+        'version INTEGER DEFAULT 1',
+        'description TEXT',
+        'updated_at TEXT',
+        'updated_by TEXT',
+    ]) {
+        try {
+            db.exec(`ALTER TABLE decisions ADD COLUMN ${col}`);
+        }
+        catch (e) {
+            if (!String(e).includes('duplicate column name'))
+                throw e;
+        }
+    }
+    try {
+        db.exec('CREATE INDEX IF NOT EXISTS idx_decisions_deleted ON decisions(deleted_at)');
+    }
+    catch (e) {
+        if (!String(e).includes('already exists'))
+            throw e;
+    }
+    for (const col of ['deleted_at TEXT', 'etag TEXT']) {
+        try {
+            db.exec(`ALTER TABLE library_files ADD COLUMN ${col}`);
+        }
+        catch (e) {
+            if (!String(e).includes('duplicate column name'))
+                throw e;
+        }
+    }
+    try {
+        db.exec('CREATE INDEX IF NOT EXISTS idx_library_files_deleted ON library_files(deleted_at)');
+    }
+    catch (e) {
+        if (!String(e).includes('already exists'))
+            throw e;
+    }
 }
 function backfillSearchIndex() {
     try {

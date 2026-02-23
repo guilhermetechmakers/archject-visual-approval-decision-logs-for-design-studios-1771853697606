@@ -141,3 +141,33 @@ export async function updateDecision(
 export async function publishDecision(projectId: string, decisionId: string): Promise<PublishResponse> {
   return api.post<PublishResponse>(`/projects/${projectId}/decisions/${decisionId}/publish`, {})
 }
+
+export async function deleteDecision(
+  projectId: string,
+  decisionId: string
+): Promise<{ id: string; deleted: boolean; deletedAt: string }> {
+  return api.delete<{ id: string; deleted: boolean; deletedAt: string }>(
+    `/projects/${projectId}/decisions/${decisionId}`
+  )
+}
+
+export async function restoreDecision(
+  decisionId: string
+): Promise<{ id: string; restored: boolean; updatedAt: string }> {
+  return api.post<{ id: string; restored: boolean; updatedAt: string }>(`/decisions/${decisionId}/restore`)
+}
+
+export interface DecisionHistoryEntry {
+  id: string
+  decisionId: string
+  action: string
+  performedBy: string | null
+  timestamp: string
+  details?: Record<string, unknown> | null
+}
+
+export async function getDecisionHistory(
+  decisionId: string
+): Promise<{ entries: DecisionHistoryEntry[] }> {
+  return api.get<{ entries: DecisionHistoryEntry[] }>(`/decisions/${decisionId}/history`)
+}

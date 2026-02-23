@@ -53,15 +53,27 @@ decisionsRouter.get('/templates', requireAuth, (_req: Request, res: Response) =>
   }
 })
 
-// GET /api/projects/:projectId/decisions - list decisions for project
+// GET /api/projects/:projectId/decisions - list decisions for project (excludes soft-deleted)
 decisionsRouter.get('/projects/:projectId/decisions', requireAuth, (req: Request, res: Response) => {
   const { projectId } = req.params
+  const includeDeleted = req.query.includeDeleted === 'true'
   const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
   if (!project) return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' })
 
-  const rows = db.prepare(
-    'SELECT id, project_id, title, status, created_at, updated_at FROM decisions WHERE project_id = ? ORDER BY created_at DESC'
-  ).all(projectId) as { id: string; project_id: string; title: string; status: string; created_at: string; updated_at: string }[]
+  const where = includeDeleted ? 'project_id = ?' : 'project_id = ? AND deleted_at IS NULL'
+  const params = includeDeleted ? [projectId] : [projectId]
+
+  type Row = { id: string; project_id: string; title: string; status: string; created_at: string; updated_at: string | null }
+  let rows: Row[]
+  try {
+    rows = db.prepare(
+      `SELECT id, project_id, title, status, created_at, updated_at FROM decisions WHERE ${where} ORDER BY created_at DESC`
+    ).all(...params) as Row[]
+  } catch {
+    rows = db.prepare(
+      `SELECT id, project_id, title, status, created_at, created_at as updated_at FROM decisions WHERE ${where} ORDER BY created_at DESC`
+    ).all(...params) as Row[]
+  }
 
   const decisions = rows.map((r) => ({
     id: r.id,
@@ -70,7 +82,7 @@ decisionsRouter.get('/projects/:projectId/decisions', requireAuth, (req: Request
     status: r.status,
     options: [] as { id: string; label: string; description?: string }[],
     createdAt: r.created_at,
-    updatedAt: r.updated_at,
+    updatedAt: r.updated_at ?? r.created_at,
   }))
   res.json(decisions)
 })
@@ -112,6 +124,7 @@ decisionsRouter.post('/projects/:projectId/decisions', requireAuth, (req: Reques
   const decisionId = crypto.randomUUID()
   const now = new Date().toISOString()
   const status = 'draft'
+  const etag = crypto.createHash('md5').update(decisionId + now).digest('hex')
 
   let opts = options ?? []
   if (templateId && !fromScratch) {
@@ -127,20 +140,40 @@ decisionsRouter.post('/projects/:projectId/decisions', requireAuth, (req: Reques
     }
   }
 
-  db.prepare(
-    `INSERT INTO decisions (id, project_id, account_id, title, type, status, created_at, updated_at, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    decisionId,
-    projectId,
-    userId,
-    title ?? 'Untitled Decision',
-    'finishes',
-    status,
-    now,
-    now,
-    userId
-  )
+  try {
+    db.prepare(
+      `INSERT INTO decisions (id, project_id, account_id, title, type, status, created_at, updated_at, created_by, etag, version)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
+    ).run(
+      decisionId,
+      projectId,
+      userId,
+      title ?? 'Untitled Decision',
+      'finishes',
+      status,
+      now,
+      now,
+      userId,
+      etag
+    )
+  } catch (e) {
+    if (String(e).includes('no such column')) {
+      db.prepare(
+        `INSERT INTO decisions (id, project_id, account_id, title, type, status, created_at, updated_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        decisionId,
+        projectId,
+        userId,
+        title ?? 'Untitled Decision',
+        'finishes',
+        status,
+        now,
+        now,
+        userId
+      )
+    } else throw e
+  }
 
   for (let i = 0; i < opts.length; i++) {
     const o = opts[i]
@@ -180,12 +213,25 @@ decisionsRouter.post('/projects/:projectId/decisions', requireAuth, (req: Reques
 // GET /api/projects/:projectId/decisions/:decisionId
 decisionsRouter.get('/projects/:projectId/decisions/:decisionId', requireAuth, (req: Request, res: Response) => {
   const { projectId, decisionId } = req.params
-  const row = db.prepare(
-    'SELECT id, project_id, title, status, created_at, updated_at FROM decisions WHERE id = ? AND project_id = ?'
-  ).get(decisionId, projectId) as { id: string; project_id: string; title: string; status: string; created_at: string; updated_at: string } | undefined
+  const includeDeleted = req.query.includeDeleted === 'true'
+  const whereClause = includeDeleted
+    ? 'id = ? AND project_id = ?'
+    : 'id = ? AND project_id = ? AND (deleted_at IS NULL OR deleted_at = "")'
+
+  let row: { id: string; project_id: string; title: string; description?: string; status: string; created_at: string; updated_at?: string; etag?: string; version?: number } | undefined
+  try {
+    row = db.prepare(
+      `SELECT id, project_id, title, status, created_at, updated_at, etag, version FROM decisions WHERE ${whereClause}`
+    ).get(decisionId, projectId) as typeof row
+  } catch {
+    row = db.prepare(
+      `SELECT id, project_id, title, status, created_at, created_at as updated_at FROM decisions WHERE ${whereClause}`
+    ).get(decisionId, projectId) as typeof row
+  }
 
   if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
 
+  if (row.etag) res.setHeader('ETag', `"${row.etag}"`)
   const options = db.prepare(
     'SELECT id, title, description, is_default, is_recommended, sort_order FROM decision_options WHERE decision_id = ? ORDER BY sort_order'
   ).all(decisionId) as { id: string; title: string; description: string | null; is_default: number; is_recommended: number; sort_order: number }[]
@@ -194,7 +240,7 @@ decisionsRouter.get('/projects/:projectId/decisions/:decisionId', requireAuth, (
     id: row.id,
     projectId: row.project_id,
     title: row.title,
-    description: '',
+    description: (row as { description?: string }).description ?? '',
     status: row.status,
     options: options.map((o) => ({
       id: o.id,
@@ -205,11 +251,18 @@ decisionsRouter.get('/projects/:projectId/decisions/:decisionId', requireAuth, (
     })),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    etag: row.etag ?? undefined,
+    version: row.version ?? 1,
   })
 })
 
+// PATCH /api/projects/:projectId/decisions/:decisionId - same handler as PUT
+decisionsRouter.patch('/projects/:projectId/decisions/:decisionId', requireAuth, (req: Request, res: Response) => {
+  return decisionsPutHandler(req, res)
+})
+
 // PUT /api/projects/:projectId/decisions/:decisionId
-decisionsRouter.put('/projects/:projectId/decisions/:decisionId', requireAuth, (req: Request, res: Response) => {
+function decisionsPutHandler(req: Request, res: Response) {
   const userId = (req as Request & { userId: string }).userId
   const { projectId, decisionId } = req.params
   const { title, description, options, approvalDeadline, reminders, clientMustTypeNameToConfirm, recipients } = req.body as {
@@ -222,25 +275,39 @@ decisionsRouter.put('/projects/:projectId/decisions/:decisionId', requireAuth, (
     recipients?: { contactEmail: string; role: string }[]
   }
 
-  const row = db.prepare('SELECT id, status FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, projectId)
+  const row = db.prepare('SELECT id, status, etag FROM decisions WHERE id = ? AND project_id = ? AND (deleted_at IS NULL OR deleted_at = \'\')').get(decisionId, projectId)
   if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
   if ((row as { status: string }).status === 'published') {
     return res.status(400).json({ code: 'INVALID_STATE', message: 'Cannot edit published decision' })
   }
 
+  const ifMatch = req.get('If-Match')?.replace(/^"|"$/g, '')
+  const currentEtag = (row as { etag?: string }).etag
+  if (ifMatch && currentEtag && ifMatch !== currentEtag) {
+    res.status(412).json({ code: 'PRECONDITION_FAILED', message: 'Decision was modified by another user. Please refresh and try again.' })
+    return
+  }
+
   const now = new Date().toISOString()
-  const updates: string[] = []
-  const params: unknown[] = []
+  const newEtag = crypto.createHash('md5').update(decisionId + now).digest('hex')
+  const updates: string[] = ['updated_at = ?', 'etag = ?', 'updated_by = ?']
+  const params: unknown[] = [now, newEtag, userId]
 
   if (title !== undefined) {
     updates.push('title = ?')
     params.push(title)
   }
-  if (updates.length > 0) {
-    updates.push('updated_at = ?')
-    params.push(now)
-    params.push(decisionId)
+  if (description !== undefined) {
+    updates.push('description = ?')
+    params.push(description)
+  }
+  params.push(decisionId)
+  try {
     db.prepare(`UPDATE decisions SET ${updates.join(', ')} WHERE id = ?`).run(...params)
+  } catch (e) {
+    if (String(e).includes('no such column')) {
+      db.prepare('UPDATE decisions SET updated_at = ? WHERE id = ?').run(now, decisionId)
+    } else throw e
   }
 
   if (options && Array.isArray(options)) {
@@ -279,6 +346,85 @@ decisionsRouter.put('/projects/:projectId/decisions/:decisionId', requireAuth, (
   ).run(crypto.randomUUID(), decisionId, 'updated', userId, now, '{}')
 
   res.json({ decisionId, status: 'draft' })
+}
+
+decisionsRouter.put('/projects/:projectId/decisions/:decisionId', requireAuth, (req: Request, res: Response) => {
+  return decisionsPutHandler(req, res)
+})
+
+// DELETE /api/projects/:projectId/decisions/:decisionId - soft delete
+decisionsRouter.delete('/projects/:projectId/decisions/:decisionId', requireAuth, (req: Request, res: Response) => {
+  const userId = (req as Request & { userId: string }).userId
+  const { projectId, decisionId } = req.params
+
+  const row = db.prepare('SELECT id, deleted_at FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, projectId)
+  if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+  if ((row as { deleted_at: string | null }).deleted_at) {
+    return res.json({ id: decisionId, deleted: true, message: 'Already deleted' })
+  }
+
+  const now = new Date().toISOString()
+  const newEtag = crypto.createHash('md5').update(decisionId + now).digest('hex')
+  try {
+    db.prepare('UPDATE decisions SET deleted_at = ?, updated_at = ?, etag = ?, updated_by = ? WHERE id = ?').run(now, now, newEtag, userId, decisionId)
+  } catch (e) {
+    if (String(e).includes('no such column')) {
+      db.prepare('UPDATE decisions SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now, now, decisionId)
+    } else throw e
+  }
+  db.prepare(
+    `INSERT INTO decision_audit_log (id, decision_id, action, performed_by, performed_at, details) VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(crypto.randomUUID(), decisionId, 'deleted', userId, now, '{}')
+  res.json({ id: decisionId, deleted: true })
+})
+
+// POST /api/decisions/:id/restore - restore soft-deleted decision
+decisionsRouter.post('/decisions/:id/restore', requireAuth, (req: Request, res: Response) => {
+  const userId = (req as Request & { userId: string }).userId
+  const { id: decisionId } = req.params
+
+  const row = db.prepare('SELECT id, project_id, deleted_at FROM decisions WHERE id = ?').get(decisionId)
+  if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+  if (!(row as { deleted_at: string | null }).deleted_at) {
+    return res.json({ id: decisionId, restored: true, message: 'Decision is already active' })
+  }
+
+  const now = new Date().toISOString()
+  const newEtag = crypto.createHash('md5').update(decisionId + now).digest('hex')
+  try {
+    db.prepare('UPDATE decisions SET deleted_at = NULL, updated_at = ?, etag = ?, updated_by = ? WHERE id = ?').run(now, newEtag, userId, decisionId)
+  } catch (e) {
+    if (String(e).includes('no such column')) {
+      db.prepare('UPDATE decisions SET deleted_at = NULL, updated_at = ? WHERE id = ?').run(now, decisionId)
+    } else throw e
+  }
+  db.prepare(
+    `INSERT INTO decision_audit_log (id, decision_id, action, performed_by, performed_at, details) VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(crypto.randomUUID(), decisionId, 'restored', userId, now, '{}')
+  res.json({ id: decisionId, restored: true })
+})
+
+// GET /api/decisions/:id/history - decision audit history
+decisionsRouter.get('/decisions/:id/history', requireAuth, (req: Request, res: Response) => {
+  const { id: decisionId } = req.params
+
+  const decision = db.prepare('SELECT id FROM decisions WHERE id = ?').get(decisionId)
+  if (!decision) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+
+  const rows = db.prepare(
+    'SELECT id, decision_id, action, performed_by, performed_at, details FROM decision_audit_log WHERE decision_id = ? ORDER BY performed_at ASC'
+  ).all(decisionId) as { id: string; decision_id: string; action: string; performed_by: string | null; performed_at: string; details: string | null }[]
+
+  res.json({
+    entries: rows.map((r) => ({
+      id: r.id,
+      decisionId: r.decision_id,
+      action: r.action,
+      performedBy: r.performed_by,
+      timestamp: r.performed_at,
+      details: r.details ? (JSON.parse(r.details) as Record<string, unknown>) : null,
+    })),
+  })
 })
 
 // POST /api/projects/:projectId/decisions/:decisionId/publish
@@ -389,4 +535,165 @@ decisionsRouter.put('/projects/:projectId/decisions/:decisionId/options/:optionI
   }
 
   res.json({ id: optionId, status: 'updated' })
+})
+
+// DELETE /api/projects/:projectId/decisions/:decisionId - soft delete
+decisionsRouter.delete('/projects/:projectId/decisions/:decisionId', requireAuth, (req: Request, res: Response) => {
+  const userId = (req as Request & { userId: string }).userId
+  const { projectId, decisionId } = req.params
+
+  const row = db.prepare('SELECT id FROM decisions WHERE id = ? AND project_id = ? AND (deleted_at IS NULL OR deleted_at = \'\')').get(decisionId, projectId)
+  if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+
+  const now = new Date().toISOString()
+  try {
+    db.prepare('UPDATE decisions SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?').run(now, now, userId, decisionId)
+  } catch (e) {
+    if (String(e).includes('no such column')) {
+      db.prepare('UPDATE decisions SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now, now, decisionId)
+    } else throw e
+  }
+
+  db.prepare(
+    `INSERT INTO decision_audit_log (id, decision_id, action, performed_by, performed_at, details)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(crypto.randomUUID(), decisionId, 'deleted', userId, now, '{}')
+
+  res.json({ id: decisionId, deleted: true, deletedAt: now })
+})
+
+// POST /api/decisions/:id/restore - restore soft-deleted decision
+decisionsRouter.post('/decisions/:id/restore', requireAuth, (req: Request, res: Response) => {
+  const userId = (req as Request & { userId: string }).userId
+  const { id: decisionId } = req.params
+
+  const row = db.prepare('SELECT id, project_id, deleted_at FROM decisions WHERE id = ?').get(decisionId)
+  if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+
+  const d = row as { id: string; project_id: string; deleted_at: string | null }
+  if (!d.deleted_at) {
+    return res.status(400).json({ code: 'INVALID_STATE', message: 'Decision is not deleted' })
+  }
+
+  const now = new Date().toISOString()
+  try {
+    db.prepare('UPDATE decisions SET deleted_at = NULL, updated_at = ?, updated_by = ? WHERE id = ?').run(now, userId, decisionId)
+  } catch (e) {
+    if (String(e).includes('no such column')) {
+      db.prepare('UPDATE decisions SET deleted_at = NULL, updated_at = ? WHERE id = ?').run(now, decisionId)
+    } else throw e
+  }
+
+  db.prepare(
+    `INSERT INTO decision_audit_log (id, decision_id, action, performed_by, performed_at, details)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(crypto.randomUUID(), decisionId, 'restored', userId, now, '{}')
+
+  res.json({ id: decisionId, restored: true, updatedAt: now })
+})
+
+// GET /api/decisions/:id/history - decision version/audit history
+decisionsRouter.get('/decisions/:id/history', requireAuth, (req: Request, res: Response) => {
+  const { id: decisionId } = req.params
+
+  const decision = db.prepare('SELECT id FROM decisions WHERE id = ?').get(decisionId)
+  if (!decision) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+
+  const rows = db.prepare(
+    'SELECT id, decision_id, action, performed_by, performed_at, details FROM decision_audit_log WHERE decision_id = ? ORDER BY performed_at ASC'
+  ).all(decisionId) as { id: string; decision_id: string; action: string; performed_by: string | null; performed_at: string; details: string | null }[]
+
+  const entries = rows.map((r) => {
+    let details: Record<string, unknown> | null = null
+    if (r.details) {
+      try {
+        details = JSON.parse(r.details)
+      } catch {
+        // ignore
+      }
+    }
+    return {
+      id: r.id,
+      decisionId: r.decision_id,
+      action: r.action,
+      performedBy: r.performed_by,
+      timestamp: r.performed_at,
+      details,
+    }
+  })
+
+  res.json({ entries })
+})
+
+// DELETE /api/projects/:projectId/decisions/:decisionId - soft delete
+decisionsRouter.delete('/projects/:projectId/decisions/:decisionId', requireAuth, (req: Request, res: Response) => {
+  const { projectId, decisionId } = req.params
+
+  const row = db.prepare('SELECT id, deleted_at FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, projectId)
+  if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+  if ((row as { deleted_at: string | null }).deleted_at) {
+    return res.status(400).json({ code: 'INVALID_STATE', message: 'Decision is already archived' })
+  }
+
+  const now = new Date().toISOString()
+  try {
+    db.prepare('UPDATE decisions SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now, now, decisionId)
+  } catch {
+    db.prepare('UPDATE decisions SET deleted_at = ? WHERE id = ?').run(now, decisionId)
+  }
+
+  res.json({ id: decisionId, deletedAt: now })
+})
+
+// POST /api/decisions/:decisionId/restore - restore soft-deleted decision
+decisionsRouter.post('/decisions/:decisionId/restore', requireAuth, (req: Request, res: Response) => {
+  const { decisionId } = req.params
+
+  const row = db.prepare('SELECT id, project_id, deleted_at FROM decisions WHERE id = ?').get(decisionId)
+  if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+  if (!(row as { deleted_at: string | null }).deleted_at) {
+    return res.status(400).json({ code: 'INVALID_STATE', message: 'Decision is not archived' })
+  }
+
+  const now = new Date().toISOString()
+  try {
+    db.prepare('UPDATE decisions SET deleted_at = NULL, updated_at = ? WHERE id = ?').run(now, decisionId)
+  } catch {
+    db.prepare('UPDATE decisions SET deleted_at = NULL WHERE id = ?').run(decisionId)
+  }
+
+  res.json({ id: decisionId, restored: true })
+})
+
+// GET /api/projects/:projectId/decisions/:decisionId/history - decision history/audit log
+decisionsRouter.get('/projects/:projectId/decisions/:decisionId/history', requireAuth, (req: Request, res: Response) => {
+  const { projectId, decisionId } = req.params
+
+  const decision = db.prepare('SELECT id FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, projectId)
+  if (!decision) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+
+  const rows = db.prepare(
+    'SELECT id, action, performed_by, performed_at, details FROM decision_audit_log WHERE decision_id = ? ORDER BY performed_at ASC'
+  ).all(decisionId) as { id: string; action: string; performed_by: string | null; performed_at: string; details: string | null }[]
+
+  const history = rows.map((r) => {
+    let details: Record<string, unknown> = {}
+    if (r.details) {
+      try {
+        details = JSON.parse(r.details)
+      } catch {
+        // ignore
+      }
+    }
+    return {
+      id: r.id,
+      version: 0,
+      action: r.action,
+      performedBy: r.performed_by ?? undefined,
+      performedAt: r.performed_at,
+      details,
+    }
+  })
+
+  res.json({ items: history })
 })

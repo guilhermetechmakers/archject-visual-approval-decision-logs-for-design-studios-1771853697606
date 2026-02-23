@@ -73,6 +73,10 @@ export async function deleteTemplate(id: string): Promise<void> {
   await api.delete(`/templates/${id}`)
 }
 
+export async function restoreTemplate(id: string): Promise<TemplateLibraryItem & { restored: boolean }> {
+  return api.post<TemplateLibraryItem & { restored: boolean }>(`/templates/${id}/restore`)
+}
+
 export async function duplicateTemplate(id: string, projectId?: string | null): Promise<{ id: string; name: string; version: number; createdAt: string }> {
   return api.post<{ id: string; name: string; version: number; createdAt: string }>(`/templates/${id}/duplicate`, { projectId })
 }

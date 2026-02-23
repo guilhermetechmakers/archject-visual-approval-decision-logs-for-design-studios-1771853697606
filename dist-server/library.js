@@ -182,14 +182,71 @@ libraryRouter.put('/projects/:projectId/files/:fileId', requireAuth, (req, res) 
     }
     res.json({ id: fileId, isArchived: !!isArchived });
 });
-// DELETE /api/projects/:projectId/files/:fileId - soft delete
+// POST /api/projects/:projectId/files/:fileId/restore - unarchive file
+libraryRouter.post('/projects/:projectId/files/:fileId/restore', requireAuth, (req, res) => {
+    const { projectId, fileId } = req.params;
+    const row = db.prepare('SELECT id FROM library_files WHERE id = ? AND project_id = ?').get(fileId, projectId);
+    if (!row)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found' });
+    const now = new Date().toISOString();
+    db.prepare('UPDATE library_files SET is_archived = 0, updated_at = ? WHERE id = ?').run(now, fileId);
+    res.json({ id: fileId, restored: true, isArchived: false });
+});
+// POST /api/projects/:projectId/files/:fileId/restore - restore archived file
+libraryRouter.post('/projects/:projectId/files/:fileId/restore', requireAuth, (req, res) => {
+    const { projectId, fileId } = req.params;
+    const row = db.prepare('SELECT id, is_archived FROM library_files WHERE id = ? AND project_id = ?').get(fileId, projectId);
+    if (!row)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found' });
+    const file = row;
+    if (!file.is_archived) {
+        return res.status(400).json({ code: 'INVALID_STATE', message: 'File is not archived' });
+    }
+    const now = new Date().toISOString();
+    db.prepare('UPDATE library_files SET is_archived = 0, updated_at = ? WHERE id = ?').run(now, fileId);
+    res.json({ id: fileId, restored: true, isArchived: false });
+});
+// DELETE /api/projects/:projectId/files/:fileId - soft delete (sets deleted_at or is_archived)
 libraryRouter.delete('/projects/:projectId/files/:fileId', requireAuth, (req, res) => {
     const { projectId, fileId } = req.params;
     const row = db.prepare('SELECT id FROM library_files WHERE id = ? AND project_id = ?').get(fileId, projectId);
     if (!row)
         return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found' });
-    db.prepare('UPDATE library_files SET is_archived = 1, updated_at = datetime("now") WHERE id = ?').run(fileId);
+    const now = new Date().toISOString();
+    try {
+        db.prepare('UPDATE library_files SET deleted_at = ?, is_archived = 1, updated_at = ? WHERE id = ?').run(now, now, fileId);
+    }
+    catch (e) {
+        if (String(e).includes('no such column')) {
+            db.prepare('UPDATE library_files SET is_archived = 1, updated_at = ? WHERE id = ?').run(now, fileId);
+        }
+        else
+            throw e;
+    }
     res.json({ id: fileId, deleted: true });
+});
+// POST /api/projects/:projectId/files/:fileId/restore - restore soft-deleted/archived file
+libraryRouter.post('/projects/:projectId/files/:fileId/restore', requireAuth, (req, res) => {
+    const { projectId, fileId } = req.params;
+    const row = db.prepare('SELECT id, deleted_at, is_archived FROM library_files WHERE id = ? AND project_id = ?').get(fileId, projectId);
+    if (!row)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'File not found' });
+    const r = row;
+    if (!r.deleted_at && !r.is_archived) {
+        return res.json({ id: fileId, restored: true, message: 'File is already active' });
+    }
+    const now = new Date().toISOString();
+    try {
+        db.prepare('UPDATE library_files SET deleted_at = NULL, is_archived = 0, updated_at = ? WHERE id = ?').run(now, fileId);
+    }
+    catch (e) {
+        if (String(e).includes('no such column')) {
+            db.prepare('UPDATE library_files SET is_archived = 0, updated_at = ? WHERE id = ?').run(now, fileId);
+        }
+        else
+            throw e;
+    }
+    res.json({ id: fileId, restored: true });
 });
 // GET /api/projects/:projectId/files/:fileId/versions
 libraryRouter.get('/projects/:projectId/files/:fileId/versions', requireAuth, (req, res) => {
@@ -251,6 +308,32 @@ libraryRouter.post('/projects/:projectId/files/:fileId/versions/:versionId/resto
     const now = new Date().toISOString();
     db.prepare('UPDATE library_files SET current_version_id = ?, filepath = ?, size = ?, updated_at = ? WHERE id = ?').run(versionId, version.filepath, version.size, now, fileId);
     res.json({ currentVersionId: versionId, versionNumber: versionNum.version_number });
+});
+// GET /api/projects/:projectId/decisions/:decisionId/attachments - list files attached to decision
+libraryRouter.get('/projects/:projectId/decisions/:decisionId/attachments', requireAuth, (req, res) => {
+    const { projectId, decisionId } = req.params;
+    const decision = db.prepare('SELECT id FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, projectId);
+    if (!decision)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' });
+    const rows = db.prepare(`SELECT a.id, a.file_id, a.decision_id, a.notes, a.attached_at,
+            f.filename, f.filetype, f.size, f.thumbnail_url
+     FROM library_file_attachments a
+     JOIN library_files f ON f.id = a.file_id AND f.project_id = ?
+     WHERE a.decision_id = ?
+     ORDER BY a.attached_at DESC`).all(projectId, decisionId);
+    const attachments = rows.map((r) => ({
+        id: r.id,
+        fileId: r.file_id,
+        decisionId: r.decision_id,
+        filename: r.filename,
+        filetype: r.filetype,
+        size: r.size,
+        thumbnailUrl: r.thumbnail_url,
+        notes: r.notes ?? undefined,
+        attachedAt: r.attached_at,
+        downloadUrl: `/api/projects/${projectId}/files/${r.file_id}/download`,
+    }));
+    res.json({ attachments });
 });
 // POST /api/projects/:projectId/files/:fileId/attach
 libraryRouter.post('/projects/:projectId/files/:fileId/attach', requireAuth, (req, res) => {

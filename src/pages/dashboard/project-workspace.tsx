@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState, useCallback } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Share2,
   Plus,
@@ -12,17 +12,34 @@ import {
   Settings,
   Users,
   Search,
+  MoreHorizontal,
+  Pencil,
+  Archive,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
-import { api } from '@/lib/api'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { getLibraryFiles } from '@/api/library'
-import { getDashboardProjects } from '@/api/dashboard'
+import { getProject, updateProject, deleteProject, restoreProject } from '@/api/projects'
+import { getDecisions } from '@/api/decisions'
 import { DecisionCard } from '@/components/decisions'
 import { setLastProject } from '@/components/layout/sidebar'
-import type { Decision } from '@/types'
+import { toast } from 'sonner'
 
 export function ProjectWorkspace() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -34,23 +51,72 @@ export function ProjectWorkspace() {
   }, [projectId])
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
-    queryFn: async () => {
-      const res = await getDashboardProjects({ pageSize: 100 })
-      const p = res.items.find((i) => i.id === projectId)
-      return p
-        ? { id: p.id, name: p.name, description: '', status: 'active' as const }
-        : { id: projectId!, name: 'Project', description: '', status: 'active' as const }
-    },
+    queryFn: () => getProject(projectId!).catch(() => ({ id: projectId!, name: 'Project', description: '', status: 'active' as const })),
     enabled: !!projectId,
   })
 
   const { data: decisions = [], isLoading: decisionsLoading } = useQuery({
     queryKey: ['decisions', projectId],
-    queryFn: () => api.get<Decision[]>(`/projects/${projectId}/decisions`),
+    queryFn: () => getDecisions(projectId!),
     enabled: !!projectId,
   })
 
   const [decisionFilter, setDecisionFilter] = useState('')
+  const [editOpen, setEditOpen] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: { name?: string; description?: string }) =>
+      updateProject(projectId!, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+      setEditOpen(false)
+      toast.success('Project updated')
+    },
+    onError: (e: { message?: string }) => {
+      toast.error(e?.message ?? 'Failed to update project')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteProject(projectId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      toast.success('Project archived')
+      navigate('/dashboard/projects')
+    },
+    onError: (e: { message?: string }) => {
+      toast.error(e?.message ?? 'Failed to archive project')
+    },
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: () => restoreProject(projectId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+      toast.success('Project restored')
+    },
+    onError: (e: { message?: string }) => {
+      toast.error(e?.message ?? 'Failed to restore project')
+    },
+  })
+
+  const handleEditOpen = useCallback(() => {
+    setEditName(project?.name ?? '')
+    setEditDescription(project?.description ?? '')
+    setEditOpen(true)
+  }, [project])
+
+  const handleEditSave = useCallback(() => {
+    if (!editName.trim()) {
+      toast.error('Project name is required')
+      return
+    }
+    updateMutation.mutate({ name: editName.trim(), description: editDescription.trim() || undefined })
+  }, [editName, editDescription, updateMutation])
   const filteredDecisions = decisionFilter
     ? decisions.filter(
         (d) =>
@@ -71,19 +137,56 @@ export function ProjectWorkspace() {
     <div className="space-y-8 animate-in">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <nav className="text-sm text-muted-foreground">
-            <Link to="/dashboard" className="hover:text-foreground">Dashboard</Link>
-            <span className="mx-2">/</span>
-            <span className="text-foreground">{project?.name ?? 'Project'}</span>
-          </nav>
-          {isLoading ? (
-            <Skeleton className="mt-2 h-8 w-64" />
-          ) : (
-            <h1 className="mt-2 text-2xl font-bold">{project?.name ?? 'Project'}</h1>
-          )}
-          {project?.description && (
-            <p className="mt-1 text-muted-foreground">{project.description}</p>
+        <div className="flex items-start gap-2">
+          <div>
+            <nav className="text-sm text-muted-foreground">
+              <Link to="/dashboard" className="hover:text-foreground">Dashboard</Link>
+              <span className="mx-2">/</span>
+              <Link to="/dashboard/projects" className="hover:text-foreground">Projects</Link>
+              <span className="mx-2">/</span>
+              <span className="text-foreground">{project?.name ?? 'Project'}</span>
+            </nav>
+            {isLoading ? (
+              <Skeleton className="mt-2 h-8 w-64" />
+            ) : (
+              <h1 className="mt-2 text-2xl font-bold">{project?.name ?? 'Project'}</h1>
+            )}
+            {project?.description && (
+              <p className="mt-1 text-sm text-muted-foreground">{project.description}</p>
+            )}
+          </div>
+          {project && !isLoading && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label="Project options">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={handleEditOpen}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit project
+                </DropdownMenuItem>
+                {project.status === 'archived' ? (
+                  <DropdownMenuItem
+                    onClick={() => restoreMutation.mutate()}
+                    disabled={restoreMutation.isPending}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Restore project
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => deleteMutation.mutate()}
+                    disabled={deleteMutation.isPending}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Archive className="mr-2 h-4 w-4" />
+                    Archive project
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
         <div className="flex gap-2">
@@ -280,14 +383,19 @@ export function ProjectWorkspace() {
             </CardHeader>
             <CardContent>
               <p className="mb-3 text-sm text-muted-foreground">
-                Share decision links with clients for approval. Each decision has its own secure link.
+                Share decision links with clients for approval. Publish a decision to generate a secure, no-login client link.
               </p>
-              <Link to={`/dashboard/projects/${projectId}/decisions/new`}>
-                <Button variant="outline" size="sm" className="w-full">
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Create & share decision
-                </Button>
-              </Link>
+              <div className="flex flex-col gap-2">
+                <Link to={`/dashboard/projects/${projectId}/decisions/new`}>
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Create & share decision
+                  </Button>
+                </Link>
+                <p className="text-xs text-muted-foreground">
+                  Client links are generated when you publish a decision. Each link is token-based and can be set to expire.
+                </p>
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -307,6 +415,48 @@ export function ProjectWorkspace() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit project</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="edit-name" className="text-sm font-medium">
+                Project name
+              </label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Project name"
+                aria-label="Project name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="edit-desc" className="text-sm font-medium">
+                Description (optional)
+              </label>
+              <Input
+                id="edit-desc"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Brief description"
+                aria-label="Project description"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditSave} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

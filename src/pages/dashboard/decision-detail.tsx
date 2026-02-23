@@ -1,14 +1,15 @@
 import { useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Share2, Download, Check, MessageSquare, Paperclip, ListTodo } from 'lucide-react'
+import { Share2, Download, Check, MessageSquare, Paperclip, ListTodo, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LoadingOverlay } from '@/components/loading-overlay'
-import { createExport, getDecisionAudit } from '@/api/exports-decision-logs'
-import { api } from '@/lib/api'
+import { createExport } from '@/api/exports-decision-logs'
+import { getDecision, getDecisionHistory, getDecisionAttachments } from '@/api/decisions'
+import { downloadLibraryFile } from '@/api/library'
 import { toast } from 'sonner'
 import type { Decision } from '@/types'
 
@@ -62,17 +63,29 @@ export function DecisionDetail() {
   const { data: decision = mockDecision, isLoading } = useQuery({
     queryKey: ['decision', projectId, decisionId],
     queryFn: () =>
-      api
-        .get<Decision>(`/projects/${projectId}/decisions/${decisionId}`)
-        .catch(() => mockDecision),
+      getDecision(projectId!, decisionId!).catch(() => mockDecision),
     enabled: !!projectId && !!decisionId,
   })
 
-  const { data: auditEntries = [] } = useQuery({
-    queryKey: ['decision-audit', decisionId],
-    queryFn: () => getDecisionAudit(decisionId!),
-    enabled: !!decisionId,
+  const { data: historyData } = useQuery({
+    queryKey: ['decision-history', projectId, decisionId],
+    queryFn: () => getDecisionHistory(decisionId!),
+    enabled: !!projectId && !!decisionId,
   })
+  const { data: attachmentsData } = useQuery({
+    queryKey: ['decision-attachments', projectId, decisionId],
+    queryFn: () => getDecisionAttachments(projectId!, decisionId!),
+    enabled: !!projectId && !!decisionId,
+  })
+  const attachments = attachmentsData?.attachments ?? []
+
+  const auditEntries = (historyData?.entries ?? []).map((e) => ({
+    id: e.id,
+    action: e.action,
+    performedBy: e.performedBy ?? null,
+    timestamp: e.timestamp,
+    details: e.details,
+  }))
 
   return (
     <div className="space-y-8 animate-in">
@@ -103,7 +116,18 @@ export function DecisionDetail() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" aria-label="Share decision link">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Share decision link"
+            onClick={() => {
+              const url = window.location.href
+              navigator.clipboard?.writeText(url).then(
+                () => toast.success('Link copied to clipboard'),
+                () => toast.error('Failed to copy link')
+              )
+            }}
+          >
             <Share2 className="mr-2 h-4 w-4" />
             Share link
           </Button>
@@ -274,16 +298,58 @@ export function DecisionDetail() {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Paperclip className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 font-medium">No attachments yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Attach drawings, specs, or reference images from the library
-            </p>
-            <Button variant="outline" size="sm" className="mt-4">
-              Add attachment
-            </Button>
-          </div>
+          {attachments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Paperclip className="h-12 w-12 text-muted-foreground" />
+              <p className="mt-4 font-medium">No attachments yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Attach drawings, specs, or reference images from the library
+              </p>
+              <Link to={`/dashboard/projects/${projectId}/library`}>
+                <Button variant="outline" size="sm" className="mt-4">
+                  Go to library
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className="group flex flex-col overflow-hidden rounded-lg border border-border bg-muted/30 p-3 transition-all hover:border-primary/30 hover:shadow-sm"
+                >
+                  <div className="aspect-square flex items-center justify-center rounded bg-muted">
+                    {att.thumbnailUrl ? (
+                      <img
+                        src={att.thumbnailUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <FileText className="h-10 w-10 text-muted-foreground" />
+                    )}
+                  </div>
+                  <p className="mt-2 truncate text-sm font-medium" title={att.filename}>
+                    {att.filename}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 self-start"
+                    onClick={() =>
+                      projectId &&
+                      downloadLibraryFile(projectId, att.fileId, att.filename).then(
+                        () => toast.success('Download started'),
+                        () => toast.error('Download failed')
+                      )
+                    }
+                  >
+                    Download
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -482,6 +482,39 @@ templatesRouter.delete('/templates/:id', requireAuth, (req: Request, res: Respon
   res.json({ id, deleted: true })
 })
 
+// POST /api/templates/:id/restore - restore soft-deleted template
+templatesRouter.post('/templates/:id/restore', requireAuth, (req: Request, res: Response) => {
+  const userId = (req as Request & { userId: string }).userId
+  const { id } = req.params
+
+  const row = db.prepare('SELECT owner_id, is_deleted FROM templates_library WHERE id = ?').get(id) as { owner_id: string; is_deleted: number } | undefined
+  if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Template not found' })
+  if (row.owner_id !== userId) {
+    return res.status(403).json({ code: 'FORBIDDEN', message: 'Not authorized' })
+  }
+  if (!row.is_deleted) {
+    return res.json({ id, restored: true, message: 'Template is already active' })
+  }
+
+  const now = new Date().toISOString()
+  db.prepare('UPDATE templates_library SET is_deleted = 0, is_archived = 0, updated_at = ? WHERE id = ?').run(now, id)
+
+  const restored = db.prepare(
+    'SELECT id, name, description, type, version, created_at, updated_at FROM templates_library WHERE id = ?'
+  ).get(id) as { id: string; name: string; description: string | null; type: string; version: number; created_at: string; updated_at: string }
+
+  res.json({
+    id: restored.id,
+    name: restored.name,
+    description: restored.description ?? '',
+    type: restored.type,
+    version: restored.version,
+    createdAt: restored.created_at,
+    updatedAt: restored.updated_at,
+    restored: true,
+  })
+})
+
 // POST /api/templates/:id/duplicate - clone
 templatesRouter.post('/templates/:id/duplicate', requireAuth, (req: Request, res: Response) => {
   const userId = (req as Request & { userId: string }).userId

@@ -46,6 +46,10 @@ dashboardRouter.get('/projects', requireAuth, (req, res) => {
     const search = req.query.search?.trim();
     let where = '1=1';
     const params = [];
+    const includeDeleted = req.query.includeDeleted === 'true';
+    if (!includeDeleted) {
+        where += ' AND (p.deleted_at IS NULL OR p.deleted_at = "")';
+    }
     if (search) {
         where += ' AND p.name LIKE ?';
         params.push(`%${search}%`);
@@ -141,6 +145,84 @@ dashboardRouter.post('/projects', requireAuth, (req, res) => {
         updatedAt: now,
         pendingApprovalsCount: 0,
     });
+});
+/**
+ * GET /api/dashboard/projects/:id
+ */
+dashboardRouter.get('/projects/:id', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const row = db.prepare('SELECT id, name, account_id, studio_id, created_at, updated_at FROM projects WHERE id = ?').get(id);
+    if (!row)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' });
+    let deletedAt;
+    try {
+        const r = db.prepare('SELECT deleted_at FROM projects WHERE id = ?').get(id);
+        deletedAt = r?.deleted_at ?? undefined;
+    }
+    catch {
+        deletedAt = undefined;
+    }
+    res.json({
+        id: row.id,
+        name: row.name,
+        description: '',
+        status: deletedAt ? 'archived' : 'active',
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        deletedAt,
+    });
+});
+/**
+ * PATCH /api/dashboard/projects/:id
+ */
+dashboardRouter.patch('/projects/:id', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const { name, description } = req.body;
+    const row = db.prepare('SELECT id FROM projects WHERE id = ?').get(id);
+    if (!row)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' });
+    const now = new Date().toISOString();
+    if (name !== undefined && name.trim()) {
+        db.prepare('UPDATE projects SET name = ?, updated_at = ? WHERE id = ?').run(name.trim(), now, id);
+    }
+    else {
+        db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(now, id);
+    }
+    res.json({ id, updatedAt: now });
+});
+/**
+ * DELETE /api/dashboard/projects/:id (soft delete)
+ */
+dashboardRouter.delete('/projects/:id', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const row = db.prepare('SELECT id FROM projects WHERE id = ?').get(id);
+    if (!row)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' });
+    const now = new Date().toISOString();
+    try {
+        db.prepare('UPDATE projects SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now, now, id);
+    }
+    catch {
+        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Soft delete not supported' });
+    }
+    res.json({ id, deleted: true });
+});
+/**
+ * POST /api/dashboard/projects/:id/restore
+ */
+dashboardRouter.post('/projects/:id/restore', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const row = db.prepare('SELECT id FROM projects WHERE id = ?').get(id);
+    if (!row)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' });
+    const now = new Date().toISOString();
+    try {
+        db.prepare('UPDATE projects SET deleted_at = NULL, updated_at = ? WHERE id = ?').run(now, id);
+    }
+    catch {
+        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Restore not supported' });
+    }
+    res.json({ id, restored: true, updatedAt: now });
 });
 /**
  * GET /api/dashboard/summary

@@ -178,6 +178,10 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
   return handleResponse<T>(response)
 }
 
+export interface ApiPatchOptions {
+  headers?: Record<string, string>
+}
+
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path, { method: 'GET' }),
   post: <T>(path: string, body?: unknown, idempotencyKey?: string) =>
@@ -192,8 +196,12 @@ export const api = {
       body: body ? JSON.stringify(body) : undefined,
       idempotencyKey,
     }),
-  patch: <T>(path: string, body?: unknown) =>
-    apiFetch<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
+  patch: <T>(path: string, body?: unknown, options?: ApiPatchOptions) =>
+    apiFetch<T>(path, {
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+      headers: options?.headers,
+    }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
   upload: <T>(path: string, formData: FormData) => apiUpload<T>(path, formData),
 }
