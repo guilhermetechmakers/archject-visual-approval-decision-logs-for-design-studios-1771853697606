@@ -10,6 +10,8 @@ import { analyticsRouter } from './analytics.js'
 import { helpRouter } from './help.js'
 import { privacyRouter } from './privacy.js'
 import { termsRouter } from './terms.js'
+import { logsRouter } from './logs.js'
+import { supportReportRouter } from './support-report.js'
 
 initDb()
 
@@ -24,6 +26,8 @@ app.use('/api/admin', adminRouter)
 app.use('/api', analyticsRouter)
 app.use('/api', billingRouter)
 app.use('/api', helpRouter)
+app.use('/api', logsRouter)
+app.use('/api', supportReportRouter)
 app.use('/api', privacyRouter)
 app.use('/api/terms', termsRouter)
 app.use('/webhooks', webhooksRouter)

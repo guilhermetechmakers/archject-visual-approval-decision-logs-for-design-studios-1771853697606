@@ -317,4 +317,55 @@ helpRouter.post('/support/ticket', (req: Request, res: Response) => {
   }
 })
 
+// POST /api/support/report - report broken link (404 page)
+helpRouter.post('/support/report', (req: Request, res: Response) => {
+  try {
+    const { email, message, attemptedPath, userAgent, userId, attachments } = req.body
+
+    if (!attemptedPath || typeof attemptedPath !== 'string' || attemptedPath.length > 2048) {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'attemptedPath required (max 2048 chars)' })
+    }
+    const userAgentStr = typeof userAgent === 'string' ? userAgent.slice(0, 1024) : ''
+    const msgStr = typeof message === 'string' ? message.slice(0, 5000) : null
+    const emailStr = typeof email === 'string' && email.trim() ? email.trim().slice(0, 255) : null
+    const userIdStr = typeof userId === 'string' ? userId : null
+
+    // Unauthenticated users should provide email for reply
+    if (!userIdStr && !emailStr) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'Please provide your email so we can follow up on your report.',
+      })
+    }
+    if (emailStr && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Valid email required' })
+    }
+
+    const id = crypto.randomUUID()
+    const att = Array.isArray(attachments) ? JSON.stringify(attachments) : null
+
+    try {
+      db.prepare(
+        `INSERT INTO support_reports (id, user_id, email, attempted_path, message, user_agent, attachments, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'new')`
+      ).run(id, userIdStr, emailStr, attemptedPath.trim(), msgStr, userAgentStr, att)
+    } catch (e) {
+      // Table may not exist; fallback to support ticket
+      console.warn('[Help] support_reports insert failed, using support_tickets:', e)
+      const name = emailStr ? 'Broken Link Reporter' : 'Unknown'
+      const subject = `Broken link report: ${attemptedPath.slice(0, 200)}`
+      const description = `Attempted path: ${attemptedPath}\n\nUser agent: ${userAgentStr}\n\n${msgStr ?? 'No additional message'}`
+      db.prepare(
+        `INSERT INTO support_tickets (id, user_id, name, email, subject, description, status, source, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'open', 'help-form', datetime('now'), datetime('now'))`
+      ).run(id, userIdStr, name, emailStr ?? 'noreply@archject.local', subject, description)
+    }
+
+    res.status(201).json({ ok: true, ticketId: id })
+  } catch (e) {
+    console.error('[Help] POST /support/report:', e)
+    res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Failed to submit report' })
+  }
+})
+
 export { helpRouter }

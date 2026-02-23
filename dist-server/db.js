@@ -163,6 +163,31 @@ export function initDb() {
         }
         seedTermsVersion();
     }
+    const support404Path = path.join(process.cwd(), 'server', 'migrations', '009_404_support.sql');
+    if (fs.existsSync(support404Path)) {
+        try {
+            const sql = fs.readFileSync(support404Path, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+    }
 }
 function seedAnalyticsData() {
     try {
