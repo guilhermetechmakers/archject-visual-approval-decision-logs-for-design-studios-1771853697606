@@ -1,0 +1,1662 @@
+⚠️ CRITICAL EXECUTION RULES - READ FIRST ⚠️
+❌ NEVER run: npm run dev, npm start, yarn dev, pnpm dev, or ANY development server
+❌ NEVER run: long-running processes, servers, or commands that don't exit
+❌ NEVER test the application by starting it
+✅ ALLOWED: npm install, npm run build, npm run test (if needed)
+✅ YOUR TASK: Create/modify files only, then STOP and EXIT immediately
+⚠️ The MCP server handles all testing and validation separately
+
+You are an expert full-stack developer proficient in TypeScript, React, Next.js, and modern UI/UX frameworks (Tailwind CSS, Shadcn UI, Radix UI).
+
+=== DESIGN REFERENCE (MANDATORY) ===
+# Modern Design Best Practices
+
+## Philosophy
+
+Create unique, memorable experiences while maintaining consistency through modern design principles. Every project should feel distinct yet professional, innovative yet intuitive.
+
+---
+
+## Landing Pages & Marketing Sites
+
+### Hero Sections
+**Go beyond static backgrounds:**
+- Animated gradients with subtle movement
+- Particle systems or geometric shapes floating
+- Interactive canvas backgrounds (Three.js, WebGL)
+- Video backgrounds with proper fallbacks
+- Parallax scrolling effects
+- Gradient mesh animations
+- Morphing blob animations
+
+
+### Layout Patterns
+**Use modern grid systems:**
+- Bento grids (asymmetric card layouts)
+- Masonry layouts for varied content
+- Feature sections with diagonal cuts or curves
+- Overlapping elements with proper z-index
+- Split-screen designs with scroll-triggered reveals
+
+**Avoid:** Traditional 3-column equal grids
+
+### Scroll Animations
+**Engage users as they scroll:**
+- Fade-in and slide-up animations for sections
+- Scroll-triggered parallax effects
+- Progress indicators for long pages
+- Sticky elements that transform on scroll
+- Horizontal scroll sections for portfolios
+- Text reveal animations (word by word, letter by letter)
+- Number counters animating into view
+
+**Avoid:** Static pages with no scroll interaction
+
+### Call-to-Action Areas
+**Make CTAs impossible to miss:**
+- Gradient buttons with hover effects
+- Floating action buttons with micro-interactions
+- Animated borders or glowing effects
+- Scale/lift on hover
+- Interactive elements that respond to mouse position
+- Pulsing indicators for primary actions
+
+---
+
+## Dashboard Applications
+
+### Layout Structure
+**Always use collapsible side navigation:**
+- Sidebar that can collapse to icons only
+- Smooth transition animations between states
+- Persistent navigation state (remember user preference)
+- Mobile: drawer that slides in/out
+- Desktop: sidebar with expand/collapse toggle
+- Icons visible even when collapsed
+
+**Structure:**
+```
+/dashboard (layout wrapper with sidebar)
+  /dashboard/overview
+  /dashboard/analytics
+  /dashboard/settings
+  /dashboard/users
+  /dashboard/projects
+```
+
+All dashboard pages should be nested inside the dashboard layout, not separate routes.
+
+### Data Tables
+**Modern table design:**
+- Sticky headers on scroll
+- Row hover states with subtle elevation
+- Sortable columns with clear indicators
+- Pagination with items-per-page control
+- Search/filter with instant feedback
+- Selection checkboxes with bulk actions
+- Responsive: cards on mobile, table on desktop
+- Loading skeletons, not spinners
+- Empty states with illustrations or helpful text
+
+**Use modern table libraries:**
+- TanStack Table (React Table v8)
+- AG Grid for complex data
+- Data Grid from MUI (if using MUI)
+
+### Charts & Visualizations
+**Use the latest charting libraries:**
+- Recharts (for React, simple charts)
+- Chart.js v4 (versatile, well-maintained)
+- Apache ECharts (advanced, interactive)
+- D3.js (custom, complex visualizations)
+- Tremor (for dashboards, built on Recharts)
+
+**Chart best practices:**
+- Animated transitions when data changes
+- Interactive tooltips with detailed info
+- Responsive sizing
+- Color scheme matching design system
+- Legend placement that doesn't obstruct data
+- Loading states while fetching data
+
+### Dashboard Cards
+**Metric cards should stand out:**
+- Gradient backgrounds or colored accents
+- Trend indicators (↑ ↓ with color coding)
+- Sparkline charts for historical data
+- Hover effects revealing more detail
+- Icon representing the metric
+- Comparison to previous period
+
+---
+
+## Color & Visual Design
+
+### Color Palettes
+**Create depth with gradients:**
+- Primary gradient (not just solid primary color)
+- Subtle background gradients
+- Gradient text for headings
+- Gradient borders on cards
+- Elevated surfaces for depth
+
+**Color usage:**
+- 60-30-10 rule (dominant, secondary, accent)
+- Consistent semantic colors (success, warning, error)
+- Accessible contrast ratios (WCAG AA minimum)
+
+### Typography
+**Create hierarchy through contrast:**
+- Large, bold headings (48-72px for heroes)
+- Clear size differences between levels
+- Variable font weights (300, 400, 600, 700)
+- Letter spacing for small caps
+- Line height 1.5-1.7 for body text
+- Inter, Poppins, or DM Sans for modern feel
+
+### Shadows & Depth
+**Layer UI elements:**
+- Multi-layer shadows for realistic depth
+- Colored shadows matching element color
+- Elevated states on hover
+- Neumorphism for special elements (sparingly)
+
+---
+
+## Interactions & Micro-animations
+
+### Button Interactions
+**Every button should react:**
+- Scale slightly on hover (1.02-1.05)
+- Lift with shadow on hover
+- Ripple effect on click
+- Loading state with spinner or progress
+- Disabled state clearly visible
+- Success state with checkmark animation
+
+### Card Interactions
+**Make cards feel alive:**
+- Lift on hover with increased shadow
+- Subtle border glow on hover
+- Tilt effect following mouse (3D transform)
+- Smooth transitions (200-300ms)
+- Click feedback for interactive cards
+
+### Form Interactions
+**Guide users through forms:**
+- Input focus states with border color change
+- Floating labels that animate up
+- Real-time validation with inline messages
+- Success checkmarks for valid inputs
+- Error states with shake animation
+- Password strength indicators
+- Character count for text areas
+
+### Page Transitions
+**Smooth between views:**
+- Fade + slide for page changes
+- Skeleton loaders during data fetch
+- Optimistic UI updates
+- Stagger animations for lists
+- Route transition animations
+
+---
+
+## Mobile Responsiveness
+
+### Mobile-First Approach
+**Design for mobile, enhance for desktop:**
+- Touch targets minimum 44x44px
+- Generous padding and spacing
+- Sticky bottom navigation on mobile
+- Collapsible sections for long content
+- Swipeable cards and galleries
+- Pull-to-refresh where appropriate
+
+### Responsive Patterns
+**Adapt layouts intelligently:**
+- Hamburger menu → full nav bar
+- Card grid → stack on mobile
+- Sidebar → drawer
+- Multi-column → single column
+- Data tables → card list
+- Hide/show elements based on viewport
+
+---
+
+## Loading & Empty States
+
+### Loading States
+**Never leave users wondering:**
+- Skeleton screens matching content layout
+- Progress bars for known durations
+- Animated placeholders
+- Spinners only for short waits (<3s)
+- Stagger loading for multiple elements
+- Shimmer effects on skeletons
+
+### Empty States
+**Make empty states helpful:**
+- Illustrations or icons
+- Helpful copy explaining why it's empty
+- Clear CTA to add first item
+- Examples or suggestions
+- No "no data" text alone
+
+---
+
+## Unique Elements to Stand Out
+
+### Distinctive Features
+**Add personality:**
+- Custom cursor effects on landing pages
+- Animated page numbers or section indicators
+- Unusual hover effects (magnification, distortion)
+- Custom scrollbars
+- Glassmorphism for overlays
+- Animated SVG icons
+- Typewriter effects for hero text
+- Confetti or celebration animations for actions
+
+### Interactive Elements
+**Engage users:**
+- Drag-and-drop interfaces
+- Sliders and range controls
+- Toggle switches with animations
+- Progress steps with animations
+- Expandable/collapsible sections
+- Tabs with slide indicators
+- Image comparison sliders
+- Interactive demos or playgrounds
+
+---
+
+## Consistency Rules
+
+### Maintain Consistency
+**What should stay consistent:**
+- Spacing scale (4px, 8px, 16px, 24px, 32px, 48px, 64px)
+- Border radius values
+- Animation timing (200ms, 300ms, 500ms)
+- Color system (primary, secondary, accent, neutrals)
+- Typography scale
+- Icon style (outline vs filled)
+- Button styles across the app
+- Form element styles
+
+### What Can Vary
+**Project-specific customization:**
+- Color palette (different colors, same system)
+- Layout creativity (grids, asymmetry)
+- Illustration style
+- Animation personality
+- Feature-specific interactions
+- Hero section design
+- Card styling variations
+- Background patterns or textures
+
+---
+
+## Technical Excellence
+
+### Performance
+- Optimize images (WebP, lazy loading)
+- Code splitting for faster loads
+- Debounce search inputs
+- Virtualize long lists
+- Minimize re-renders
+- Use proper memoization
+
+### Accessibility
+- Keyboard navigation throughout
+- ARIA labels where needed
+- Focus indicators visible
+- Screen reader friendly
+- Sufficient color contrast
+- Respect reduced motion preferences
+
+---
+
+## Key Principles
+
+1. **Be Bold** - Don't be afraid to try unique layouts and interactions
+2. **Be Consistent** - Use the same patterns for similar functions
+3. **Be Responsive** - Design works beautifully on all devices
+4. **Be Fast** - Animations are smooth, loading is quick
+5. **Be Accessible** - Everyone can use what you build
+6. **Be Modern** - Use current design trends and technologies
+7. **Be Unique** - Each project should have its own personality
+8. **Be Intuitive** - Users shouldn't need instructions
+
+
+---
+
+# Project-Specific Customizations
+
+**IMPORTANT: This section contains the specific design requirements for THIS project. The guidelines above are universal best practices - these customizations below take precedence for project-specific decisions.**
+
+## User Design Requirements
+
+color, typography, spacing, component behavior, and responsive rules
+- [ ] All endpoints include appropriate error handling and return user-friendly messages; loading and error states are visible
+- [ ] Accessible (ARIA), keyboard-navigable, and mobile-responsive with proper focus handling
+
+## UI/UX Guidelines
+Apply the project's design system:
+- Maintain 12-column grid, 24–32px gutters, generous whitespace
+- Card-based sections with subtle shadows and borders
+- Left sidebar navigation with active state cues and collapsible folders
+- Topbar with clean separation and minimal border
+- Interactive elements: primary actions in #0052CC, secondary actions with outline/ghost styling
+- Status indicators with color semantics: success (#10B981), warning (#F59E42), error (#EF4444)
+- Data visualization: minimal or non-prominent; if used, keep it subtle and accessible
+- Ensure consistent typography: Inter or similar, 28px H1, 22px H2, 18px H3, body 15–16px
+
+---
+
+## Visual Style
+
+### Color Palette:
+- Primary background: #F7F7F9
+- Secondary background: #FFFFFF
+- Accent color: #0052CC
+- Neutral grays: #E5E7EB, #D1D5DB, #6B7280, #111827
+- Status colors: #10B981, #F59E42, #EF4444
+
+### Typography & Layout:
+- Font family: Inter or equivalent geometric sans-serif
+- Headings: H1 ~28px, H2 ~22px, H3 ~18px; font-weight 600–700
+- Body: 15–16px, 1.5x line-height
+- Layout: 12-column grid with 24–32px gutters/padding
+- Alignment: Left-aligned text, ample whitespace
+
+### Key Design Elements
+
+#### Card Design:
+- White cards, subtle shadow, 8–12px radius
+- Thin borders (#E5E7EB) for dividers
+- Hover state: mild elevation or tint
+
+#### Navigation:
+- Sidebar: permanent left, #F5F6FA, active highlight
+- Icons: monochrome, 6B7280; active state filled/colored
+- Top bar: white with bottom border
+
+#### Data Visualization:
+- Minimal charts if present; otherwise rely on crisp, legible text and icons
+- Status pills/dots in appropriate colors
+
+#### Interactive Elements:
+- Buttons: Primary #0052CC with white text; secondary ghost/outline
+- Form fields: rounded, borders #D1D5DB, focus ring
+- Search: full-width, rounded with left icon
+- Micro-interactions: smooth transitions on hover/focus
+
+### Design Philosophy
+- Modern, minimalist, calm, and professional
+- Emphasize clarity, simplicity, and quick scanning
+- Minimize cognitive load; provide a frictionless, inviting environment
+- Data/readability-first with structured visual hierarchy
+
+---
+
+Connected Pages:
+- Settings & Team Management: Branding, branding emails, team roles, subscription, integrations
+- Dashboard: Studio landing after login with project summaries, decisions, approvals, quick actions
+
+Connected Features:
+- User Profile Management, Session Management & Security, Password Management & Reset, 2FA, User Authentication (Signup / Login)
+
+---
+
+Note to AI development tool:
+- Use modular, reusable components with clear prop contracts
+- Provide mocks and storybook-ish examples for each component
+- Include unit tests scaffolding for critical flows (profile update, 2FA enable, session revoke, password reset)
+- Ensure localization-ready strings and accessibility hooks (aria-labels, aria-live regions)
+- Document API contracts in a separate spec with request/response examples and error schemas
+
+Generate the complete, detailed prompt now based on the above specifications.
+
+## Implementation Notes
+
+When implementing this project:
+
+1. **Follow Universal Guidelines**: Use the design best practices documented above as your foundation
+2. **Apply Project Customizations**: Implement the specific design requirements stated in the "User Design Requirements" section
+3. **Priority Order**: Project-specific requirements override universal guidelines when there's a conflict
+4. **Color System**: Extract and implement color values as CSS custom properties in RGB format
+5. **Typography**: Define font families, sizes, and weights based on specifications
+6. **Spacing**: Establish consistent spacing scale following the design system
+7. **Components**: Style all Shadcn components to match the design aesthetic
+8. **Animations**: Use Motion library for transitions matching the design personality
+9. **Responsive Design**: Ensure mobile-first responsive implementation
+
+## Implementation Checklist
+
+- [ ] Review universal design guidelines above
+- [ ] Extract project-specific color palette and define CSS variables
+- [ ] Configure Tailwind theme with custom colors
+- [ ] Set up typography system (fonts, sizes, weights)
+- [ ] Define spacing and sizing scales
+- [ ] Create component variants matching design
+- [ ] Implement responsive breakpoints
+- [ ] Add animations and transitions
+- [ ] Ensure accessibility standards
+- [ ] Validate against user design requirements
+
+---
+
+**Remember: Always reference this file for design decisions. Do not use generic or placeholder designs.**
+
+
+*IMPORTANT*: For every page or component refer to # Modern Design Best Practices
+
+## Philosophy
+
+Create unique, memorable experiences while maintaining consistency through modern design principles. Every project should feel distinct yet professional, innovative yet intuitive.
+
+---
+
+## Landing Pages & Marketing Sites
+
+### Hero Sections
+**Go beyond static backgrounds:**
+- Animated gradients with subtle movement
+- Particle systems or geometric shapes floating
+- Interactive canvas backgrounds (Three.js, WebGL)
+- Video backgrounds with proper fallbacks
+- Parallax scrolling effects
+- Gradient mesh animations
+- Morphing blob animations
+
+
+### Layout Patterns
+**Use modern grid systems:**
+- Bento grids (asymmetric card layouts)
+- Masonry layouts for varied content
+- Feature sections with diagonal cuts or curves
+- Overlapping elements with proper z-index
+- Split-screen designs with scroll-triggered reveals
+
+**Avoid:** Traditional 3-column equal grids
+
+### Scroll Animations
+**Engage users as they scroll:**
+- Fade-in and slide-up animations for sections
+- Scroll-triggered parallax effects
+- Progress indicators for long pages
+- Sticky elements that transform on scroll
+- Horizontal scroll sections for portfolios
+- Text reveal animations (word by word, letter by letter)
+- Number counters animating into view
+
+**Avoid:** Static pages with no scroll interaction
+
+### Call-to-Action Areas
+**Make CTAs impossible to miss:**
+- Gradient buttons with hover effects
+- Floating action buttons with micro-interactions
+- Animated borders or glowing effects
+- Scale/lift on hover
+- Interactive elements that respond to mouse position
+- Pulsing indicators for primary actions
+
+---
+
+## Dashboard Applications
+
+### Layout Structure
+**Always use collapsible side navigation:**
+- Sidebar that can collapse to icons only
+- Smooth transition animations between states
+- Persistent navigation state (remember user preference)
+- Mobile: drawer that slides in/out
+- Desktop: sidebar with expand/collapse toggle
+- Icons visible even when collapsed
+
+**Structure:**
+```
+/dashboard (layout wrapper with sidebar)
+  /dashboard/overview
+  /dashboard/analytics
+  /dashboard/settings
+  /dashboard/users
+  /dashboard/projects
+```
+
+All dashboard pages should be nested inside the dashboard layout, not separate routes.
+
+### Data Tables
+**Modern table design:**
+- Sticky headers on scroll
+- Row hover states with subtle elevation
+- Sortable columns with clear indicators
+- Pagination with items-per-page control
+- Search/filter with instant feedback
+- Selection checkboxes with bulk actions
+- Responsive: cards on mobile, table on desktop
+- Loading skeletons, not spinners
+- Empty states with illustrations or helpful text
+
+**Use modern table libraries:**
+- TanStack Table (React Table v8)
+- AG Grid for complex data
+- Data Grid from MUI (if using MUI)
+
+### Charts & Visualizations
+**Use the latest charting libraries:**
+- Recharts (for React, simple charts)
+- Chart.js v4 (versatile, well-maintained)
+- Apache ECharts (advanced, interactive)
+- D3.js (custom, complex visualizations)
+- Tremor (for dashboards, built on Recharts)
+
+**Chart best practices:**
+- Animated transitions when data changes
+- Interactive tooltips with detailed info
+- Responsive sizing
+- Color scheme matching design system
+- Legend placement that doesn't obstruct data
+- Loading states while fetching data
+
+### Dashboard Cards
+**Metric cards should stand out:**
+- Gradient backgrounds or colored accents
+- Trend indicators (↑ ↓ with color coding)
+- Sparkline charts for historical data
+- Hover effects revealing more detail
+- Icon representing the metric
+- Comparison to previous period
+
+---
+
+## Color & Visual Design
+
+### Color Palettes
+**Create depth with gradients:**
+- Primary gradient (not just solid primary color)
+- Subtle background gradients
+- Gradient text for headings
+- Gradient borders on cards
+- Elevated surfaces for depth
+
+**Color usage:**
+- 60-30-10 rule (dominant, secondary, accent)
+- Consistent semantic colors (success, warning, error)
+- Accessible contrast ratios (WCAG AA minimum)
+
+### Typography
+**Create hierarchy through contrast:**
+- Large, bold headings (48-72px for heroes)
+- Clear size differences between levels
+- Variable font weights (300, 400, 600, 700)
+- Letter spacing for small caps
+- Line height 1.5-1.7 for body text
+- Inter, Poppins, or DM Sans for modern feel
+
+### Shadows & Depth
+**Layer UI elements:**
+- Multi-layer shadows for realistic depth
+- Colored shadows matching element color
+- Elevated states on hover
+- Neumorphism for special elements (sparingly)
+
+---
+
+## Interactions & Micro-animations
+
+### Button Interactions
+**Every button should react:**
+- Scale slightly on hover (1.02-1.05)
+- Lift with shadow on hover
+- Ripple effect on click
+- Loading state with spinner or progress
+- Disabled state clearly visible
+- Success state with checkmark animation
+
+### Card Interactions
+**Make cards feel alive:**
+- Lift on hover with increased shadow
+- Subtle border glow on hover
+- Tilt effect following mouse (3D transform)
+- Smooth transitions (200-300ms)
+- Click feedback for interactive cards
+
+### Form Interactions
+**Guide users through forms:**
+- Input focus states with border color change
+- Floating labels that animate up
+- Real-time validation with inline messages
+- Success checkmarks for valid inputs
+- Error states with shake animation
+- Password strength indicators
+- Character count for text areas
+
+### Page Transitions
+**Smooth between views:**
+- Fade + slide for page changes
+- Skeleton loaders during data fetch
+- Optimistic UI updates
+- Stagger animations for lists
+- Route transition animations
+
+---
+
+## Mobile Responsiveness
+
+### Mobile-First Approach
+**Design for mobile, enhance for desktop:**
+- Touch targets minimum 44x44px
+- Generous padding and spacing
+- Sticky bottom navigation on mobile
+- Collapsible sections for long content
+- Swipeable cards and galleries
+- Pull-to-refresh where appropriate
+
+### Responsive Patterns
+**Adapt layouts intelligently:**
+- Hamburger menu → full nav bar
+- Card grid → stack on mobile
+- Sidebar → drawer
+- Multi-column → single column
+- Data tables → card list
+- Hide/show elements based on viewport
+
+---
+
+## Loading & Empty States
+
+### Loading States
+**Never leave users wondering:**
+- Skeleton screens matching content layout
+- Progress bars for known durations
+- Animated placeholders
+- Spinners only for short waits (<3s)
+- Stagger loading for multiple elements
+- Shimmer effects on skeletons
+
+### Empty States
+**Make empty states helpful:**
+- Illustrations or icons
+- Helpful copy explaining why it's empty
+- Clear CTA to add first item
+- Examples or suggestions
+- No "no data" text alone
+
+---
+
+## Unique Elements to Stand Out
+
+### Distinctive Features
+**Add personality:**
+- Custom cursor effects on landing pages
+- Animated page numbers or section indicators
+- Unusual hover effects (magnification, distortion)
+- Custom scrollbars
+- Glassmorphism for overlays
+- Animated SVG icons
+- Typewriter effects for hero text
+- Confetti or celebration animations for actions
+
+### Interactive Elements
+**Engage users:**
+- Drag-and-drop interfaces
+- Sliders and range controls
+- Toggle switches with animations
+- Progress steps with animations
+- Expandable/collapsible sections
+- Tabs with slide indicators
+- Image comparison sliders
+- Interactive demos or playgrounds
+
+---
+
+## Consistency Rules
+
+### Maintain Consistency
+**What should stay consistent:**
+- Spacing scale (4px, 8px, 16px, 24px, 32px, 48px, 64px)
+- Border radius values
+- Animation timing (200ms, 300ms, 500ms)
+- Color system (primary, secondary, accent, neutrals)
+- Typography scale
+- Icon style (outline vs filled)
+- Button styles across the app
+- Form element styles
+
+### What Can Vary
+**Project-specific customization:**
+- Color palette (different colors, same system)
+- Layout creativity (grids, asymmetry)
+- Illustration style
+- Animation personality
+- Feature-specific interactions
+- Hero section design
+- Card styling variations
+- Background patterns or textures
+
+---
+
+## Technical Excellence
+
+### Performance
+- Optimize images (WebP, lazy loading)
+- Code splitting for faster loads
+- Debounce search inputs
+- Virtualize long lists
+- Minimize re-renders
+- Use proper memoization
+
+### Accessibility
+- Keyboard navigation throughout
+- ARIA labels where needed
+- Focus indicators visible
+- Screen reader friendly
+- Sufficient color contrast
+- Respect reduced motion preferences
+
+---
+
+## Key Principles
+
+1. **Be Bold** - Don't be afraid to try unique layouts and interactions
+2. **Be Consistent** - Use the same patterns for similar functions
+3. **Be Responsive** - Design works beautifully on all devices
+4. **Be Fast** - Animations are smooth, loading is quick
+5. **Be Accessible** - Everyone can use what you build
+6. **Be Modern** - Use current design trends and technologies
+7. **Be Unique** - Each project should have its own personality
+8. **Be Intuitive** - Users shouldn't need instructions
+
+
+---
+
+# Project-Specific Customizations
+
+**IMPORTANT: This section contains the specific design requirements for THIS project. The guidelines above are universal best practices - these customizations below take precedence for project-specific decisions.**
+
+## User Design Requirements
+
+color, typography, spacing, component behavior, and responsive rules
+- [ ] All endpoints include appropriate error handling and return user-friendly messages; loading and error states are visible
+- [ ] Accessible (ARIA), keyboard-navigable, and mobile-responsive with proper focus handling
+
+## UI/UX Guidelines
+Apply the project's design system:
+- Maintain 12-column grid, 24–32px gutters, generous whitespace
+- Card-based sections with subtle shadows and borders
+- Left sidebar navigation with active state cues and collapsible folders
+- Topbar with clean separation and minimal border
+- Interactive elements: primary actions in #0052CC, secondary actions with outline/ghost styling
+- Status indicators with color semantics: success (#10B981), warning (#F59E42), error (#EF4444)
+- Data visualization: minimal or non-prominent; if used, keep it subtle and accessible
+- Ensure consistent typography: Inter or similar, 28px H1, 22px H2, 18px H3, body 15–16px
+
+---
+
+## Visual Style
+
+### Color Palette:
+- Primary background: #F7F7F9
+- Secondary background: #FFFFFF
+- Accent color: #0052CC
+- Neutral grays: #E5E7EB, #D1D5DB, #6B7280, #111827
+- Status colors: #10B981, #F59E42, #EF4444
+
+### Typography & Layout:
+- Font family: Inter or equivalent geometric sans-serif
+- Headings: H1 ~28px, H2 ~22px, H3 ~18px; font-weight 600–700
+- Body: 15–16px, 1.5x line-height
+- Layout: 12-column grid with 24–32px gutters/padding
+- Alignment: Left-aligned text, ample whitespace
+
+### Key Design Elements
+
+#### Card Design:
+- White cards, subtle shadow, 8–12px radius
+- Thin borders (#E5E7EB) for dividers
+- Hover state: mild elevation or tint
+
+#### Navigation:
+- Sidebar: permanent left, #F5F6FA, active highlight
+- Icons: monochrome, 6B7280; active state filled/colored
+- Top bar: white with bottom border
+
+#### Data Visualization:
+- Minimal charts if present; otherwise rely on crisp, legible text and icons
+- Status pills/dots in appropriate colors
+
+#### Interactive Elements:
+- Buttons: Primary #0052CC with white text; secondary ghost/outline
+- Form fields: rounded, borders #D1D5DB, focus ring
+- Search: full-width, rounded with left icon
+- Micro-interactions: smooth transitions on hover/focus
+
+### Design Philosophy
+- Modern, minimalist, calm, and professional
+- Emphasize clarity, simplicity, and quick scanning
+- Minimize cognitive load; provide a frictionless, inviting environment
+- Data/readability-first with structured visual hierarchy
+
+---
+
+Connected Pages:
+- Settings & Team Management: Branding, branding emails, team roles, subscription, integrations
+- Dashboard: Studio landing after login with project summaries, decisions, approvals, quick actions
+
+Connected Features:
+- User Profile Management, Session Management & Security, Password Management & Reset, 2FA, User Authentication (Signup / Login)
+
+---
+
+Note to AI development tool:
+- Use modular, reusable components with clear prop contracts
+- Provide mocks and storybook-ish examples for each component
+- Include unit tests scaffolding for critical flows (profile update, 2FA enable, session revoke, password reset)
+- Ensure localization-ready strings and accessibility hooks (aria-labels, aria-live regions)
+- Document API contracts in a separate spec with request/response examples and error schemas
+
+Generate the complete, detailed prompt now based on the above specifications.
+
+## Implementation Notes
+
+When implementing this project:
+
+1. **Follow Universal Guidelines**: Use the design best practices documented above as your foundation
+2. **Apply Project Customizations**: Implement the specific design requirements stated in the "User Design Requirements" section
+3. **Priority Order**: Project-specific requirements override universal guidelines when there's a conflict
+4. **Color System**: Extract and implement color values as CSS custom properties in RGB format
+5. **Typography**: Define font families, sizes, and weights based on specifications
+6. **Spacing**: Establish consistent spacing scale following the design system
+7. **Components**: Style all Shadcn components to match the design aesthetic
+8. **Animations**: Use Motion library for transitions matching the design personality
+9. **Responsive Design**: Ensure mobile-first responsive implementation
+
+## Implementation Checklist
+
+- [ ] Review universal design guidelines above
+- [ ] Extract project-specific color palette and define CSS variables
+- [ ] Configure Tailwind theme with custom colors
+- [ ] Set up typography system (fonts, sizes, weights)
+- [ ] Define spacing and sizing scales
+- [ ] Create component variants matching design
+- [ ] Implement responsive breakpoints
+- [ ] Add animations and transitions
+- [ ] Ensure accessibility standards
+- [ ] Validate against user design requirements
+
+---
+
+**Remember: Always reference this file for design decisions. Do not use generic or placeholder designs.**
+ for bestpractices and # Exports & Decision Logs
+
+## Overview
+Develop a complete, end-to-end module for Archject that enables branded exports and authoritative decision logs. This includes generating downloadable decision logs (PDF/CSV), export history, and signed PDF options suitable for legal use; an audit-logged Decision Log with full history and attachments; a core Decision Objects & Approval Workflow; robust error handling and validation; branding customization including client-facing links; a brandable PDF template for decision logs; and supportive UI pages (Success/Confirmation, Decision Detail, and Loading/Processing). The system should be highly usable for design studios, support secure exports, provide clear audit trails, and integrate smoothly with the existing Archject core (Decision Cards, Options, Comments, Approvals, Attachments, and Audit Trails). No external APIs are required for this task.
+
+---
+
+## Page Description (Full Detail)
+
+What this page is:
+- Exports & Decision Logs page: a centralized workspace where users can generate downloadable approval packs, view export history, configure export settings, and access signed PDF options for legal use. This page ties to Audit Logs & Export (Decision Log), Decision Objects & Approval Workflow (Core), Error Handling & Validation, Branding & Custom Client Links, and the Decision Log PDF Template.
+
+Goals:
+- Allow users to generate and download decision logs in PDF and CSV formats, including full history, attachments, and firm branding.
+- Provide export history with status indicators (processing, ready) and direct download links.
+- Offer signed PDF options for legal use (where applicable, e.g., digital signature blocks, timestamping).
+- Present an extensible export flow that respects branding, timestamps, and attachment inclusion.
+- Display export credits/billing information for paid plans.
+- Maintain a consistent, branded UI that matches the project’s design system.
+
+Connected features and UI behavior:
+- Audit Logs & Export (Decision Log): Generate authoritative, time-stamped logs with full history, attachments, and firm branding; export in PDF/CSV; signed PDFs where required.
+- Decision Objects & Approval Workflow (Core): Expose decision cards and their options, comments, and audit trails as sources for the export.
+- Error Handling & Validation: Centralized messaging for export configuration errors, validation of selections, and recovery UI in-case of failures.
+- Branding & Custom Client Links: Ability to apply studio branding to client-facing export links and PDFs (logo, colors, optional custom domain).
+- Decision Log PDF Template: Brandable HTML/CSS template that renders a high-quality PDF with a cover page, option visuals, audit log, and attachments appendix.
+- Success / Confirmation Page: Show after successful exports or client approvals with status and next steps.
+- Decision Detail Page: Full view for a single Decision Card with options, the audit trail, attachments, and actions (share, export, create follow-up task).
+- Loading / Processing Page: Global loading state during background operations like export generation and large uploads.
+
+Visual guidance:
+- Use a clean, calm workspace with generous whitespace, clear typographic hierarchy, and a strong emphasis on content over chrome.
+- Maintain consistent branding across PDF exports, client-facing links, and on-page UI elements.
+
+---
+
+## Components to Build
+
+- Exports & Decision Logs Page
+  - UI: Export generator controls (decision selector: single/bulk; format selector: PDF/CSV; include attachments toggle), export settings (branding, signature block, timestamp granularity), export history panel, billing/credit summary, and signing toggle.
+  - Data: Current workspace project data, selected decisions, user preferences, and branding settings.
+
+- Audit Logs & Export (Decision Log) Service
+  - Functionality: Generate time-stamped, authoritative logs (PDF/CSV) including full decision history, option selections, comments, attachments, and firm branding.
+  - Signing: Optional signed PDF rendering (digital signature block) for legal use.
+  - Output: Files ready for download or delivery to client-facing portal.
+
+- Decision Objects & Approval Workflow (Core)
+  - Data models: DecisionCard with options, comments, approval state, audit trail, attachments, and per-decision timestamps.
+  - Workflow: State transitions (Draft, Under Review, Approved, Rejected, Finalized), with immutable audit trail entries.
+
+- Error Handling & Validation
+  - Centralized error messaging system with user-friendly messages, guidance, and recovery actions.
+  - Validation routines for export configuration, decision selection, format compatibility, and attachment sizes.
+
+- Branding & Custom Client Links
+  - Branding engine: logo, color palette, typography choices, and optional custom domain mapping for client-facing export links.
+  - Link management: per-studio branding profiles, domain aliasing, and cacheable assets (logo, CSS overrides).
+
+- Decision Log PDF Template (Asset)
+  - Brandable HTML/CSS template that can render as high-quality PDFs.
+  - Template sections: cover page with branding, decision options and visuals, audit log (timestamps, user actions), attachments appendix (with file names and descriptions), and a signature page if applicable.
+  - Export options: variant rendering for single vs. bulk decisions, and inclusion of attachments.
+
+- Success / Confirmation Page
+  - Generic post-action screen with status, summary, and next-step actions (download, share link, create follow-up task).
+
+- Decision Detail Page
+  - Full view of a Decision Card: option comparison grid, comments thread, approval state badge, audit history timeline, attachments gallery, and actions (share, export, create follow-up task).
+
+- Loading / Processing Page
+  - Lightweight full-page indicator with a spinner, progress bar (if applicable), and estimated time.
+
+---
+
+## Implementation Requirements
+
+### Frontend
+- Pages and components
+  - ExportsDashboardComponent
+  - ExportGeneratorPanel
+  - ExportSettingsPanel (branding, signature block, timestamp granularity)
+  - ExportHistoryList
+  - BillingInfoPanel (export credits)
+  - DecisionDetailView
+  - SuccessConfirmationPage
+  - LoadingScreen
+- UI elements
+  - Brandable header with breadcrumbs
+  - Toggle switches for including attachments
+  - Multi-select for decisions (bulk export)
+  - Format picker (PDF/CSV) with clear icons
+  - Branding controls: upload logo, color picker defaults, domain mapping field
+  - PDF Viewer / inline preview for templates (optional)
+- State management
+  - Centralized export state (selected decisions, format, options)
+  - Async export job tracking with polling or event-driven updates
+- Accessibility
+  - Keyboard navigable, ARIA roles for dynamic sections
+- Performance
+  - Debounced search/filter for decision lists
+  - Lazy load heavy attachments when exporting
+
+### Backend
+- Data models (extend existing)
+  - DecisionCard(id, projectId, options[], comments[], approvals[], auditTrail[], attachments[], timestamps[])
+  - ExportJob(id, projectId, userId, decisionIds[], format, includeAttachments, branding, signatureRequested, status, createdAt, updatedAt, downloadUrl)
+  - AuditLogEntry(id, decisionId, action, performedBy, timestamp, details)
+  - BrandingProfile(id, studioId, logoUrl, colorHex, domain, font, headerMarkdown)
+  - PDFTemplate(id, name, htmlTemplate, cssOverrides, lastModified)
+- APIs
+  - POST /exports/create
+    - Body: { projectId, decisionIds[], format(PDF/CSV), includeAttachments, brandingProfileId, signatureRequested, coverOptions }
+    - Returns: jobId, status
+  - GET /exports/{jobId}/status
+    - Returns: { status: processing|ready|failed, progress, downloadUrl }
+  - GET /exports/{jobId}/download
+    - Returns: file content with correct Content-Type
+  - GET /branding/profiles
+    - List studio branding profiles
+  - POST /branding/profiles
+    - Create/update branding profile (logo, color, domain)
+  - GET /decision-logs/{decisionId}/audit
+    - Return full audit trail for a decision
+  - POST /decision-logs/template
+    - Upload/manage PDF template
+- Database tables
+  - decisions (existing)
+  - exports (new)
+  - export_history (new)
+  - branding_profiles (new)
+  - audit_logs (existing or extended)
+  - pdf_templates (new)
+- File storage
+  - Attachments and exported PDFs stored in object storage (S3-like) with signed access URLs
+- Validation
+  - Validate decisionIds belong to the same project
+  - Validate format compatibility and attachments size
+  - Validate branding profile is active and assets exist
+- Security
+  - Auth: User authentication; authorization ensuring only project members and studio branding owners can export
+  - Resource access: project-scoped tokens/permissions
+  - Data integrity: audit trails immutable post-creation for export logs
+- Reliability
+  - Idempotent export creation when re-triggered with same parameters
+  - Retry strategy for transient storage or PDF rendering failures
+- Observability
+  - Structured logs for export job lifecycle
+  - Metrics: export_duration, success_rate, average_attachment_size
+
+### Integration
+- Data flow
+  - Decision Cards feed into ExportJob as chosen decisionIds
+  - Audit logs feed into PDF/Audit sections
+  - BrandingProfile is applied to the PDF template and export metadata
+  - Attachments included conditionally per user setting
+  - Export History records every attempt with status and download URL
+- UI integration
+  - Exports page orchestrates ExportGeneratorPanel, ExportHistoryList, and BillingInfoPanel
+  - Decision Detail Page pulls in DecisionCard data, audit trails, and attachments
+  - Success page is shown after ExportJob reaches ready status or a client-approved action completes
+  - Loading/Processing Page is shown during long-running export generation
+- PDF Template Rendering
+  - Server-side renderer compiles brandable HTML/CSS into PDF
+  - Cover page, decision option visuals, audit log, and attachments appendix render deterministically
+  - Optional digital signature block appended if signatureRequested
+
+---
+
+## User Experience Flow
+
+1. User navigates to Exports & Decision Logs.
+2. User selects one or more decisions (single or bulk) to export.
+3. User chooses export format: PDF or CSV.
+4. User toggles Include Attachments as needed.
+5. User selects Branding Profile (studio branding) and optional signature block; optionally specify a custom domain for client links.
+6. User reviews export settings and credits; initiates export.
+7. System creates an ExportJob, returns jobId; user sees a processing state on the page and a loading indicator.
+8. Backend renders the PDF/CSV using the PDF Template with full audit history and attachments; stores file and updates job status to ready.
+9. User is notified (in-page confirmation or via success page) and can download the file or view the export history entry.
+10. If signed PDFs are requested, the system appends a signed block and provides a signed PDF download option.
+11. User can view Export History, including status, timestamp, and download links; billing/credits are updated accordingly.
+
+Edge cases:
+- If export fails, show a friendly error with retry option and guidance.
+- If branding assets are missing, fallback to default appearance with a prominent warning.
+- If decisions span multiple projects, enforce project-scoped export to avoid cross-project data leakage.
+
+---
+
+## Technical Specifications
+
+- Data Models: 
+  - DecisionCard: id, projectId, title, options[], comments[], approvals[], attachments[], auditTrail[], createdAt, updatedAt
+  - ExportJob: id, projectId, userId, decisionIds[], format, includeAttachments, brandingProfileId, signatureRequested, status, progress, createdAt, updatedAt, downloadUrl
+  - BrandingProfile: id, studioId, name, logoUrl, colorHex, domain, font, headerMarkdown, isActive
+  - AuditLogEntry: id, decisionId, action, performedBy, timestamp, details
+  - PdfTemplate: id, name, htmlTemplate, cssOverrides, lastModified
+  - ExportHistory: id, exportJobId, userId, projectId, decisionCount, format, includeAttachments, brandingProfileId, signed, status, createdAt, completedAt, downloadUrl
+- API Endpoints:
+  - POST /exports/create
+  - GET /exports/{jobId}/status
+  - GET /exports/{jobId}/download
+  - GET /branding/profiles
+  - POST /branding/profiles
+  - GET /decision-logs/{decisionId}/audit
+  - POST /decision-logs/template
+- Security:
+  - JWT/OIDC authentication; authorize by project membership and branding access
+  - Role awareness: viewer vs editor vs admin for exports and branding
+  - Audit: immutable export history entries; sensitive data redaction policies as needed
+- Validation:
+  - Ensure all selected decisions belong to the same project
+  - Validate that brandingProfile isActive and assets exist
+  - Validate file size limits for attachments when exporting
+  - Validate domain mapping for custom client links
+- Data Persistence:
+  - Relational DB with foreign keys: exports.brandingProfileId -> branding_profiles.id; export_history.exportJobId -> exports.id; decisions linked via decisionIds[]
+- External/Internal Services:
+  - PDF rendering engine (HTML/CSS to PDF)
+  - Object storage for PDFs/attachments
+  - Optional digital signature service for signed PDFs
+- Performance:
+  - Asynchronous export rendering; progress tracking
+  - Efficient streaming of large attachments
+- Observability:
+  - Metrics: export_duration_ms, export_status_counts, attachments_included, branding_profile_usage
+  - Traces for PDF rendering steps
+- Accessibility and UX:
+  - Clear status indicators (processing, ready, failed)
+  - Keyboard accessible controls, descriptive aria-labels
+  - Consistent focus states and high-contrast controls
+
+---
+
+## Acceptance Criteria
+
+- [ ] Users can select one or more decisions and generate a PDF or CSV export including full history and optional attachments.
+- [ ] Export settings allow applying branding, including a logo, color scheme, and optional domain for client links.
+- [ ] Exports appear in the Export History with correct status transitions (processing -> ready) and downloadable links.
+- [ ] Signed PDF option is available and produces a legally suitable signed document; the system provides a signed PDF download path.
+- [ ] PDF template renders with a cover page, decision visuals, audit trail, and attachments appendix; must be brandable per BrandingProfile.
+- [ ] Decision Detail Page accurately reflects options, comments, approval state, history, attachments, and supports actions (share, export, create follow-up task).
+- [ ] Centralized error handling surfaces user-friendly messages and recovery actions; UI remains responsive during failures.
+- [ ] Billing info shows export credits usage and remaining balance for paid plans.
+- [ ] All endpoints are secured with proper authentication and project-scoped authorization; data isolation between studios/projects is enforced.
+- [ ] UI adheres to the design system, color palette, typography, spacing, and interactive behaviors described.
+
+---
+
+## UI/UX Guidelines
+Apply the project’s design system consistently:
+- 12-column grid, generous spacing, left-aligned typography
+- Cards with subtle shadows, thin borders, and clear hierarchy
+- Sidebar navigation with active state indicators and smooth expand/collapse
+- Primary actions use the Accent color (#0052CC) with white text
+- Secondary actions use ghost/outline styling
+- Status pills reflect success/warning/error colors (#10B981, #F59E42, #EF4444)
+- Focus and hover states have accessible contrast and subtle motion
+- Branding pages allow logo upload, color customization, and optional domain mapping; client-facing links reflect branding
+
+Branding & Visual Style:
+- Honor the provided color palette and typography
+- Ensure high readability, minimal clutter, and a calm, professional aesthetic
+- Use clear visual cues to guide user decisions and export workflows
+
+---
+
+## Visual Style
+
+Color Palette and Typography are aligned with the provided guidelines:
+- Primary background: #F7F7F9
+- Secondary background: #FFFFFF
+- Accent: #0052CC
+- Grays: #E5E7EB, #D1D5DB, #6B7280, #111827
+- Status: #10B981, #F59E42, #EF4444
+- Font: Modern geometric sans-serif (Inter/SF Pro or equivalent)
+- Headings: H1 ~28px, H2 ~22px, H3 ~18px; strong weights
+- Body: 15-16px, 400–500 weight
+- Layout: 12-column grid with 24–32px gutters/padding
+- Cards: White, subtle shadow, 8–12px radius
+- Interactive elements: Primary buttons with #0052CC, secondary/ghost styles
+
+---
+
+## Notes for AI Development Tool
+
+- Use project context to tailor data models and endpoints, but avoid assuming any external API contracts beyond what’s specified.
+- Ensure export job lifecycle is asynchronous with robust error handling and user feedback.
+- Implement brandable PDF rendering pipeline that consumes a brandable HTML/CSS template and produces a styled PDF consistent with the branding profile.
+- Keep the UI responsive and accessible; provide keyboard navigation and screen-reader friendly labels.
+- Ensure all data flows are project-scoped and properly secured.
+- Provide clear error messages with actionable remediation steps for users.
+- Include comprehensive logging for auditability and troubleshooting.
+
+If you need any section expanded (e.g., example API payloads, database schema diagrams, or exact component trees), I can provide scaffolded artifacts or pseudo-code to accelerate implementation. for style.
+
+CRITICAL DESIGN REQUIREMENTS:
+- You MUST follow ALL design principles and patterns specified in the Design Reference above
+- Do NOT deviate from the design specifications without explicit user permission
+- Implement ALL visual design elements (colors, typography, spacing, shadows, animations) as specified
+- Follow the layout patterns and component designs exactly as documented
+- Ensure all interactions and micro-animations match the reference specifications
+
+CRITICAL TECHNICAL REQUIREMENTS:
+- React 18.3.1, React Router 6.30.1
+- Tailwind CSS v3 with tailwind.config.js and custom keyframes
+- @tailwindcss/typography plugin for rich text content
+- Tailwind CSS animations (NOT Motion library or framer-motion)
+- Sonner for toasts
+- Recharts for data visualization
+- Native fetch() with API utilities in src/lib/api.ts
+- Design system with CSS custom properties
+- Use RGB color values for theming
+- When Supabase is configured: use Edge Functions for LLM and server-only logic; never expose API keys in the client
+
+=== TASK ===
+# Exports & Decision Logs
+
+## Overview
+Develop a complete, end-to-end module for Archject that enables branded exports and authoritative decision logs. This includes generating downloadable decision logs (PDF/CSV), export history, and signed PDF options suitable for legal use; an audit-logged Decision Log with full history and attachments; a core Decision Objects & Approval Workflow; robust error handling and validation; branding customization including client-facing links; a brandable PDF template for decision logs; and supportive UI pages (Success/Confirmation, Decision Detail, and Loading/Processing). The system should be highly usable for design studios, support secure exports, provide clear audit trails, and integrate smoothly with the existing Archject core (Decision Cards, Options, Comments, Approvals, Attachments, and Audit Trails). No external APIs are required for this task.
+
+---
+
+## Page Description (Full Detail)
+
+What this page is:
+- Exports & Decision Logs page: a centralized workspace where users can generate downloadable approval packs, view export history, configure export settings, and access signed PDF options for legal use. This page ties to Audit Logs & Export (Decision Log), Decision Objects & Approval Workflow (Core), Error Handling & Validation, Branding & Custom Client Links, and the Decision Log PDF Template.
+
+Goals:
+- Allow users to generate and download decision logs in PDF and CSV formats, including full history, attachments, and firm branding.
+- Provide export history with status indicators (processing, ready) and direct download links.
+- Offer signed PDF options for legal use (where applicable, e.g., digital signature blocks, timestamping).
+- Present an extensible export flow that respects branding, timestamps, and attachment inclusion.
+- Display export credits/billing information for paid plans.
+- Maintain a consistent, branded UI that matches the project’s design system.
+
+Connected features and UI behavior:
+- Audit Logs & Export (Decision Log): Generate authoritative, time-stamped logs with full history, attachments, and firm branding; export in PDF/CSV; signed PDFs where required.
+- Decision Objects & Approval Workflow (Core): Expose decision cards and their options, comments, and audit trails as sources for the export.
+- Error Handling & Validation: Centralized messaging for export configuration errors, validation of selections, and recovery UI in-case of failures.
+- Branding & Custom Client Links: Ability to apply studio branding to client-facing export links and PDFs (logo, colors, optional custom domain).
+- Decision Log PDF Template: Brandable HTML/CSS template that renders a high-quality PDF with a cover page, option visuals, audit log, and attachments appendix.
+- Success / Confirmation Page: Show after successful exports or client approvals with status and next steps.
+- Decision Detail Page: Full view for a single Decision Card with options, the audit trail, attachments, and actions (share, export, create follow-up task).
+- Loading / Processing Page: Global loading state during background operations like export generation and large uploads.
+
+Visual guidance:
+- Use a clean, calm workspace with generous whitespace, clear typographic hierarchy, and a strong emphasis on content over chrome.
+- Maintain consistent branding across PDF exports, client-facing links, and on-page UI elements.
+
+---
+
+## Components to Build
+
+- Exports & Decision Logs Page
+  - UI: Export generator controls (decision selector: single/bulk; format selector: PDF/CSV; include attachments toggle), export settings (branding, signature block, timestamp granularity), export history panel, billing/credit summary, and signing toggle.
+  - Data: Current workspace project data, selected decisions, user preferences, and branding settings.
+
+- Audit Logs & Export (Decision Log) Service
+  - Functionality: Generate time-stamped, authoritative logs (PDF/CSV) including full decision history, option selections, comments, attachments, and firm branding.
+  - Signing: Optional signed PDF rendering (digital signature block) for legal use.
+  - Output: Files ready for download or delivery to client-facing portal.
+
+- Decision Objects & Approval Workflow (Core)
+  - Data models: DecisionCard with options, comments, approval state, audit trail, attachments, and per-decision timestamps.
+  - Workflow: State transitions (Draft, Under Review, Approved, Rejected, Finalized), with immutable audit trail entries.
+
+- Error Handling & Validation
+  - Centralized error messaging system with user-friendly messages, guidance, and recovery actions.
+  - Validation routines for export configuration, decision selection, format compatibility, and attachment sizes.
+
+- Branding & Custom Client Links
+  - Branding engine: logo, color palette, typography choices, and optional custom domain mapping for client-facing export links.
+  - Link management: per-studio branding profiles, domain aliasing, and cacheable assets (logo, CSS overrides).
+
+- Decision Log PDF Template (Asset)
+  - Brandable HTML/CSS template that can render as high-quality PDFs.
+  - Template sections: cover page with branding, decision options and visuals, audit log (timestamps, user actions), attachments appendix (with file names and descriptions), and a signature page if applicable.
+  - Export options: variant rendering for single vs. bulk decisions, and inclusion of attachments.
+
+- Success / Confirmation Page
+  - Generic post-action screen with status, summary, and next-step actions (download, share link, create follow-up task).
+
+- Decision Detail Page
+  - Full view of a Decision Card: option comparison grid, comments thread, approval state badge, audit history timeline, attachments gallery, and actions (share, export, create follow-up task).
+
+- Loading / Processing Page
+  - Lightweight full-page indicator with a spinner, progress bar (if applicable), and estimated time.
+
+---
+
+## Implementation Requirements
+
+### Frontend
+- Pages and components
+  - ExportsDashboardComponent
+  - ExportGeneratorPanel
+  - ExportSettingsPanel (branding, signature block, timestamp granularity)
+  - ExportHistoryList
+  - BillingInfoPanel (export credits)
+  - DecisionDetailView
+  - SuccessConfirmationPage
+  - LoadingScreen
+- UI elements
+  - Brandable header with breadcrumbs
+  - Toggle switches for including attachments
+  - Multi-select for decisions (bulk export)
+  - Format picker (PDF/CSV) with clear icons
+  - Branding controls: upload logo, color picker defaults, domain mapping field
+  - PDF Viewer / inline preview for templates (optional)
+- State management
+  - Centralized export state (selected decisions, format, options)
+  - Async export job tracking with polling or event-driven updates
+- Accessibility
+  - Keyboard navigable, ARIA roles for dynamic sections
+- Performance
+  - Debounced search/filter for decision lists
+  - Lazy load heavy attachments when exporting
+
+### Backend
+- Data models (extend existing)
+  - DecisionCard(id, projectId, options[], comments[], approvals[], auditTrail[], attachments[], timestamps[])
+  - ExportJob(id, projectId, userId, decisionIds[], format, includeAttachments, branding, signatureRequested, status, createdAt, updatedAt, downloadUrl)
+  - AuditLogEntry(id, decisionId, action, performedBy, timestamp, details)
+  - BrandingProfile(id, studioId, logoUrl, colorHex, domain, font, headerMarkdown)
+  - PDFTemplate(id, name, htmlTemplate, cssOverrides, lastModified)
+- APIs
+  - POST /exports/create
+    - Body: { projectId, decisionIds[], format(PDF/CSV), includeAttachments, brandingProfileId, signatureRequested, coverOptions }
+    - Returns: jobId, status
+  - GET /exports/{jobId}/status
+    - Returns: { status: processing|ready|failed, progress, downloadUrl }
+  - GET /exports/{jobId}/download
+    - Returns: file content with correct Content-Type
+  - GET /branding/profiles
+    - List studio branding profiles
+  - POST /branding/profiles
+    - Create/update branding profile (logo, color, domain)
+  - GET /decision-logs/{decisionId}/audit
+    - Return full audit trail for a decision
+  - POST /decision-logs/template
+    - Upload/manage PDF template
+- Database tables
+  - decisions (existing)
+  - exports (new)
+  - export_history (new)
+  - branding_profiles (new)
+  - audit_logs (existing or extended)
+  - pdf_templates (new)
+- File storage
+  - Attachments and exported PDFs stored in object storage (S3-like) with signed access URLs
+- Validation
+  - Validate decisionIds belong to the same project
+  - Validate format compatibility and attachments size
+  - Validate branding profile is active and assets exist
+- Security
+  - Auth: User authentication; authorization ensuring only project members and studio branding owners can export
+  - Resource access: project-scoped tokens/permissions
+  - Data integrity: audit trails immutable post-creation for export logs
+- Reliability
+  - Idempotent export creation when re-triggered with same parameters
+  - Retry strategy for transient storage or PDF rendering failures
+- Observability
+  - Structured logs for export job lifecycle
+  - Metrics: export_duration, success_rate, average_attachment_size
+
+### Integration
+- Data flow
+  - Decision Cards feed into ExportJob as chosen decisionIds
+  - Audit logs feed into PDF/Audit sections
+  - BrandingProfile is applied to the PDF template and export metadata
+  - Attachments included conditionally per user setting
+  - Export History records every attempt with status and download URL
+- UI integration
+  - Exports page orchestrates ExportGeneratorPanel, ExportHistoryList, and BillingInfoPanel
+  - Decision Detail Page pulls in DecisionCard data, audit trails, and attachments
+  - Success page is shown after ExportJob reaches ready status or a client-approved action completes
+  - Loading/Processing Page is shown during long-running export generation
+- PDF Template Rendering
+  - Server-side renderer compiles brandable HTML/CSS into PDF
+  - Cover page, decision option visuals, audit log, and attachments appendix render deterministically
+  - Optional digital signature block appended if signatureRequested
+
+---
+
+## User Experience Flow
+
+1. User navigates to Exports & Decision Logs.
+2. User selects one or more decisions (single or bulk) to export.
+3. User chooses export format: PDF or CSV.
+4. User toggles Include Attachments as needed.
+5. User selects Branding Profile (studio branding) and optional signature block; optionally specify a custom domain for client links.
+6. User reviews export settings and credits; initiates export.
+7. System creates an ExportJob, returns jobId; user sees a processing state on the page and a loading indicator.
+8. Backend renders the PDF/CSV using the PDF Template with full audit history and attachments; stores file and updates job status to ready.
+9. User is notified (in-page confirmation or via success page) and can download the file or view the export history entry.
+10. If signed PDFs are requested, the system appends a signed block and provides a signed PDF download option.
+11. User can view Export History, including status, timestamp, and download links; billing/credits are updated accordingly.
+
+Edge cases:
+- If export fails, show a friendly error with retry option and guidance.
+- If branding assets are missing, fallback to default appearance with a prominent warning.
+- If decisions span multiple projects, enforce project-scoped export to avoid cross-project data leakage.
+
+---
+
+## Technical Specifications
+
+- Data Models: 
+  - DecisionCard: id, projectId, title, options[], comments[], approvals[], attachments[], auditTrail[], createdAt, updatedAt
+  - ExportJob: id, projectId, userId, decisionIds[], format, includeAttachments, brandingProfileId, signatureRequested, status, progress, createdAt, updatedAt, downloadUrl
+  - BrandingProfile: id, studioId, name, logoUrl, colorHex, domain, font, headerMarkdown, isActive
+  - AuditLogEntry: id, decisionId, action, performedBy, timestamp, details
+  - PdfTemplate: id, name, htmlTemplate, cssOverrides, lastModified
+  - ExportHistory: id, exportJobId, userId, projectId, decisionCount, format, includeAttachments, brandingProfileId, signed, status, createdAt, completedAt, downloadUrl
+- API Endpoints:
+  - POST /exports/create
+  - GET /exports/{jobId}/status
+  - GET /exports/{jobId}/download
+  - GET /branding/profiles
+  - POST /branding/profiles
+  - GET /decision-logs/{decisionId}/audit
+  - POST /decision-logs/template
+- Security:
+  - JWT/OIDC authentication; authorize by project membership and branding access
+  - Role awareness: viewer vs editor vs admin for exports and branding
+  - Audit: immutable export history entries; sensitive data redaction policies as needed
+- Validation:
+  - Ensure all selected decisions belong to the same project
+  - Validate that brandingProfile isActive and assets exist
+  - Validate file size limits for attachments when exporting
+  - Validate domain mapping for custom client links
+- Data Persistence:
+  - Relational DB with foreign keys: exports.brandingProfileId -> branding_profiles.id; export_history.exportJobId -> exports.id; decisions linked via decisionIds[]
+- External/Internal Services:
+  - PDF rendering engine (HTML/CSS to PDF)
+  - Object storage for PDFs/attachments
+  - Optional digital signature service for signed PDFs
+- Performance:
+  - Asynchronous export rendering; progress tracking
+  - Efficient streaming of large attachments
+- Observability:
+  - Metrics: export_duration_ms, export_status_counts, attachments_included, branding_profile_usage
+  - Traces for PDF rendering steps
+- Accessibility and UX:
+  - Clear status indicators (processing, ready, failed)
+  - Keyboard accessible controls, descriptive aria-labels
+  - Consistent focus states and high-contrast controls
+
+---
+
+## Acceptance Criteria
+
+- [ ] Users can select one or more decisions and generate a PDF or CSV export including full history and optional attachments.
+- [ ] Export settings allow applying branding, including a logo, color scheme, and optional domain for client links.
+- [ ] Exports appear in the Export History with correct status transitions (processing -> ready) and downloadable links.
+- [ ] Signed PDF option is available and produces a legally suitable signed document; the system provides a signed PDF download path.
+- [ ] PDF template renders with a cover page, decision visuals, audit trail, and attachments appendix; must be brandable per BrandingProfile.
+- [ ] Decision Detail Page accurately reflects options, comments, approval state, history, attachments, and supports actions (share, export, create follow-up task).
+- [ ] Centralized error handling surfaces user-friendly messages and recovery actions; UI remains responsive during failures.
+- [ ] Billing info shows export credits usage and remaining balance for paid plans.
+- [ ] All endpoints are secured with proper authentication and project-scoped authorization; data isolation between studios/projects is enforced.
+- [ ] UI adheres to the design system, color palette, typography, spacing, and interactive behaviors described.
+
+---
+
+## UI/UX Guidelines
+Apply the project’s design system consistently:
+- 12-column grid, generous spacing, left-aligned typography
+- Cards with subtle shadows, thin borders, and clear hierarchy
+- Sidebar navigation with active state indicators and smooth expand/collapse
+- Primary actions use the Accent color (#0052CC) with white text
+- Secondary actions use ghost/outline styling
+- Status pills reflect success/warning/error colors (#10B981, #F59E42, #EF4444)
+- Focus and hover states have accessible contrast and subtle motion
+- Branding pages allow logo upload, color customization, and optional domain mapping; client-facing links reflect branding
+
+Branding & Visual Style:
+- Honor the provided color palette and typography
+- Ensure high readability, minimal clutter, and a calm, professional aesthetic
+- Use clear visual cues to guide user decisions and export workflows
+
+---
+
+## Visual Style
+
+Color Palette and Typography are aligned with the provided guidelines:
+- Primary background: #F7F7F9
+- Secondary background: #FFFFFF
+- Accent: #0052CC
+- Grays: #E5E7EB, #D1D5DB, #6B7280, #111827
+- Status: #10B981, #F59E42, #EF4444
+- Font: Modern geometric sans-serif (Inter/SF Pro or equivalent)
+- Headings: H1 ~28px, H2 ~22px, H3 ~18px; strong weights
+- Body: 15-16px, 400–500 weight
+- Layout: 12-column grid with 24–32px gutters/padding
+- Cards: White, subtle shadow, 8–12px radius
+- Interactive elements: Primary buttons with #0052CC, secondary/ghost styles
+
+---
+
+## Notes for AI Development Tool
+
+- Use project context to tailor data models and endpoints, but avoid assuming any external API contracts beyond what’s specified.
+- Ensure export job lifecycle is asynchronous with robust error handling and user feedback.
+- Implement brandable PDF rendering pipeline that consumes a brandable HTML/CSS template and produces a styled PDF consistent with the branding profile.
+- Keep the UI responsive and accessible; provide keyboard navigation and screen-reader friendly labels.
+- Ensure all data flows are project-scoped and properly secured.
+- Provide clear error messages with actionable remediation steps for users.
+- Include comprehensive logging for auditability and troubleshooting.
+
+If you need any section expanded (e.g., example API payloads, database schema diagrams, or exact component trees), I can provide scaffolded artifacts or pseudo-code to accelerate implementation.
+
+=== SUCCESS CRITERIA ===
+# Success Criteria Checklist
+
+## Code Quality
+
+### TypeScript
+- [ ] No TypeScript errors (`tsc --noEmit` passes)
+- [ ] All functions and components have proper type definitions
+- [ ] No `any` types used (use `unknown` if type is truly unknown)
+- [ ] Props interfaces defined for all components
+- [ ] API responses have type definitions
+
+### Code Standards
+- [ ] All imports use path aliases (@/ prefix)
+- [ ] Components follow the established naming convention
+- [ ] Files are organized in correct directories
+- [ ] No unused imports or variables
+- [ ] Consistent code formatting
+
+## Component Implementation
+
+### UI Components
+- [ ] Use shadcn/ui components (Button, Card, Input, etc.) instead of building from scratch
+- [ ] All interactive elements have hover states
+- [ ] Components use the `cn()` utility for class merging
+- [ ] Proper TypeScript props interfaces defined
+- [ ] Components are responsive (mobile, tablet, desktop)
+
+### Animations
+- [ ] Motion library used for all animations (NOT framer-motion)
+- [ ] Page transitions implemented with fade/slide
+- [ ] Interactive elements have whileHover/whileTap animations
+- [ ] List items use stagger animations where appropriate
+- [ ] Animations respect `prefers-reduced-motion`
+
+### Icons
+- [ ] Lucide React icons used consistently
+- [ ] Icons have consistent sizing (h-4 w-4, h-5 w-5, h-6 w-6)
+- [ ] Icon colors match design system (text-primary, text-muted-foreground)
+
+## Data Management
+
+### React Query
+- [ ] All data fetching uses React Query hooks
+- [ ] Query keys follow the established pattern
+- [ ] Mutations invalidate related queries
+- [ ] Loading and error states handled
+- [ ] Optimistic updates implemented where appropriate
+
+### Forms
+- [ ] Forms use react-hook-form
+- [ ] Validation uses Zod schemas
+- [ ] Error messages display properly
+- [ ] Form submission shows loading state
+- [ ] Success/error feedback via toast notifications
+
+### API Layer
+- [ ] API functions in src/api/ directory
+- [ ] Axios used for HTTP requests
+- [ ] Proper error handling with try/catch
+- [ ] Auth tokens handled by interceptors
+- [ ] Type-safe API function signatures
+
+## User Experience
+
+### Notifications
+- [ ] Sonner toasts used for all notifications
+- [ ] Success actions show success toast
+- [ ] Errors show descriptive error messages
+- [ ] Loading states show toast.loading()
+
+### Loading States
+- [ ] Skeleton loaders shown during data fetch
+- [ ] Buttons show loading state during submission
+- [ ] Disabled state applied during async operations
+
+### Error Handling
+- [ ] Network errors caught and displayed
+- [ ] User-friendly error messages (no stack traces)
+- [ ] Fallback UI for error states
+- [ ] No unhandled promise rejections
+
+## Navigation
+
+### Route Accessibility
+- [ ] All pages have routes defined in router configuration
+- [ ] Every page is accessible through navigation (menu, sidebar, or direct URL)
+- [ ] Main pages (Dashboard, Home, Settings, etc.) accessible from primary navigation
+- [ ] Secondary pages accessible through contextual navigation or direct links
+- [ ] Deep-linked pages have breadcrumbs or back navigation
+- [ ] 404/Not Found page implemented for invalid routes
+- [ ] Protected routes have proper authentication checks
+- [ ] Navigation state persists across page refreshes where appropriate
+
+### Navigation UX
+- [ ] Active route highlighted in navigation menu
+- [ ] Clear visual hierarchy in navigation structure
+- [ ] Mobile navigation is accessible and usable
+- [ ] Navigation items have hover/focus states
+- [ ] Nested routes show parent-child relationships
+- [ ] User can always return to main areas (Dashboard/Home)
+
+## Styling
+
+### Tailwind CSS
+- [ ] Tailwind v3 classes used
+- [ ] HSL color variables from design system
+- [ ] Custom CSS properties used where defined
+- [ ] Responsive breakpoints: mobile-first approach
+- [ ] Dark mode support via CSS variables
+
+### Design System
+- [ ] Colors use theme variables (primary, secondary, accent)
+- [ ] Spacing uses Tailwind scale (p-4, gap-6, etc.)
+- [ ] Border radius uses theme values (rounded-lg)
+- [ ] Shadows use theme values (shadow-card)
+- [ ] Typography follows Inter font system
+
+## Accessibility
+
+- [ ] Semantic HTML elements used
+- [ ] Buttons have descriptive labels
+- [ ] Forms have proper labels
+- [ ] Focus states visible on interactive elements
+- [ ] Color contrast meets WCAG standards
+
+## Performance
+
+- [ ] No console.log statements in production code
+- [ ] No console errors in browser
+- [ ] Images optimized (WebP, lazy loading)
+- [ ] Large lists use virtualization if needed
+- [ ] React Query cache configured appropriately
+
+## Testing Readiness
+
+- [ ] Components structured for easy testing
+- [ ] Business logic separated from presentation
+- [ ] Mock-friendly API layer
+- [ ] No hardcoded values that should be configurable
+- [ ] Environment variables properly configured
+
+## Final Checks
+
+- [ ] Code builds without errors (`npm run build`)
+- [ ] Development server runs without errors (`npm run dev`)
+- [ ] No TypeScript errors in editor
+- [ ] Browser console is clean (no errors or warnings)
+- [ ] All functionality works as expected
+- [ ] Code follows existing project patterns
+- [ ] Changes are consistent with the rest of the codebase
+
+
+
+IMPORTANT: ALL styling and design decisions must follow the Design Reference section above EXACTLY. Do not make arbitrary design choices.
+
+Analyze the existing project structure and implement the task following the patterns already established. Ensure all success criteria are met.
