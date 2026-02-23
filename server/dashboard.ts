@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 import { db } from './db.js'
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
@@ -20,6 +21,156 @@ function requireAuth(req: Request, res: Response, next: () => void) {
 }
 
 export const dashboardRouter = Router()
+
+/**
+ * GET /api/dashboard/metrics
+ * Returns dashboard KPI metrics.
+ */
+dashboardRouter.get('/metrics', requireAuth, (_req: Request, res: Response) => {
+  const pendingCount = db.prepare(
+    "SELECT COUNT(*) as count FROM decisions WHERE status IN ('pending', 'in_review')"
+  ).get() as { count: number }
+  const activeProjects = db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }
+  const avgResponseRow = db.prepare(
+    `SELECT AVG((julianday(decision_made_at) - julianday(created_at)) * 86400) as avg_sec
+     FROM decisions WHERE decision_made_at IS NOT NULL`
+  ).get() as { avg_sec: number | null }
+  const avgResponseTimeMs = avgResponseRow?.avg_sec ? Math.round(avgResponseRow.avg_sec * 1000) : 0
+  res.json({
+    pendingApprovals: pendingCount?.count ?? 0,
+    activeProjects: activeProjects?.count ?? 0,
+    avgResponseTimeMs,
+    exportCredits: 100,
+  })
+})
+
+/**
+ * GET /api/dashboard/projects
+ * Query: page, pageSize, sort, status, owner, dateRange, search
+ */
+dashboardRouter.get('/projects', requireAuth, (req: Request, res: Response) => {
+  const page = Math.max(1, parseInt((req.query.page as string) || '1', 10))
+  const pageSize = Math.min(50, Math.max(1, parseInt((req.query.pageSize as string) || '12', 10)))
+  const search = (req.query.search as string)?.trim()
+  const status = req.query.status as string | undefined
+
+  let where = '1=1'
+  const params: unknown[] = []
+  if (search) {
+    where += ' AND p.name LIKE ?'
+    params.push(`%${search}%`)
+  }
+  if (status && status !== 'all') {
+    where += ' AND p.status = ?'
+    params.push(status)
+  }
+
+  const pendingByProject = db.prepare(
+    `SELECT project_id, COUNT(*) as count FROM decisions
+     WHERE status IN ('pending', 'in_review') GROUP BY project_id`
+  ).all() as { project_id: string; count: number }[]
+  const pendingMap = Object.fromEntries(pendingByProject.map((p) => [p.project_id, p.count]))
+
+  const countRow = db.prepare(
+    `SELECT COUNT(*) as c FROM projects p WHERE ${where}`
+  ).get(...params) as { c: number }
+  const total = countRow?.c ?? 0
+
+  const rows = db.prepare(
+    `SELECT p.id, p.name, p.created_at, p.updated_at FROM projects p
+     WHERE ${where}
+     ORDER BY p.updated_at DESC
+     LIMIT ? OFFSET ?`
+  ).all(...params, pageSize, (page - 1) * pageSize) as {
+    id: string
+    name: string
+    created_at: string
+    updated_at: string
+  }[]
+
+  res.json({
+    items: rows.map((p) => ({
+      id: p.id,
+      name: p.name,
+      status: 'Active' as const,
+      lastActivity: p.updated_at,
+      pendingApprovals: pendingMap[p.id] ?? 0,
+      owner: 'You',
+      colorAccent: '#0052CC',
+    })),
+    total,
+    page,
+    pageSize,
+  })
+})
+
+/**
+ * GET /api/dashboard/activities
+ * Returns recent activity feed items.
+ */
+dashboardRouter.get('/activities', requireAuth, (_req: Request, res: Response) => {
+  const decisions = db.prepare(
+    `SELECT d.id, d.title, d.status, d.created_at, d.decision_made_at, d.reviewer_id, d.project_id, p.name as project_name
+     FROM decisions d
+     LEFT JOIN projects p ON d.project_id = p.id
+     ORDER BY COALESCE(d.decision_made_at, d.created_at) DESC
+     LIMIT 20`
+  ).all() as {
+    id: string
+    title: string
+    status: string
+    created_at: string
+    decision_made_at: string | null
+    reviewer_id: string | null
+    project_id: string
+    project_name: string | null
+  }[]
+
+  const activities = decisions.map((d) => {
+    const action = d.status === 'approved' || d.status === 'declined' ? 'approved' : 'created'
+    const timestamp = d.decision_made_at ?? d.created_at
+    return {
+      id: d.id,
+      actorId: d.reviewer_id ?? 'system',
+      actorName: d.reviewer_id ? 'Client' : 'System',
+      avatarUrl: null as string | null,
+      action,
+      targetType: 'Decision',
+      targetId: d.id,
+      targetTitle: d.title,
+      projectName: d.project_name ?? 'Unknown',
+      timestamp,
+    }
+  })
+
+  res.json({ items: activities })
+})
+
+/**
+ * POST /api/dashboard/projects
+ * Create a new project.
+ */
+dashboardRouter.post('/projects', requireAuth, (req: Request, res: Response) => {
+  const userId = (req as Request & { userId: string }).userId
+  const { name } = req.body as { name?: string }
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Project name is required' })
+    return
+  }
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+  db.prepare(
+    'INSERT INTO projects (id, name, account_id, studio_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(id, name.trim(), userId, 'default', now, now)
+  res.status(201).json({
+    id,
+    name: name.trim(),
+    status: 'active',
+    createdAt: now,
+    updatedAt: now,
+    pendingApprovalsCount: 0,
+  })
+})
 
 /**
  * GET /api/dashboard/summary
