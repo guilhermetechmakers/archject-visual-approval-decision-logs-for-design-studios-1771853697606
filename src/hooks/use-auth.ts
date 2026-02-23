@@ -1,5 +1,4 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   signup,
@@ -30,17 +29,8 @@ export function useSignup() {
 }
 
 export function useLogin() {
-  const navigate = useNavigate()
   return useMutation({
     mutationFn: (data: LoginRequest) => login(data),
-    onSuccess: (data) => {
-      if (data.sessionToken) {
-        localStorage.setItem('auth_token', data.sessionToken)
-      }
-      if (data.user.email_verified) {
-        navigate('/dashboard')
-      }
-    },
     onError: (error) => {
       const code = getAuthErrorCode(error)
       if (code === 'EMAIL_NOT_VERIFIED') {

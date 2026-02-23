@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuth } from '@/contexts/auth-context'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Mail, CheckCircle2, XCircle } from 'lucide-react'
@@ -31,6 +32,7 @@ export function VerifyEmailPage() {
   const [state, setState] = useState<VerifyState>('verifying')
   const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null)
 
+  const { login } = useAuth()
   const verifyMutation = useVerifyEmail()
   const resendMutation = useResendVerification()
 
@@ -47,9 +49,9 @@ export function VerifyEmailPage() {
 
     verifyMutation.mutate(tokenFromUrl, {
       onSuccess: (data) => {
-        if (data.user.email_verified) {
+        if (data.user.email_verified && data.sessionToken) {
           setState('success')
-          localStorage.setItem('auth_token', data.sessionToken)
+          login(data.user, data.sessionToken)
           setTimeout(() => navigate('/dashboard'), 3000)
         } else {
           setState('success')

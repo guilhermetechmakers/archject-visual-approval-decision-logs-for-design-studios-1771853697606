@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
+import { AuthProvider } from '@/contexts/auth-context'
+import { DashboardRouteGuard } from '@/components/auth/dashboard-route-guard'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { AdminLayout } from '@/components/layout/admin-layout'
 import { AdminRouteGuard } from '@/components/admin/admin-route-guard'
@@ -55,6 +57,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <AuthProvider>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/request-demo" element={<LandingPage />} />
@@ -91,7 +94,14 @@ function App() {
             <Route path="settings" element={<AdminSettingsPage />} />
           </Route>
 
-          <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route
+            path="/dashboard"
+            element={
+              <DashboardRouteGuard>
+                <DashboardLayout />
+              </DashboardRouteGuard>
+            }
+          >
             <Route index element={<Navigate to="/dashboard/overview" replace />} />
             <Route path="overview" element={<DashboardOverview />} />
             <Route path="projects" element={<ProjectsListPage />} />
@@ -116,6 +126,7 @@ function App() {
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </AuthProvider>
       </BrowserRouter>
       <Toaster position="top-right" richColors />
     </QueryClientProvider>

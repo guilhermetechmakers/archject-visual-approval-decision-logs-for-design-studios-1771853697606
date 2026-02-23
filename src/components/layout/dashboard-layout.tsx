@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sidebar } from './sidebar'
+import { UserMenu } from '@/components/auth/user-menu'
 
 const SIDEBAR_KEY = 'archject-sidebar-collapsed'
 
@@ -64,6 +65,8 @@ export function DashboardLayout() {
               aria-label="Search"
             />
           </div>
+
+          <UserMenu />
         </header>
 
         <main className="p-4 lg:p-8">

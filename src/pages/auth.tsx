@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useAuth } from '@/contexts/auth-context'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -43,6 +44,7 @@ type SignupFormData = z.infer<typeof signupSchema>
 export function AuthPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { isAuthenticated, isLoading: authLoading, login } = useAuth()
   const [searchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
   const pathTab = location.pathname === '/signup' ? 'signup' : 'login'
@@ -52,6 +54,15 @@ export function AuthPage() {
     if (tabParam === 'signup' || tabParam === 'login') setTab(tabParam)
     else setTab(pathTab)
   }, [tabParam, pathTab])
+
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname
+  const redirectTo = from && from.startsWith('/dashboard') ? from : '/dashboard'
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate(redirectTo, { replace: true })
+    }
+  }, [authLoading, isAuthenticated, navigate, redirectTo])
   const [signupSuccess, setSignupSuccess] = useState<{ maskedEmail: string; email: string } | null>(null)
 
   const signupMutation = useSignup()
@@ -80,9 +91,9 @@ export function AuthPage() {
   const onLogin = async (data: LoginFormData) => {
     try {
       const res = await loginMutation.mutateAsync(data)
-      localStorage.setItem('auth_token', res.sessionToken)
+      login(res.user, res.sessionToken)
       toast.success('Welcome back!')
-      navigate('/dashboard')
+      navigate(redirectTo)
     } catch (err) {
       const msg = getAuthErrorMessage(err)
       toast.error(msg)
@@ -113,6 +124,20 @@ export function AuthPage() {
     } catch (err) {
       toast.error(getAuthErrorMessage(err))
     }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
+        <div className="flex flex-col items-center gap-4">
+          <div
+            className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent"
+            aria-hidden
+          />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   if (signupSuccess) {
