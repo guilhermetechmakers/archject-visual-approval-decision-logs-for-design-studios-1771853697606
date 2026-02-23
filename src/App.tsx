@@ -15,7 +15,11 @@ import { TemplatesPage } from '@/pages/dashboard/templates'
 import { LibraryPage } from '@/pages/dashboard/library'
 import { ExportsPage } from '@/pages/dashboard/exports'
 import { NotificationsPage } from '@/pages/dashboard/notifications'
-import { SettingsPage } from '@/pages/dashboard/settings'
+import { BillingPage } from '@/pages/dashboard/billing'
+import { SettingsLayout } from '@/pages/dashboard/settings/settings-layout'
+import { SettingsIndex } from '@/pages/dashboard/settings/settings-index'
+import { TeamPage } from '@/pages/dashboard/settings/team-page'
+import { IntegrationsPage } from '@/pages/dashboard/settings/integrations-page'
 import { DecisionsListPage } from '@/pages/decisions-list'
 import { ClientPortal } from '@/pages/client-portal'
 import { AboutPage } from '@/pages/about'
@@ -60,7 +64,12 @@ function App() {
             <Route path="templates" element={<TemplatesPage />} />
             <Route path="exports" element={<ExportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="billing" element={<BillingPage />} />
+            <Route path="settings" element={<SettingsLayout />}>
+              <Route index element={<SettingsIndex />} />
+              <Route path="team" element={<TeamPage />} />
+              <Route path="integrations" element={<IntegrationsPage />} />
+            </Route>
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />

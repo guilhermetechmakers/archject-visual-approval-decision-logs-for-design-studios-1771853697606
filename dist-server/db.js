@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 const dbPath = path.join(process.cwd(), 'archject.db');
 export const db = new Database(dbPath);
@@ -35,4 +36,16 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(user_id);
     CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON email_verifications(token_hash);
   `);
+    const migrationPath = path.join(process.cwd(), 'server', 'migrations', '002_billing.sql');
+    if (fs.existsSync(migrationPath)) {
+        try {
+            const sql = fs.readFileSync(migrationPath, 'utf-8');
+            db.exec(sql);
+        }
+        catch (e) {
+            if (!String(e).includes('already exists'))
+                throw e;
+        }
+        db.prepare("INSERT OR IGNORE INTO studios (id, name, default_currency) VALUES ('default', 'Default Studio', 'USD')").run();
+    }
 }

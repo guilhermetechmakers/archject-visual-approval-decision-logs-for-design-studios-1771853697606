@@ -8,6 +8,7 @@ import {
   Download,
   Bell,
   Settings,
+  CreditCard,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -26,6 +27,7 @@ const navItems = [
 ]
 
 const bottomItems = [
+  { to: '/dashboard/billing', icon: CreditCard, label: 'Billing' },
   { to: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ]
 
@@ -108,7 +110,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
 
         <div className="border-t border-border p-4">
           {bottomItems.map((item) => {
-            const isActive = location.pathname === item.to
+            const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + '/')
             return (
               <Link
                 key={item.to}
