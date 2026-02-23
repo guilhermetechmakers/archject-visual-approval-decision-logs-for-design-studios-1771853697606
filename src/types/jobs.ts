@@ -22,6 +22,8 @@ export interface JobError {
   code?: string
   message?: string
   trace_id?: string
+  /** Correlation/incident ID for support reference */
+  correlationId?: string
 }
 
 export interface Job {

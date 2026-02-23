@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -14,13 +14,14 @@ import {
 } from '@/api/decisions-create'
 import { TemplateSelector } from './template-selector'
 import { OptionsEditor } from './options-editor'
+import { AttachmentsStep } from './attachments-step'
 import { SettingsPanel } from './settings-panel'
 import { PreviewPanel } from './preview-panel'
 import { ActionBar } from './action-bar'
 import { LoadingPage } from './loading-page'
 import type { ValidationError } from './validation-summary'
 
-const STEPS = ['Template', 'Options', 'Settings', 'Preview'] as const
+const STEPS = ['Template', 'Options', 'Attachments', 'Recipients', 'Preview'] as const
 
 export interface CreateDecisionWizardProps {
   projectId: string
@@ -40,6 +41,7 @@ export function CreateDecisionWizard({
     title: '',
     description: '',
     options: [],
+    attachments: [],
     reminders: [],
     recipients: [],
     status: 'draft',
@@ -48,6 +50,7 @@ export function CreateDecisionWizard({
   const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
+  const idempotencyKeyRef = useRef<string>(crypto.randomUUID())
 
   const { data: templatesData, isLoading: templatesLoading } = useQuery({
     queryKey: ['templates'],
@@ -68,18 +71,22 @@ export function CreateDecisionWizard({
     if (!draft.id) {
       try {
         setIsSavingDraft(true)
-        const { decisionId } = await createDecision(projectId, {
-          templateId: selectedTemplateId === '__scratch__' ? undefined : selectedTemplateId ?? undefined,
-          fromScratch: selectedTemplateId === '__scratch__',
-          title: draft.title || 'Untitled Decision',
-          description: draft.description,
-          options: draft.options.map((o) => ({
-            title: o.title,
-            description: o.description,
-            isDefault: o.isDefault,
-            isRecommended: o.isRecommended,
-          })),
-        })
+        const { decisionId } = await createDecision(
+          projectId,
+          {
+            templateId: selectedTemplateId === '__scratch__' ? undefined : selectedTemplateId ?? undefined,
+            fromScratch: selectedTemplateId === '__scratch__',
+            title: draft.title || 'Untitled Decision',
+            description: draft.description,
+            options: draft.options.map((o) => ({
+              title: o.title,
+              description: o.description,
+              isDefault: o.isDefault,
+              isRecommended: o.isRecommended,
+            })),
+          },
+          idempotencyKeyRef.current
+        )
         setDraft((prev) => ({ ...prev, id: decisionId }))
         toast.success('Draft saved')
       } catch (e) {
@@ -106,6 +113,26 @@ export function CreateDecisionWizard({
     }
   }, [projectId, draft, selectedTemplateId])
 
+  // Autosave draft when user edits (debounced 2s, only after initial save)
+  useEffect(() => {
+    if (!draft.id || isSavingDraft || isPublishing) return
+    const timer = setTimeout(() => {
+      saveDraft()
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [
+    draft.id,
+    draft.title,
+    draft.description,
+    draft.options.length,
+    draft.recipients.length,
+    draft.reminders.length,
+    draft.approvalDeadline,
+    isSavingDraft,
+    isPublishing,
+    saveDraft,
+  ])
+
   const handlePublish = useCallback(async () => {
     setValidationErrors([])
 
@@ -129,18 +156,22 @@ export function CreateDecisionWizard({
       let decisionId = draft.id
 
       if (!decisionId) {
-        const { decisionId: id } = await createDecision(projectId, {
-          templateId: selectedTemplateId === '__scratch__' ? undefined : selectedTemplateId ?? undefined,
-          fromScratch: selectedTemplateId === '__scratch__',
-          title: draft.title || 'Untitled Decision',
-          description: draft.description,
-          options: draft.options.map((o) => ({
-            title: o.title,
-            description: o.description,
-            isDefault: o.isDefault,
-            isRecommended: o.isRecommended,
-          })),
-        })
+        const { decisionId: id } = await createDecision(
+          projectId,
+          {
+            templateId: selectedTemplateId === '__scratch__' ? undefined : selectedTemplateId ?? undefined,
+            fromScratch: selectedTemplateId === '__scratch__',
+            title: draft.title || 'Untitled Decision',
+            description: draft.description,
+            options: draft.options.map((o) => ({
+              title: o.title,
+              description: o.description,
+              isDefault: o.isDefault,
+              isRecommended: o.isRecommended,
+            })),
+          },
+          idempotencyKeyRef.current
+        )
         decisionId = id
         setDraft((prev) => ({ ...prev, id }))
       } else {
@@ -164,8 +195,14 @@ export function CreateDecisionWizard({
       onPublishSuccess?.(decisionId, clientLink)
       navigate(`/dashboard/projects/${projectId}/decisions/${decisionId}`)
     } catch (e) {
-      const msg = (e as { message?: string })?.message ?? 'Failed to publish'
-      setValidationErrors([{ message: msg }])
+      const err = e as { message?: string; details?: Array<{ field?: string; message: string }> }
+      const msg = err?.message ?? 'Failed to publish'
+      const details = err?.details ?? []
+      setValidationErrors(
+        details.length > 0
+          ? details.map((d) => ({ field: d.field, message: d.message }))
+          : [{ message: msg }]
+      )
       toast.error(msg)
     } finally {
       setIsPublishing(false)
@@ -179,7 +216,7 @@ export function CreateDecisionWizard({
     draft.recipients.filter((r) => r.contactEmail?.trim()).length > 0
 
   const goToStep = (s: number) => {
-    if (s >= 1 && s <= 4) setStep(s)
+    if (s >= 1 && s <= 5) setStep(s)
   }
 
   const handleStep1Continue = () => {
@@ -203,6 +240,7 @@ export function CreateDecisionWizard({
 
   const handleStep2Continue = () => goToStep(3)
   const handleStep3Continue = () => goToStep(4)
+  const handleStep4Continue = () => goToStep(5)
 
   const optionErrors = draft.options
     .map((o, i) => (!o.title?.trim() ? { optionIndex: i, message: 'Option title is required' } : null))
@@ -267,6 +305,13 @@ export function CreateDecisionWizard({
               />
             )}
             {step === 3 && (
+              <AttachmentsStep
+                attachments={draft.attachments ?? []}
+                onAttachmentsChange={(a) => setDraft((p) => ({ ...p, attachments: a }))}
+                onContinue={handleStep3Continue}
+              />
+            )}
+            {step === 4 && (
               <SettingsPanel
                 approvalDeadline={draft.approvalDeadline ?? ''}
                 reminders={draft.reminders}
@@ -276,11 +321,11 @@ export function CreateDecisionWizard({
                 onRemindersChange={(r) => setDraft((p) => ({ ...p, reminders: r }))}
                 onClientMustTypeNameChange={(v) => setDraft((p) => ({ ...p, clientMustTypeNameToConfirm: v }))}
                 onRecipientsChange={(r) => setDraft((p) => ({ ...p, recipients: r }))}
-                onContinue={handleStep3Continue}
+                onContinue={handleStep4Continue}
                 errors={validationErrors}
               />
             )}
-            {step === 4 && (
+            {step === 5 && (
               <PreviewPanel
                 decision={draft}
                 clientLink={draft.clientLink}
@@ -294,7 +339,7 @@ export function CreateDecisionWizard({
 
       <ActionBar
         step={step}
-        totalSteps={4}
+        totalSteps={5}
         onBack={() => goToStep(step - 1)}
         onSaveDraft={saveDraft}
         onPublish={handlePublish}

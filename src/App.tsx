@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/contexts/auth-context'
+import { ErrorProvider } from '@/contexts/error-context'
 import { DashboardRouteGuard } from '@/components/auth/dashboard-route-guard'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { AdminLayout } from '@/components/layout/admin-layout'
@@ -76,6 +77,7 @@ function App() {
       <GlobalErrorBoundary>
         <BrowserRouter>
           <ServerErrorGate>
+            <ErrorProvider>
             <AuthProvider>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
@@ -167,6 +169,7 @@ function App() {
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </AuthProvider>
+            </ErrorProvider>
           </ServerErrorGate>
         </BrowserRouter>
       </GlobalErrorBoundary>

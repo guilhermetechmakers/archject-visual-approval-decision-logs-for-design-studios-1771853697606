@@ -568,6 +568,29 @@ export function initDb() {
     }
     backfillSearchIndex()
   }
+
+  // 026: Idempotency keys for create decision, exports
+  const idempotencyPath = path.join(process.cwd(), 'server', 'migrations', '026_idempotency.sql')
+  if (fs.existsSync(idempotencyPath)) {
+    try {
+      const sql = fs.readFileSync(idempotencyPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+  }
 }
 
 function backfillSearchIndex() {

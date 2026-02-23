@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { db } from './db.js'
+import { sendValidationError } from './error-middleware.js'
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
 
@@ -74,10 +75,11 @@ decisionsRouter.get('/projects/:projectId/decisions', requireAuth, (req: Request
   res.json(decisions)
 })
 
-// POST /api/projects/:projectId/decisions - create draft decision
+// POST /api/projects/:projectId/decisions - create draft decision (idempotent with Idempotency-Key header)
 decisionsRouter.post('/projects/:projectId/decisions', requireAuth, (req: Request, res: Response) => {
   const userId = (req as Request & { userId: string }).userId
   const { projectId } = req.params
+  const idempotencyKey = req.get('Idempotency-Key')
   const { templateId, fromScratch, title, description, options } = req.body as {
     templateId?: string
     fromScratch?: boolean
@@ -86,8 +88,26 @@ decisionsRouter.post('/projects/:projectId/decisions', requireAuth, (req: Reques
     options?: { title: string; description?: string; isDefault?: boolean; isRecommended?: boolean }[]
   }
 
+  if (idempotencyKey) {
+    const cached = db.prepare(
+      'SELECT response_status, response_body FROM idempotency_keys WHERE id = ? AND user_id = ? AND endpoint = ?'
+    ).get(idempotencyKey, userId, `POST:/api/projects/${projectId}/decisions`) as { response_status: number; response_body: string } | undefined
+    if (cached) {
+      res.status(cached.response_status).json(JSON.parse(cached.response_body))
+      return
+    }
+  }
+
   const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
   if (!project) return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' })
+
+  const details: Array<{ field?: string; message: string; code?: string }> = []
+  if (!title?.trim?.()) details.push({ field: 'title', message: 'Decision title is required', code: 'REQUIRED' })
+  if (!options?.length) details.push({ field: 'options', message: 'Add at least one option', code: 'REQUIRED' })
+  if (details.length > 0) {
+    sendValidationError(res, req, 'Validation failed', details)
+    return
+  }
 
   const decisionId = crypto.randomUUID()
   const now = new Date().toISOString()
@@ -144,7 +164,17 @@ decisionsRouter.post('/projects/:projectId/decisions', requireAuth, (req: Reques
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(crypto.randomUUID(), decisionId, 'created', userId, now, JSON.stringify({ fromTemplate: !!templateId }))
 
-  res.status(201).json({ decisionId, status })
+  const responseBody = { decisionId, status }
+  if (idempotencyKey) {
+    try {
+      db.prepare(
+        'INSERT INTO idempotency_keys (id, user_id, endpoint, response_status, response_body) VALUES (?, ?, ?, ?, ?)'
+      ).run(idempotencyKey, userId, `POST:/api/projects/${projectId}/decisions`, 201, JSON.stringify(responseBody))
+    } catch {
+      // Ignore duplicate key - another request already stored it
+    }
+  }
+  res.status(201).json(responseBody)
 })
 
 // GET /api/projects/:projectId/decisions/:decisionId

@@ -110,9 +110,19 @@ export function ExportCompletion({
               <p className="mt-1 text-sm text-muted-foreground">
                 {error?.message ?? 'An unexpected error occurred.'}
               </p>
-              {error?.code && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Error code: {error.code}
+              {(error?.code || error?.correlationId || error?.trace_id) && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {error.code && <>Error code: {error.code}</>}
+                  {(error.code && (error.correlationId || error.trace_id)) && ' · '}
+                  {(error.correlationId || error.trace_id) && (
+                    <>
+                      Reference ID:{' '}
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
+                        {error.correlationId ?? error.trace_id}
+                      </code>
+                      {' — include when contacting support'}
+                    </>
+                  )}
                 </p>
               )}
             </div>

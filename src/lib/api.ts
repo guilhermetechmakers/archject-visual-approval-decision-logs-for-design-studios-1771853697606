@@ -5,11 +5,18 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
 
+/** Structured error response from backend: { code, message, details[], correlationId, retryable } */
 export interface ApiError {
   message: string
   code?: string
   status?: number
-  /** Response body for rate limit info etc. */
+  /** Field-level validation errors for UI mapping */
+  details?: Array<{ field?: string; message: string; code?: string }>
+  /** Correlation/incident ID for support reference */
+  correlationId?: string
+  /** Whether the operation can be retried (e.g. transient network/server error) */
+  retryable?: boolean
+  /** Full response body for rate limit info etc. */
   data?: Record<string, unknown>
 }
 
@@ -18,12 +25,16 @@ export async function handleResponse<T>(response: Response): Promise<T> {
     const error: ApiError = {
       message: response.statusText,
       status: response.status,
+      retryable: response.status >= 500 || response.status === 429,
     }
     try {
-      const data = await response.json()
-      error.message = data.message ?? data.error ?? response.statusText
-      error.code = data.code ?? data.error
-      error.data = data as Record<string, unknown>
+      const data = (await response.json()) as Record<string, unknown>
+      error.message = (data.message as string) ?? (data.error as string) ?? response.statusText
+      error.code = (data.code as string) ?? (data.error as string)
+      error.details = Array.isArray(data.details) ? (data.details as ApiError['details']) : undefined
+      error.correlationId = (data.correlationId as string) ?? (data.incidentId as string)
+      if (typeof data.retryable === 'boolean') error.retryable = data.retryable
+      error.data = data
     } catch {
       // Use statusText if JSON parse fails
     }
@@ -68,11 +79,17 @@ async function tryRefreshToken(): Promise<boolean> {
   return refreshPromise
 }
 
+export interface ApiFetchOptions extends RequestInit {
+  _skipRefresh?: boolean
+  /** Idempotency key for POST/PUT - prevents duplicate operations */
+  idempotencyKey?: string
+}
+
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit & { _skipRefresh?: boolean } = {}
+  options: ApiFetchOptions = {}
 ): Promise<T> {
-  const { _skipRefresh, ...fetchOptions } = options
+  const { _skipRefresh, idempotencyKey, ...fetchOptions } = options
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -82,6 +99,9 @@ export async function apiFetch<T>(
   const token = localStorage.getItem('auth_token')
   if (token) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
+  }
+  if (idempotencyKey) {
+    (headers as Record<string, string>)['Idempotency-Key'] = idempotencyKey
   }
 
   let response = await fetch(url, {
@@ -160,10 +180,18 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
 
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path, { method: 'GET' }),
-  post: <T>(path: string, body?: unknown) =>
-    apiFetch<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
-  put: <T>(path: string, body?: unknown) =>
-    apiFetch<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
+  post: <T>(path: string, body?: unknown, idempotencyKey?: string) =>
+    apiFetch<T>(path, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+      idempotencyKey,
+    }),
+  put: <T>(path: string, body?: unknown, idempotencyKey?: string) =>
+    apiFetch<T>(path, {
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+      idempotencyKey,
+    }),
   patch: <T>(path: string, body?: unknown) =>
     apiFetch<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),

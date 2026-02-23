@@ -30,6 +30,15 @@ export interface ReminderDraft {
   message?: string
 }
 
+export interface AttachmentDraft {
+  id: string
+  name: string
+  size?: number
+  previewUrl?: string
+  mimeType?: string
+  file?: File
+}
+
 export interface DraftDecision {
   id?: string
   projectId: string
@@ -39,6 +48,7 @@ export interface DraftDecision {
   fromScratch?: boolean
   status: 'draft' | 'published'
   options: DecisionOptionDraft[]
+  attachments?: AttachmentDraft[]
   approvalDeadline?: string
   reminders: ReminderDraft[]
   clientMustTypeNameToConfirm?: boolean
@@ -64,8 +74,16 @@ export async function getTemplates(): Promise<{ templates: DecisionTemplate[] }>
   return api.get<{ templates: DecisionTemplate[] }>('/templates')
 }
 
-export async function createDecision(projectId: string, payload: CreateDecisionPayload): Promise<{ decisionId: string; status: string }> {
-  return api.post<{ decisionId: string; status: string }>(`/projects/${projectId}/decisions`, payload)
+export async function createDecision(
+  projectId: string,
+  payload: CreateDecisionPayload,
+  idempotencyKey?: string
+): Promise<{ decisionId: string; status: string }> {
+  return api.post<{ decisionId: string; status: string }>(
+    `/projects/${projectId}/decisions`,
+    payload,
+    idempotencyKey
+  )
 }
 
 export async function getDecision(projectId: string, decisionId: string): Promise<DraftDecision> {

@@ -135,6 +135,15 @@ export function NotFound404Page() {
                     <SuggestionList attemptedPath={attemptedPath} />
                   </div>
 
+                  <div className="mt-4">
+                    <a
+                      href="/sitemap.xml"
+                      className="text-sm text-[#0052CC] underline-offset-4 hover:underline"
+                    >
+                      View sitemap
+                    </a>
+                  </div>
+
                   <div className="mt-8 flex flex-wrap gap-3">
                     <Link to={isAuth ? '/dashboard/overview' : '/'}>
                       <Button
@@ -164,6 +173,21 @@ export function NotFound404Page() {
                     >
                       Report broken link
                     </Button>
+                  </div>
+
+                  <div className="mt-6">
+                    <p className="mb-2 text-sm text-muted-foreground">
+                      <a
+                        href="/sitemap.xml"
+                        className="text-primary underline-offset-4 hover:underline"
+                      >
+                        View sitemap
+                      </a>
+                      {' · '}
+                      <Link to="/help" className="text-primary underline-offset-4 hover:underline">
+                        Help center
+                      </Link>
+                    </p>
                   </div>
 
                   <div className="mt-6">

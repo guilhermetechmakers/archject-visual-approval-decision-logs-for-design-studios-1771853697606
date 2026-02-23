@@ -8,6 +8,16 @@ function sanitize(str: unknown, maxLen: number): string | null {
   return s.length > 0 ? s.slice(0, maxLen) : null
 }
 
+/** Structured error response shape: { code, message, details[], correlationId, retryable } */
+export interface StructuredErrorResponse {
+  code: string
+  message: string
+  details?: Array<{ field?: string; message: string; code?: string }>
+  correlationId: string
+  incidentId?: string
+  retryable: boolean
+}
+
 /**
  * Assign X-Request-Id (correlationId) to each request.
  */
@@ -20,7 +30,7 @@ export function requestIdMiddleware(req: Request, _res: Response, next: NextFunc
 
 /**
  * Central error handler: catch unhandled exceptions, log with correlationId,
- * return standardized 500 response with incidentId.
+ * return standardized 500 response with incidentId, details, and retryable flag.
  */
 export function errorHandler(
   err: Error,
@@ -56,10 +66,41 @@ export function errorHandler(
     console.error('[ErrorMiddleware] Failed to persist error:', dbErr)
   }
 
-  res.status(500).json({
+  const payload: StructuredErrorResponse = {
     code: 'INTERNAL_ERROR',
-    message: 'An unexpected error occurred',
-    incidentId,
+    message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message,
     correlationId: requestId,
+    incidentId,
+    retryable: true,
+  }
+
+  res.status(500).json(payload)
+}
+
+/** Helper to send structured 400 validation error with field-level details */
+export function sendValidationError(
+  res: Response,
+  req: Request,
+  message: string,
+  details: Array<{ field?: string; message: string; code?: string }>
+): void {
+  const requestId = (req as Request & { requestId?: string }).requestId ?? crypto.randomUUID()
+  res.status(400).json({
+    code: 'VALIDATION_ERROR',
+    message,
+    details,
+    correlationId: requestId,
+    retryable: false,
+  })
+}
+
+/** Helper to send structured 404 */
+export function sendNotFound(res: Response, req: Request, message: string): void {
+  const requestId = (req as Request & { requestId?: string }).requestId ?? crypto.randomUUID()
+  res.status(404).json({
+    code: 'NOT_FOUND',
+    message,
+    correlationId: requestId,
+    retryable: false,
   })
 }
