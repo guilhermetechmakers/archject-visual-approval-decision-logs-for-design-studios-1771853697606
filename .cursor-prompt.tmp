@@ -1,0 +1,1566 @@
+⚠️ CRITICAL EXECUTION RULES - READ FIRST ⚠️
+❌ NEVER run: npm run dev, npm start, yarn dev, pnpm dev, or ANY development server
+❌ NEVER run: long-running processes, servers, or commands that don't exit
+❌ NEVER test the application by starting it
+✅ ALLOWED: npm install, npm run build, npm run test (if needed)
+✅ YOUR TASK: Create/modify files only, then STOP and EXIT immediately
+⚠️ The MCP server handles all testing and validation separately
+
+You are an expert full-stack developer proficient in TypeScript, React, Next.js, and modern UI/UX frameworks (Tailwind CSS, Shadcn UI, Radix UI).
+
+=== DESIGN REFERENCE (MANDATORY) ===
+# Modern Design Best Practices
+
+## Philosophy
+
+Create unique, memorable experiences while maintaining consistency through modern design principles. Every project should feel distinct yet professional, innovative yet intuitive.
+
+---
+
+## Landing Pages & Marketing Sites
+
+### Hero Sections
+**Go beyond static backgrounds:**
+- Animated gradients with subtle movement
+- Particle systems or geometric shapes floating
+- Interactive canvas backgrounds (Three.js, WebGL)
+- Video backgrounds with proper fallbacks
+- Parallax scrolling effects
+- Gradient mesh animations
+- Morphing blob animations
+
+
+### Layout Patterns
+**Use modern grid systems:**
+- Bento grids (asymmetric card layouts)
+- Masonry layouts for varied content
+- Feature sections with diagonal cuts or curves
+- Overlapping elements with proper z-index
+- Split-screen designs with scroll-triggered reveals
+
+**Avoid:** Traditional 3-column equal grids
+
+### Scroll Animations
+**Engage users as they scroll:**
+- Fade-in and slide-up animations for sections
+- Scroll-triggered parallax effects
+- Progress indicators for long pages
+- Sticky elements that transform on scroll
+- Horizontal scroll sections for portfolios
+- Text reveal animations (word by word, letter by letter)
+- Number counters animating into view
+
+**Avoid:** Static pages with no scroll interaction
+
+### Call-to-Action Areas
+**Make CTAs impossible to miss:**
+- Gradient buttons with hover effects
+- Floating action buttons with micro-interactions
+- Animated borders or glowing effects
+- Scale/lift on hover
+- Interactive elements that respond to mouse position
+- Pulsing indicators for primary actions
+
+---
+
+## Dashboard Applications
+
+### Layout Structure
+**Always use collapsible side navigation:**
+- Sidebar that can collapse to icons only
+- Smooth transition animations between states
+- Persistent navigation state (remember user preference)
+- Mobile: drawer that slides in/out
+- Desktop: sidebar with expand/collapse toggle
+- Icons visible even when collapsed
+
+**Structure:**
+```
+/dashboard (layout wrapper with sidebar)
+  /dashboard/overview
+  /dashboard/analytics
+  /dashboard/settings
+  /dashboard/users
+  /dashboard/projects
+```
+
+All dashboard pages should be nested inside the dashboard layout, not separate routes.
+
+### Data Tables
+**Modern table design:**
+- Sticky headers on scroll
+- Row hover states with subtle elevation
+- Sortable columns with clear indicators
+- Pagination with items-per-page control
+- Search/filter with instant feedback
+- Selection checkboxes with bulk actions
+- Responsive: cards on mobile, table on desktop
+- Loading skeletons, not spinners
+- Empty states with illustrations or helpful text
+
+**Use modern table libraries:**
+- TanStack Table (React Table v8)
+- AG Grid for complex data
+- Data Grid from MUI (if using MUI)
+
+### Charts & Visualizations
+**Use the latest charting libraries:**
+- Recharts (for React, simple charts)
+- Chart.js v4 (versatile, well-maintained)
+- Apache ECharts (advanced, interactive)
+- D3.js (custom, complex visualizations)
+- Tremor (for dashboards, built on Recharts)
+
+**Chart best practices:**
+- Animated transitions when data changes
+- Interactive tooltips with detailed info
+- Responsive sizing
+- Color scheme matching design system
+- Legend placement that doesn't obstruct data
+- Loading states while fetching data
+
+### Dashboard Cards
+**Metric cards should stand out:**
+- Gradient backgrounds or colored accents
+- Trend indicators (↑ ↓ with color coding)
+- Sparkline charts for historical data
+- Hover effects revealing more detail
+- Icon representing the metric
+- Comparison to previous period
+
+---
+
+## Color & Visual Design
+
+### Color Palettes
+**Create depth with gradients:**
+- Primary gradient (not just solid primary color)
+- Subtle background gradients
+- Gradient text for headings
+- Gradient borders on cards
+- Elevated surfaces for depth
+
+**Color usage:**
+- 60-30-10 rule (dominant, secondary, accent)
+- Consistent semantic colors (success, warning, error)
+- Accessible contrast ratios (WCAG AA minimum)
+
+### Typography
+**Create hierarchy through contrast:**
+- Large, bold headings (48-72px for heroes)
+- Clear size differences between levels
+- Variable font weights (300, 400, 600, 700)
+- Letter spacing for small caps
+- Line height 1.5-1.7 for body text
+- Inter, Poppins, or DM Sans for modern feel
+
+### Shadows & Depth
+**Layer UI elements:**
+- Multi-layer shadows for realistic depth
+- Colored shadows matching element color
+- Elevated states on hover
+- Neumorphism for special elements (sparingly)
+
+---
+
+## Interactions & Micro-animations
+
+### Button Interactions
+**Every button should react:**
+- Scale slightly on hover (1.02-1.05)
+- Lift with shadow on hover
+- Ripple effect on click
+- Loading state with spinner or progress
+- Disabled state clearly visible
+- Success state with checkmark animation
+
+### Card Interactions
+**Make cards feel alive:**
+- Lift on hover with increased shadow
+- Subtle border glow on hover
+- Tilt effect following mouse (3D transform)
+- Smooth transitions (200-300ms)
+- Click feedback for interactive cards
+
+### Form Interactions
+**Guide users through forms:**
+- Input focus states with border color change
+- Floating labels that animate up
+- Real-time validation with inline messages
+- Success checkmarks for valid inputs
+- Error states with shake animation
+- Password strength indicators
+- Character count for text areas
+
+### Page Transitions
+**Smooth between views:**
+- Fade + slide for page changes
+- Skeleton loaders during data fetch
+- Optimistic UI updates
+- Stagger animations for lists
+- Route transition animations
+
+---
+
+## Mobile Responsiveness
+
+### Mobile-First Approach
+**Design for mobile, enhance for desktop:**
+- Touch targets minimum 44x44px
+- Generous padding and spacing
+- Sticky bottom navigation on mobile
+- Collapsible sections for long content
+- Swipeable cards and galleries
+- Pull-to-refresh where appropriate
+
+### Responsive Patterns
+**Adapt layouts intelligently:**
+- Hamburger menu → full nav bar
+- Card grid → stack on mobile
+- Sidebar → drawer
+- Multi-column → single column
+- Data tables → card list
+- Hide/show elements based on viewport
+
+---
+
+## Loading & Empty States
+
+### Loading States
+**Never leave users wondering:**
+- Skeleton screens matching content layout
+- Progress bars for known durations
+- Animated placeholders
+- Spinners only for short waits (<3s)
+- Stagger loading for multiple elements
+- Shimmer effects on skeletons
+
+### Empty States
+**Make empty states helpful:**
+- Illustrations or icons
+- Helpful copy explaining why it's empty
+- Clear CTA to add first item
+- Examples or suggestions
+- No "no data" text alone
+
+---
+
+## Unique Elements to Stand Out
+
+### Distinctive Features
+**Add personality:**
+- Custom cursor effects on landing pages
+- Animated page numbers or section indicators
+- Unusual hover effects (magnification, distortion)
+- Custom scrollbars
+- Glassmorphism for overlays
+- Animated SVG icons
+- Typewriter effects for hero text
+- Confetti or celebration animations for actions
+
+### Interactive Elements
+**Engage users:**
+- Drag-and-drop interfaces
+- Sliders and range controls
+- Toggle switches with animations
+- Progress steps with animations
+- Expandable/collapsible sections
+- Tabs with slide indicators
+- Image comparison sliders
+- Interactive demos or playgrounds
+
+---
+
+## Consistency Rules
+
+### Maintain Consistency
+**What should stay consistent:**
+- Spacing scale (4px, 8px, 16px, 24px, 32px, 48px, 64px)
+- Border radius values
+- Animation timing (200ms, 300ms, 500ms)
+- Color system (primary, secondary, accent, neutrals)
+- Typography scale
+- Icon style (outline vs filled)
+- Button styles across the app
+- Form element styles
+
+### What Can Vary
+**Project-specific customization:**
+- Color palette (different colors, same system)
+- Layout creativity (grids, asymmetry)
+- Illustration style
+- Animation personality
+- Feature-specific interactions
+- Hero section design
+- Card styling variations
+- Background patterns or textures
+
+---
+
+## Technical Excellence
+
+### Performance
+- Optimize images (WebP, lazy loading)
+- Code splitting for faster loads
+- Debounce search inputs
+- Virtualize long lists
+- Minimize re-renders
+- Use proper memoization
+
+### Accessibility
+- Keyboard navigation throughout
+- ARIA labels where needed
+- Focus indicators visible
+- Screen reader friendly
+- Sufficient color contrast
+- Respect reduced motion preferences
+
+---
+
+## Key Principles
+
+1. **Be Bold** - Don't be afraid to try unique layouts and interactions
+2. **Be Consistent** - Use the same patterns for similar functions
+3. **Be Responsive** - Design works beautifully on all devices
+4. **Be Fast** - Animations are smooth, loading is quick
+5. **Be Accessible** - Everyone can use what you build
+6. **Be Modern** - Use current design trends and technologies
+7. **Be Unique** - Each project should have its own personality
+8. **Be Intuitive** - Users shouldn't need instructions
+
+
+---
+
+# Project-Specific Customizations
+
+**IMPORTANT: This section contains the specific design requirements for THIS project. The guidelines above are universal best practices - these customizations below take precedence for project-specific decisions.**
+
+## User Design Requirements
+
+color, typography, spacing, component behavior, and responsive rules
+- [ ] All endpoints include appropriate error handling and return user-friendly messages; loading and error states are visible
+- [ ] Accessible (ARIA), keyboard-navigable, and mobile-responsive with proper focus handling
+
+## UI/UX Guidelines
+Apply the project's design system:
+- Maintain 12-column grid, 24–32px gutters, generous whitespace
+- Card-based sections with subtle shadows and borders
+- Left sidebar navigation with active state cues and collapsible folders
+- Topbar with clean separation and minimal border
+- Interactive elements: primary actions in #0052CC, secondary actions with outline/ghost styling
+- Status indicators with color semantics: success (#10B981), warning (#F59E42), error (#EF4444)
+- Data visualization: minimal or non-prominent; if used, keep it subtle and accessible
+- Ensure consistent typography: Inter or similar, 28px H1, 22px H2, 18px H3, body 15–16px
+
+---
+
+## Visual Style
+
+### Color Palette:
+- Primary background: #F7F7F9
+- Secondary background: #FFFFFF
+- Accent color: #0052CC
+- Neutral grays: #E5E7EB, #D1D5DB, #6B7280, #111827
+- Status colors: #10B981, #F59E42, #EF4444
+
+### Typography & Layout:
+- Font family: Inter or equivalent geometric sans-serif
+- Headings: H1 ~28px, H2 ~22px, H3 ~18px; font-weight 600–700
+- Body: 15–16px, 1.5x line-height
+- Layout: 12-column grid with 24–32px gutters/padding
+- Alignment: Left-aligned text, ample whitespace
+
+### Key Design Elements
+
+#### Card Design:
+- White cards, subtle shadow, 8–12px radius
+- Thin borders (#E5E7EB) for dividers
+- Hover state: mild elevation or tint
+
+#### Navigation:
+- Sidebar: permanent left, #F5F6FA, active highlight
+- Icons: monochrome, 6B7280; active state filled/colored
+- Top bar: white with bottom border
+
+#### Data Visualization:
+- Minimal charts if present; otherwise rely on crisp, legible text and icons
+- Status pills/dots in appropriate colors
+
+#### Interactive Elements:
+- Buttons: Primary #0052CC with white text; secondary ghost/outline
+- Form fields: rounded, borders #D1D5DB, focus ring
+- Search: full-width, rounded with left icon
+- Micro-interactions: smooth transitions on hover/focus
+
+### Design Philosophy
+- Modern, minimalist, calm, and professional
+- Emphasize clarity, simplicity, and quick scanning
+- Minimize cognitive load; provide a frictionless, inviting environment
+- Data/readability-first with structured visual hierarchy
+
+---
+
+Connected Pages:
+- Settings & Team Management: Branding, branding emails, team roles, subscription, integrations
+- Dashboard: Studio landing after login with project summaries, decisions, approvals, quick actions
+
+Connected Features:
+- User Profile Management, Session Management & Security, Password Management & Reset, 2FA, User Authentication (Signup / Login)
+
+---
+
+Note to AI development tool:
+- Use modular, reusable components with clear prop contracts
+- Provide mocks and storybook-ish examples for each component
+- Include unit tests scaffolding for critical flows (profile update, 2FA enable, session revoke, password reset)
+- Ensure localization-ready strings and accessibility hooks (aria-labels, aria-live regions)
+- Document API contracts in a separate spec with request/response examples and error schemas
+
+Generate the complete, detailed prompt now based on the above specifications.
+
+## Implementation Notes
+
+When implementing this project:
+
+1. **Follow Universal Guidelines**: Use the design best practices documented above as your foundation
+2. **Apply Project Customizations**: Implement the specific design requirements stated in the "User Design Requirements" section
+3. **Priority Order**: Project-specific requirements override universal guidelines when there's a conflict
+4. **Color System**: Extract and implement color values as CSS custom properties in RGB format
+5. **Typography**: Define font families, sizes, and weights based on specifications
+6. **Spacing**: Establish consistent spacing scale following the design system
+7. **Components**: Style all Shadcn components to match the design aesthetic
+8. **Animations**: Use Motion library for transitions matching the design personality
+9. **Responsive Design**: Ensure mobile-first responsive implementation
+
+## Implementation Checklist
+
+- [ ] Review universal design guidelines above
+- [ ] Extract project-specific color palette and define CSS variables
+- [ ] Configure Tailwind theme with custom colors
+- [ ] Set up typography system (fonts, sizes, weights)
+- [ ] Define spacing and sizing scales
+- [ ] Create component variants matching design
+- [ ] Implement responsive breakpoints
+- [ ] Add animations and transitions
+- [ ] Ensure accessibility standards
+- [ ] Validate against user design requirements
+
+---
+
+**Remember: Always reference this file for design decisions. Do not use generic or placeholder designs.**
+
+
+*IMPORTANT*: For every page or component refer to # Modern Design Best Practices
+
+## Philosophy
+
+Create unique, memorable experiences while maintaining consistency through modern design principles. Every project should feel distinct yet professional, innovative yet intuitive.
+
+---
+
+## Landing Pages & Marketing Sites
+
+### Hero Sections
+**Go beyond static backgrounds:**
+- Animated gradients with subtle movement
+- Particle systems or geometric shapes floating
+- Interactive canvas backgrounds (Three.js, WebGL)
+- Video backgrounds with proper fallbacks
+- Parallax scrolling effects
+- Gradient mesh animations
+- Morphing blob animations
+
+
+### Layout Patterns
+**Use modern grid systems:**
+- Bento grids (asymmetric card layouts)
+- Masonry layouts for varied content
+- Feature sections with diagonal cuts or curves
+- Overlapping elements with proper z-index
+- Split-screen designs with scroll-triggered reveals
+
+**Avoid:** Traditional 3-column equal grids
+
+### Scroll Animations
+**Engage users as they scroll:**
+- Fade-in and slide-up animations for sections
+- Scroll-triggered parallax effects
+- Progress indicators for long pages
+- Sticky elements that transform on scroll
+- Horizontal scroll sections for portfolios
+- Text reveal animations (word by word, letter by letter)
+- Number counters animating into view
+
+**Avoid:** Static pages with no scroll interaction
+
+### Call-to-Action Areas
+**Make CTAs impossible to miss:**
+- Gradient buttons with hover effects
+- Floating action buttons with micro-interactions
+- Animated borders or glowing effects
+- Scale/lift on hover
+- Interactive elements that respond to mouse position
+- Pulsing indicators for primary actions
+
+---
+
+## Dashboard Applications
+
+### Layout Structure
+**Always use collapsible side navigation:**
+- Sidebar that can collapse to icons only
+- Smooth transition animations between states
+- Persistent navigation state (remember user preference)
+- Mobile: drawer that slides in/out
+- Desktop: sidebar with expand/collapse toggle
+- Icons visible even when collapsed
+
+**Structure:**
+```
+/dashboard (layout wrapper with sidebar)
+  /dashboard/overview
+  /dashboard/analytics
+  /dashboard/settings
+  /dashboard/users
+  /dashboard/projects
+```
+
+All dashboard pages should be nested inside the dashboard layout, not separate routes.
+
+### Data Tables
+**Modern table design:**
+- Sticky headers on scroll
+- Row hover states with subtle elevation
+- Sortable columns with clear indicators
+- Pagination with items-per-page control
+- Search/filter with instant feedback
+- Selection checkboxes with bulk actions
+- Responsive: cards on mobile, table on desktop
+- Loading skeletons, not spinners
+- Empty states with illustrations or helpful text
+
+**Use modern table libraries:**
+- TanStack Table (React Table v8)
+- AG Grid for complex data
+- Data Grid from MUI (if using MUI)
+
+### Charts & Visualizations
+**Use the latest charting libraries:**
+- Recharts (for React, simple charts)
+- Chart.js v4 (versatile, well-maintained)
+- Apache ECharts (advanced, interactive)
+- D3.js (custom, complex visualizations)
+- Tremor (for dashboards, built on Recharts)
+
+**Chart best practices:**
+- Animated transitions when data changes
+- Interactive tooltips with detailed info
+- Responsive sizing
+- Color scheme matching design system
+- Legend placement that doesn't obstruct data
+- Loading states while fetching data
+
+### Dashboard Cards
+**Metric cards should stand out:**
+- Gradient backgrounds or colored accents
+- Trend indicators (↑ ↓ with color coding)
+- Sparkline charts for historical data
+- Hover effects revealing more detail
+- Icon representing the metric
+- Comparison to previous period
+
+---
+
+## Color & Visual Design
+
+### Color Palettes
+**Create depth with gradients:**
+- Primary gradient (not just solid primary color)
+- Subtle background gradients
+- Gradient text for headings
+- Gradient borders on cards
+- Elevated surfaces for depth
+
+**Color usage:**
+- 60-30-10 rule (dominant, secondary, accent)
+- Consistent semantic colors (success, warning, error)
+- Accessible contrast ratios (WCAG AA minimum)
+
+### Typography
+**Create hierarchy through contrast:**
+- Large, bold headings (48-72px for heroes)
+- Clear size differences between levels
+- Variable font weights (300, 400, 600, 700)
+- Letter spacing for small caps
+- Line height 1.5-1.7 for body text
+- Inter, Poppins, or DM Sans for modern feel
+
+### Shadows & Depth
+**Layer UI elements:**
+- Multi-layer shadows for realistic depth
+- Colored shadows matching element color
+- Elevated states on hover
+- Neumorphism for special elements (sparingly)
+
+---
+
+## Interactions & Micro-animations
+
+### Button Interactions
+**Every button should react:**
+- Scale slightly on hover (1.02-1.05)
+- Lift with shadow on hover
+- Ripple effect on click
+- Loading state with spinner or progress
+- Disabled state clearly visible
+- Success state with checkmark animation
+
+### Card Interactions
+**Make cards feel alive:**
+- Lift on hover with increased shadow
+- Subtle border glow on hover
+- Tilt effect following mouse (3D transform)
+- Smooth transitions (200-300ms)
+- Click feedback for interactive cards
+
+### Form Interactions
+**Guide users through forms:**
+- Input focus states with border color change
+- Floating labels that animate up
+- Real-time validation with inline messages
+- Success checkmarks for valid inputs
+- Error states with shake animation
+- Password strength indicators
+- Character count for text areas
+
+### Page Transitions
+**Smooth between views:**
+- Fade + slide for page changes
+- Skeleton loaders during data fetch
+- Optimistic UI updates
+- Stagger animations for lists
+- Route transition animations
+
+---
+
+## Mobile Responsiveness
+
+### Mobile-First Approach
+**Design for mobile, enhance for desktop:**
+- Touch targets minimum 44x44px
+- Generous padding and spacing
+- Sticky bottom navigation on mobile
+- Collapsible sections for long content
+- Swipeable cards and galleries
+- Pull-to-refresh where appropriate
+
+### Responsive Patterns
+**Adapt layouts intelligently:**
+- Hamburger menu → full nav bar
+- Card grid → stack on mobile
+- Sidebar → drawer
+- Multi-column → single column
+- Data tables → card list
+- Hide/show elements based on viewport
+
+---
+
+## Loading & Empty States
+
+### Loading States
+**Never leave users wondering:**
+- Skeleton screens matching content layout
+- Progress bars for known durations
+- Animated placeholders
+- Spinners only for short waits (<3s)
+- Stagger loading for multiple elements
+- Shimmer effects on skeletons
+
+### Empty States
+**Make empty states helpful:**
+- Illustrations or icons
+- Helpful copy explaining why it's empty
+- Clear CTA to add first item
+- Examples or suggestions
+- No "no data" text alone
+
+---
+
+## Unique Elements to Stand Out
+
+### Distinctive Features
+**Add personality:**
+- Custom cursor effects on landing pages
+- Animated page numbers or section indicators
+- Unusual hover effects (magnification, distortion)
+- Custom scrollbars
+- Glassmorphism for overlays
+- Animated SVG icons
+- Typewriter effects for hero text
+- Confetti or celebration animations for actions
+
+### Interactive Elements
+**Engage users:**
+- Drag-and-drop interfaces
+- Sliders and range controls
+- Toggle switches with animations
+- Progress steps with animations
+- Expandable/collapsible sections
+- Tabs with slide indicators
+- Image comparison sliders
+- Interactive demos or playgrounds
+
+---
+
+## Consistency Rules
+
+### Maintain Consistency
+**What should stay consistent:**
+- Spacing scale (4px, 8px, 16px, 24px, 32px, 48px, 64px)
+- Border radius values
+- Animation timing (200ms, 300ms, 500ms)
+- Color system (primary, secondary, accent, neutrals)
+- Typography scale
+- Icon style (outline vs filled)
+- Button styles across the app
+- Form element styles
+
+### What Can Vary
+**Project-specific customization:**
+- Color palette (different colors, same system)
+- Layout creativity (grids, asymmetry)
+- Illustration style
+- Animation personality
+- Feature-specific interactions
+- Hero section design
+- Card styling variations
+- Background patterns or textures
+
+---
+
+## Technical Excellence
+
+### Performance
+- Optimize images (WebP, lazy loading)
+- Code splitting for faster loads
+- Debounce search inputs
+- Virtualize long lists
+- Minimize re-renders
+- Use proper memoization
+
+### Accessibility
+- Keyboard navigation throughout
+- ARIA labels where needed
+- Focus indicators visible
+- Screen reader friendly
+- Sufficient color contrast
+- Respect reduced motion preferences
+
+---
+
+## Key Principles
+
+1. **Be Bold** - Don't be afraid to try unique layouts and interactions
+2. **Be Consistent** - Use the same patterns for similar functions
+3. **Be Responsive** - Design works beautifully on all devices
+4. **Be Fast** - Animations are smooth, loading is quick
+5. **Be Accessible** - Everyone can use what you build
+6. **Be Modern** - Use current design trends and technologies
+7. **Be Unique** - Each project should have its own personality
+8. **Be Intuitive** - Users shouldn't need instructions
+
+
+---
+
+# Project-Specific Customizations
+
+**IMPORTANT: This section contains the specific design requirements for THIS project. The guidelines above are universal best practices - these customizations below take precedence for project-specific decisions.**
+
+## User Design Requirements
+
+color, typography, spacing, component behavior, and responsive rules
+- [ ] All endpoints include appropriate error handling and return user-friendly messages; loading and error states are visible
+- [ ] Accessible (ARIA), keyboard-navigable, and mobile-responsive with proper focus handling
+
+## UI/UX Guidelines
+Apply the project's design system:
+- Maintain 12-column grid, 24–32px gutters, generous whitespace
+- Card-based sections with subtle shadows and borders
+- Left sidebar navigation with active state cues and collapsible folders
+- Topbar with clean separation and minimal border
+- Interactive elements: primary actions in #0052CC, secondary actions with outline/ghost styling
+- Status indicators with color semantics: success (#10B981), warning (#F59E42), error (#EF4444)
+- Data visualization: minimal or non-prominent; if used, keep it subtle and accessible
+- Ensure consistent typography: Inter or similar, 28px H1, 22px H2, 18px H3, body 15–16px
+
+---
+
+## Visual Style
+
+### Color Palette:
+- Primary background: #F7F7F9
+- Secondary background: #FFFFFF
+- Accent color: #0052CC
+- Neutral grays: #E5E7EB, #D1D5DB, #6B7280, #111827
+- Status colors: #10B981, #F59E42, #EF4444
+
+### Typography & Layout:
+- Font family: Inter or equivalent geometric sans-serif
+- Headings: H1 ~28px, H2 ~22px, H3 ~18px; font-weight 600–700
+- Body: 15–16px, 1.5x line-height
+- Layout: 12-column grid with 24–32px gutters/padding
+- Alignment: Left-aligned text, ample whitespace
+
+### Key Design Elements
+
+#### Card Design:
+- White cards, subtle shadow, 8–12px radius
+- Thin borders (#E5E7EB) for dividers
+- Hover state: mild elevation or tint
+
+#### Navigation:
+- Sidebar: permanent left, #F5F6FA, active highlight
+- Icons: monochrome, 6B7280; active state filled/colored
+- Top bar: white with bottom border
+
+#### Data Visualization:
+- Minimal charts if present; otherwise rely on crisp, legible text and icons
+- Status pills/dots in appropriate colors
+
+#### Interactive Elements:
+- Buttons: Primary #0052CC with white text; secondary ghost/outline
+- Form fields: rounded, borders #D1D5DB, focus ring
+- Search: full-width, rounded with left icon
+- Micro-interactions: smooth transitions on hover/focus
+
+### Design Philosophy
+- Modern, minimalist, calm, and professional
+- Emphasize clarity, simplicity, and quick scanning
+- Minimize cognitive load; provide a frictionless, inviting environment
+- Data/readability-first with structured visual hierarchy
+
+---
+
+Connected Pages:
+- Settings & Team Management: Branding, branding emails, team roles, subscription, integrations
+- Dashboard: Studio landing after login with project summaries, decisions, approvals, quick actions
+
+Connected Features:
+- User Profile Management, Session Management & Security, Password Management & Reset, 2FA, User Authentication (Signup / Login)
+
+---
+
+Note to AI development tool:
+- Use modular, reusable components with clear prop contracts
+- Provide mocks and storybook-ish examples for each component
+- Include unit tests scaffolding for critical flows (profile update, 2FA enable, session revoke, password reset)
+- Ensure localization-ready strings and accessibility hooks (aria-labels, aria-live regions)
+- Document API contracts in a separate spec with request/response examples and error schemas
+
+Generate the complete, detailed prompt now based on the above specifications.
+
+## Implementation Notes
+
+When implementing this project:
+
+1. **Follow Universal Guidelines**: Use the design best practices documented above as your foundation
+2. **Apply Project Customizations**: Implement the specific design requirements stated in the "User Design Requirements" section
+3. **Priority Order**: Project-specific requirements override universal guidelines when there's a conflict
+4. **Color System**: Extract and implement color values as CSS custom properties in RGB format
+5. **Typography**: Define font families, sizes, and weights based on specifications
+6. **Spacing**: Establish consistent spacing scale following the design system
+7. **Components**: Style all Shadcn components to match the design aesthetic
+8. **Animations**: Use Motion library for transitions matching the design personality
+9. **Responsive Design**: Ensure mobile-first responsive implementation
+
+## Implementation Checklist
+
+- [ ] Review universal design guidelines above
+- [ ] Extract project-specific color palette and define CSS variables
+- [ ] Configure Tailwind theme with custom colors
+- [ ] Set up typography system (fonts, sizes, weights)
+- [ ] Define spacing and sizing scales
+- [ ] Create component variants matching design
+- [ ] Implement responsive breakpoints
+- [ ] Add animations and transitions
+- [ ] Ensure accessibility standards
+- [ ] Validate against user design requirements
+
+---
+
+**Remember: Always reference this file for design decisions. Do not use generic or placeholder designs.**
+ for bestpractices and # Error Handling & Validation
+
+## Overview
+Implement a centralized, user-friendly error handling and validation system across the Archject platform. This includes client-side and server-side validation with graceful recovery UX, a global error handling mechanism on the backend (structured error responses and Sentry integration), robust retry/idempotency patterns for long-running operations, dedicated 404/500 pages, and integrated logging/reporting for observability. The feature underpins all associated pages (page_404, page_500, page_create_decision, page_exports) and supports a reliable export pipeline (PDF/CSV) with signed PDFs for legal use.
+
+---
+
+## Components to Build
+
+- Centralized Error Handling System
+  - Frontend: Global error boundary, toast/inline error messaging, validation helpers, failure recovery UI, retry controls
+  - Backend: Middleware for structured error shapes, error codes, and correlation IDs; Sentry integration hooks
+- Validation Framework
+  - Client-side validation rules with live feedback; server-side fallback validation
+  - Reusable validators for forms (Decision creation, Exports, Reminders, Attachments)
+- Retry & Idempotency Layer
+  - Mechanisms for long-running operations (e.g., export generation, decision package assembly) with exponential backoff, JIT retries, and idempotent endpoints
+- 404 / 500 Pages
+  - Fully styled, branded error pages with actionable guidance and navigation
+- Create Decision Page
+  - Multi-step flow (modal or page): template vs. custom, add options, attach images/drawings, designate client recipients, and configure reminder schedule
+  - Real-time validation, progress tracking, autosave, and failure recovery
+- Exports & Decision Logs
+  - Generate downloadable packs: PDF/CSV Decision Logs, export history, and signed PDFs
+  - Export pipeline with status polling, integrity checks, and error reporting
+- Logging & Observability
+  - Sentry integration for frontend and backend; structured error payloads; correlation IDs across requests
+- Security & Compliance
+  - Secure error disclosure (never reveal sensitive server details to users); authenticated/authorized access for exports; audit trails
+
+---
+
+## Implementation Requirements
+
+### Frontend
+
+- Global Error Handling
+  - Implement an ErrorBoundary component to catch uncaught runtime errors
+  - Centralized error store (Redux/Context) with current error, status, and retry option
+  - Toast/inline error notifications with actionable content and dismissal rules
+  - Retry button states for recoverable errors (network loss, transient server error)
+
+- Validation UI
+  - Field-level validation: show inline messages, icons, and helper text
+  - Global validation rules module shared across forms (Decision creation, Exports)
+  - Fallback to server-side validation on mismatch or latency
+
+- Failure Recovery UI
+  - Persistent, non-destructive error panels; allow users to retry or pause long operations
+  - Clear messaging with suggested user actions and contact/support flow
+  - Correlation ID display for support reference
+
+- 404 and 500 Pages
+  - Page_404: user-friendly nudge with search, sitemap suggestions, and main navigation
+  - Page_500: explanation of server error, support contact, and a retry option
+
+- Create Decision Page
+  - Multi-step flow (Step 1: Template vs Custom; Step 2: Options; Step 3: Attachments; Step 4: Recipients; Step 5: Reminders)
+  - Live validation at each step; autosave draft state locally and remotely
+  - Image/drawing attachments with drag-and-drop, previews, and size/type restrictions
+  - Recipient selection with access controls and opt-in reminders
+  - Reminder schedule builder with validation (dates, cadence, time zones) and conflict checks
+  - Real-time progress indicator and ability to resume if an error occurs
+
+- Exports & Decision Logs UI
+  - Export panel to configure PDF/CSV exports; select fields, date ranges, and filters
+  - Show export history with statuses (queued, processing, completed, failed)
+  - Initiate signed PDF option for legal use; present certificate and signer details if applicable
+
+- API Integration
+  - Consistent error shapes consumed by UI; display user-friendly messages
+  - Sentry error capture hooks on client-side for session-based contexts
+
+---
+
+### Backend
+
+- API Design
+  - Structured error responses: { code, message, details[], correlationId, retryable }
+  - Global error handling middleware to map exceptions to appropriate HTTP status codes
+  - Validation middleware to enforce data integrity before business logic
+
+- Validation
+  - Server-side validators for all relevant endpoints (Decision creation, Exports)
+  - Return precise field-level errors with pointers to UI fields
+
+- Retry & Idempotency
+  - Idempotent endpoints for long-running tasks (e.g., create decision request with client-provided idempotency key)
+  - Backoff strategy configurable (exponential backoff with jitter)
+  - Background job queue integration for export generation, with status tracking
+
+- 404/500 Pages & Logging
+  - Infrastructure to return structured 404/500 responses when appropriate
+  - Sentry integration for error capture; attach correlation IDs
+  - Logging of failed operations with sufficient context for debugging
+
+- Exports & PDFs
+  - Export service to generate PDF/CSV decision logs; support for signed PDFs
+  - Validation of export requests; ensure data provenance and tamper-evidence
+  - Store export artifacts with metadata (user, project, decision IDs, timestamps)
+
+- Security & Compliance
+  - Authentication checks for export generation and access control to decisions
+  - Avoid leaking internal stack traces; sanitize error messages in production
+  - Ensure data ownership and export rights are enforced per project roles
+
+---
+
+### Integration
+
+- Error Handling Orchestration
+  - UI receives structured errors from backend; display friendly messages
+  - Global error boundary logs errors to Sentry and surfaces actionable UI
+  - All API calls wrap error handling to map to user-friendly messages and retry options
+
+- Validation Flow
+  - Client-side validation runs first; on server error, server-side validation errors map back to UI field errors
+  - Validation results persist in local draft when network is offline, then re-sync on reconnect
+
+- Create Decision Page Integration
+  - Stepper UI consumes validation schemas; on submit, call create decision API
+  - Attachments upload flow ties into backend storage with progress and retry on failure
+
+- Exports Integration
+  - UI triggers export requests; backend enqueues jobs; frontend polls job status
+  - On completion, provide download links; if signed PDFs are required, present digital signature data
+
+---
+
+## User Experience Flow
+
+1) User navigates to Create Decision page
+   - Chooses between a template or a custom decision
+   - Validation runs for required fields (title, template selection, at least one option)
+
+2) User adds decision options
+   - Add, reorder, and modify options; validations for option names, descriptions, and visuals
+
+3) User attaches images/drawings
+   - Drag-and-drop or file picker; previews; constrained formats/sizes; upload progress shown
+
+4) User configures recipients and reminders
+   - Select client recipients; set reminder schedule with time zone awareness
+   - Validation ensures valid dates and non-conflicting reminders
+
+5) User reviews and saves draft
+   - Auto-save local draft; network occurrence triggers remote save; errors surface non-destructively
+
+6) User submits decision
+   - Server validates, creates decision, and triggers notification workflow
+   - On server error, UI shows friendly error with retry
+
+7) User accesses Exports & Decision Logs
+   - Configure export (PDF/CSV), select fields, and initiate export
+   - Export status appears; upon completion, download signed PDF if enabled
+   - If export fails, show error with retry and support guidance
+
+8) Error scenarios
+   - Network outage: inline error with retry, auto-resume when online
+   - Server error: 500 page or in-context error toast with retry
+   - Not found: 404 page with navigational guidance
+
+---
+
+## Technical Specifications
+
+- Data Models: 
+  - Decision: { id, projectId, title, templateId, options: [{id, name, description, imageUrl, order}], attachments: [{id, url, type, size}], recipients: [{userId, role, status}], reminders: [{id, date, time, cadence}], status, createdAt, updatedAt, signedPdfUrl }
+  - Option: { id, name, description, imageUrl, order }
+  - Attachment: { id, url, type, size, uploadedAt }
+  - Recipient: { userId, email, role, status }
+  - Reminder: { id, date, time, cadence, timezone, sent }
+  - ExportLog: { id, type, status, createdAt, completedAt, fileUrl, correlationId }
+  - ErrorLog (internal): { id, message, code, correlationId, stack }
+
+- API Endpoints:
+  - POST /api/decisions (idempotent with Idempotency-Key header)
+  - GET /api/decisions/{id}
+  - PUT /api/decisions/{id}
+  - POST /api/decisions/{id}/attachments
+  - POST /api/exports/decision-logs
+  - GET /api/exports/{exportId}
+  - GET /api/pages/health
+  - Middleware: error-handler, validation, authentication, authorization
+
+- Security
+  - OAuth2/JWT-based authentication
+  - Role-based access: viewer, editor, admin; client recipients have limited view/edit rights
+  - CSRF protection for state-changing requests
+  - Secrets management and least-privilege for export signing service
+
+- Validation
+  - Client-side: required fields, max lengths, file type/size restrictions, date-time formats, time zones
+  - Server-side: same rules, return field-level errors: { field, message, code }
+
+- Logging & Observability
+  - Sentry integration for frontend and backend
+  - Structured logs with correlationId for cross-service tracing
+  - Centralized error analytics with dashboards
+
+---
+
+## Acceptance Criteria
+
+- [ ] Global error boundary captures unexpected runtime errors and reports to Sentry; users see a non-disruptive error banner with a retry option
+- [ ] Client-side and server-side validation provide clear, actionable messages; server validations map to per-field errors in the UI
+- [ ] Retry and idempotent patterns work for long-running export and decision-creation tasks; idempotency keys prevent duplicate creations
+- [ ] Dedicated 404 and 500 pages are accessible, branded, and provide corrective actions
+- [ ] Create Decision Page supports multi-step flow with template/custom selection, option management, attachment handling, recipient/reminder configuration, autosave, and proper validation
+- [ ] Exports & Decision Logs support PDF/CSV generation, export history, and signed PDFs; status tracking and secure downloads
+- [ ] All endpoints return structured error payloads with correlationId and user-friendly messages
+- [ ] UI follows the specified design system, color palette, typography, spacing, and components with accessibility considerations (contrast, keyboard navigation)
+
+---
+
+## UI/UX Guidelines
+
+Apply the project's design system and frontend patterns:
+- Consistent 12-column grid, 24–32px gutters
+- Cards with subtle shadows, rounded corners, and clear typographic hierarchy
+- Permanent left sidebar with active state highlighting; top bar with subtle border
+- Primary actions use the Accent color (#0052CC) with high-contrast white text
+- Status indicators use #10B981, #F59E42, #EF4444 as rounded pills
+- Focus states accessible with visible outlines and strong contrast
+- Micro-interactions: smooth transitions on hover/focus, subtle elevation changes
+
+---
+
+## Visual Style
+
+- Color Palette as provided
+- Typography: Inter or similar geometric sans-serif; headings H1 28px, H2 22px, H3 18px; body 15–16px
+- Layout: Left-aligned content, generous whitespace, consistent margins
+- Data Visualization: Minimal and non-dominant, if used
+
+---
+
+## Deliverables
+
+- Fully functional frontend modules for error handling, validation, 404/500 pages, Create Decision flow, and Exports UI
+- Backend services with structured error handling, validation, retry/idempotency, and export generation
+- Logging/observability integration (Sentry) with correlation IDs
+- Documentation: integration guide, API contracts, error payload schemas, and deployment notes
+- Tests: unit tests for validators, integration tests for error handling flows, end-to-end tests for Create Decision and Exports paths
+
+---
+
+If you need this prompt tailored to a specific AI development tool (e.g., a particular codegen platform, LLM-based repo scaffold, or a chosen tech stack like Node.js/Express + PostgreSQL + React + Redux), specify the stack and I can adapt the prompts, schemas, and sample code stubs accordingly. for style.
+
+CRITICAL DESIGN REQUIREMENTS:
+- You MUST follow ALL design principles and patterns specified in the Design Reference above
+- Do NOT deviate from the design specifications without explicit user permission
+- Implement ALL visual design elements (colors, typography, spacing, shadows, animations) as specified
+- Follow the layout patterns and component designs exactly as documented
+- Ensure all interactions and micro-animations match the reference specifications
+
+CRITICAL TECHNICAL REQUIREMENTS:
+- React 18.3.1, React Router 6.30.1
+- Tailwind CSS v3 with tailwind.config.js and custom keyframes
+- @tailwindcss/typography plugin for rich text content
+- Tailwind CSS animations (NOT Motion library or framer-motion)
+- Sonner for toasts
+- Recharts for data visualization
+- Native fetch() with API utilities in src/lib/api.ts
+- Design system with CSS custom properties
+- Use RGB color values for theming
+- When Supabase is configured: use Edge Functions for LLM and server-only logic; never expose API keys in the client
+
+=== TASK ===
+# Error Handling & Validation
+
+## Overview
+Implement a centralized, user-friendly error handling and validation system across the Archject platform. This includes client-side and server-side validation with graceful recovery UX, a global error handling mechanism on the backend (structured error responses and Sentry integration), robust retry/idempotency patterns for long-running operations, dedicated 404/500 pages, and integrated logging/reporting for observability. The feature underpins all associated pages (page_404, page_500, page_create_decision, page_exports) and supports a reliable export pipeline (PDF/CSV) with signed PDFs for legal use.
+
+---
+
+## Components to Build
+
+- Centralized Error Handling System
+  - Frontend: Global error boundary, toast/inline error messaging, validation helpers, failure recovery UI, retry controls
+  - Backend: Middleware for structured error shapes, error codes, and correlation IDs; Sentry integration hooks
+- Validation Framework
+  - Client-side validation rules with live feedback; server-side fallback validation
+  - Reusable validators for forms (Decision creation, Exports, Reminders, Attachments)
+- Retry & Idempotency Layer
+  - Mechanisms for long-running operations (e.g., export generation, decision package assembly) with exponential backoff, JIT retries, and idempotent endpoints
+- 404 / 500 Pages
+  - Fully styled, branded error pages with actionable guidance and navigation
+- Create Decision Page
+  - Multi-step flow (modal or page): template vs. custom, add options, attach images/drawings, designate client recipients, and configure reminder schedule
+  - Real-time validation, progress tracking, autosave, and failure recovery
+- Exports & Decision Logs
+  - Generate downloadable packs: PDF/CSV Decision Logs, export history, and signed PDFs
+  - Export pipeline with status polling, integrity checks, and error reporting
+- Logging & Observability
+  - Sentry integration for frontend and backend; structured error payloads; correlation IDs across requests
+- Security & Compliance
+  - Secure error disclosure (never reveal sensitive server details to users); authenticated/authorized access for exports; audit trails
+
+---
+
+## Implementation Requirements
+
+### Frontend
+
+- Global Error Handling
+  - Implement an ErrorBoundary component to catch uncaught runtime errors
+  - Centralized error store (Redux/Context) with current error, status, and retry option
+  - Toast/inline error notifications with actionable content and dismissal rules
+  - Retry button states for recoverable errors (network loss, transient server error)
+
+- Validation UI
+  - Field-level validation: show inline messages, icons, and helper text
+  - Global validation rules module shared across forms (Decision creation, Exports)
+  - Fallback to server-side validation on mismatch or latency
+
+- Failure Recovery UI
+  - Persistent, non-destructive error panels; allow users to retry or pause long operations
+  - Clear messaging with suggested user actions and contact/support flow
+  - Correlation ID display for support reference
+
+- 404 and 500 Pages
+  - Page_404: user-friendly nudge with search, sitemap suggestions, and main navigation
+  - Page_500: explanation of server error, support contact, and a retry option
+
+- Create Decision Page
+  - Multi-step flow (Step 1: Template vs Custom; Step 2: Options; Step 3: Attachments; Step 4: Recipients; Step 5: Reminders)
+  - Live validation at each step; autosave draft state locally and remotely
+  - Image/drawing attachments with drag-and-drop, previews, and size/type restrictions
+  - Recipient selection with access controls and opt-in reminders
+  - Reminder schedule builder with validation (dates, cadence, time zones) and conflict checks
+  - Real-time progress indicator and ability to resume if an error occurs
+
+- Exports & Decision Logs UI
+  - Export panel to configure PDF/CSV exports; select fields, date ranges, and filters
+  - Show export history with statuses (queued, processing, completed, failed)
+  - Initiate signed PDF option for legal use; present certificate and signer details if applicable
+
+- API Integration
+  - Consistent error shapes consumed by UI; display user-friendly messages
+  - Sentry error capture hooks on client-side for session-based contexts
+
+---
+
+### Backend
+
+- API Design
+  - Structured error responses: { code, message, details[], correlationId, retryable }
+  - Global error handling middleware to map exceptions to appropriate HTTP status codes
+  - Validation middleware to enforce data integrity before business logic
+
+- Validation
+  - Server-side validators for all relevant endpoints (Decision creation, Exports)
+  - Return precise field-level errors with pointers to UI fields
+
+- Retry & Idempotency
+  - Idempotent endpoints for long-running tasks (e.g., create decision request with client-provided idempotency key)
+  - Backoff strategy configurable (exponential backoff with jitter)
+  - Background job queue integration for export generation, with status tracking
+
+- 404/500 Pages & Logging
+  - Infrastructure to return structured 404/500 responses when appropriate
+  - Sentry integration for error capture; attach correlation IDs
+  - Logging of failed operations with sufficient context for debugging
+
+- Exports & PDFs
+  - Export service to generate PDF/CSV decision logs; support for signed PDFs
+  - Validation of export requests; ensure data provenance and tamper-evidence
+  - Store export artifacts with metadata (user, project, decision IDs, timestamps)
+
+- Security & Compliance
+  - Authentication checks for export generation and access control to decisions
+  - Avoid leaking internal stack traces; sanitize error messages in production
+  - Ensure data ownership and export rights are enforced per project roles
+
+---
+
+### Integration
+
+- Error Handling Orchestration
+  - UI receives structured errors from backend; display friendly messages
+  - Global error boundary logs errors to Sentry and surfaces actionable UI
+  - All API calls wrap error handling to map to user-friendly messages and retry options
+
+- Validation Flow
+  - Client-side validation runs first; on server error, server-side validation errors map back to UI field errors
+  - Validation results persist in local draft when network is offline, then re-sync on reconnect
+
+- Create Decision Page Integration
+  - Stepper UI consumes validation schemas; on submit, call create decision API
+  - Attachments upload flow ties into backend storage with progress and retry on failure
+
+- Exports Integration
+  - UI triggers export requests; backend enqueues jobs; frontend polls job status
+  - On completion, provide download links; if signed PDFs are required, present digital signature data
+
+---
+
+## User Experience Flow
+
+1) User navigates to Create Decision page
+   - Chooses between a template or a custom decision
+   - Validation runs for required fields (title, template selection, at least one option)
+
+2) User adds decision options
+   - Add, reorder, and modify options; validations for option names, descriptions, and visuals
+
+3) User attaches images/drawings
+   - Drag-and-drop or file picker; previews; constrained formats/sizes; upload progress shown
+
+4) User configures recipients and reminders
+   - Select client recipients; set reminder schedule with time zone awareness
+   - Validation ensures valid dates and non-conflicting reminders
+
+5) User reviews and saves draft
+   - Auto-save local draft; network occurrence triggers remote save; errors surface non-destructively
+
+6) User submits decision
+   - Server validates, creates decision, and triggers notification workflow
+   - On server error, UI shows friendly error with retry
+
+7) User accesses Exports & Decision Logs
+   - Configure export (PDF/CSV), select fields, and initiate export
+   - Export status appears; upon completion, download signed PDF if enabled
+   - If export fails, show error with retry and support guidance
+
+8) Error scenarios
+   - Network outage: inline error with retry, auto-resume when online
+   - Server error: 500 page or in-context error toast with retry
+   - Not found: 404 page with navigational guidance
+
+---
+
+## Technical Specifications
+
+- Data Models: 
+  - Decision: { id, projectId, title, templateId, options: [{id, name, description, imageUrl, order}], attachments: [{id, url, type, size}], recipients: [{userId, role, status}], reminders: [{id, date, time, cadence}], status, createdAt, updatedAt, signedPdfUrl }
+  - Option: { id, name, description, imageUrl, order }
+  - Attachment: { id, url, type, size, uploadedAt }
+  - Recipient: { userId, email, role, status }
+  - Reminder: { id, date, time, cadence, timezone, sent }
+  - ExportLog: { id, type, status, createdAt, completedAt, fileUrl, correlationId }
+  - ErrorLog (internal): { id, message, code, correlationId, stack }
+
+- API Endpoints:
+  - POST /api/decisions (idempotent with Idempotency-Key header)
+  - GET /api/decisions/{id}
+  - PUT /api/decisions/{id}
+  - POST /api/decisions/{id}/attachments
+  - POST /api/exports/decision-logs
+  - GET /api/exports/{exportId}
+  - GET /api/pages/health
+  - Middleware: error-handler, validation, authentication, authorization
+
+- Security
+  - OAuth2/JWT-based authentication
+  - Role-based access: viewer, editor, admin; client recipients have limited view/edit rights
+  - CSRF protection for state-changing requests
+  - Secrets management and least-privilege for export signing service
+
+- Validation
+  - Client-side: required fields, max lengths, file type/size restrictions, date-time formats, time zones
+  - Server-side: same rules, return field-level errors: { field, message, code }
+
+- Logging & Observability
+  - Sentry integration for frontend and backend
+  - Structured logs with correlationId for cross-service tracing
+  - Centralized error analytics with dashboards
+
+---
+
+## Acceptance Criteria
+
+- [ ] Global error boundary captures unexpected runtime errors and reports to Sentry; users see a non-disruptive error banner with a retry option
+- [ ] Client-side and server-side validation provide clear, actionable messages; server validations map to per-field errors in the UI
+- [ ] Retry and idempotent patterns work for long-running export and decision-creation tasks; idempotency keys prevent duplicate creations
+- [ ] Dedicated 404 and 500 pages are accessible, branded, and provide corrective actions
+- [ ] Create Decision Page supports multi-step flow with template/custom selection, option management, attachment handling, recipient/reminder configuration, autosave, and proper validation
+- [ ] Exports & Decision Logs support PDF/CSV generation, export history, and signed PDFs; status tracking and secure downloads
+- [ ] All endpoints return structured error payloads with correlationId and user-friendly messages
+- [ ] UI follows the specified design system, color palette, typography, spacing, and components with accessibility considerations (contrast, keyboard navigation)
+
+---
+
+## UI/UX Guidelines
+
+Apply the project's design system and frontend patterns:
+- Consistent 12-column grid, 24–32px gutters
+- Cards with subtle shadows, rounded corners, and clear typographic hierarchy
+- Permanent left sidebar with active state highlighting; top bar with subtle border
+- Primary actions use the Accent color (#0052CC) with high-contrast white text
+- Status indicators use #10B981, #F59E42, #EF4444 as rounded pills
+- Focus states accessible with visible outlines and strong contrast
+- Micro-interactions: smooth transitions on hover/focus, subtle elevation changes
+
+---
+
+## Visual Style
+
+- Color Palette as provided
+- Typography: Inter or similar geometric sans-serif; headings H1 28px, H2 22px, H3 18px; body 15–16px
+- Layout: Left-aligned content, generous whitespace, consistent margins
+- Data Visualization: Minimal and non-dominant, if used
+
+---
+
+## Deliverables
+
+- Fully functional frontend modules for error handling, validation, 404/500 pages, Create Decision flow, and Exports UI
+- Backend services with structured error handling, validation, retry/idempotency, and export generation
+- Logging/observability integration (Sentry) with correlation IDs
+- Documentation: integration guide, API contracts, error payload schemas, and deployment notes
+- Tests: unit tests for validators, integration tests for error handling flows, end-to-end tests for Create Decision and Exports paths
+
+---
+
+If you need this prompt tailored to a specific AI development tool (e.g., a particular codegen platform, LLM-based repo scaffold, or a chosen tech stack like Node.js/Express + PostgreSQL + React + Redux), specify the stack and I can adapt the prompts, schemas, and sample code stubs accordingly.
+
+=== SUCCESS CRITERIA ===
+# Success Criteria Checklist
+
+## Code Quality
+
+### TypeScript
+- [ ] No TypeScript errors (`tsc --noEmit` passes)
+- [ ] All functions and components have proper type definitions
+- [ ] No `any` types used (use `unknown` if type is truly unknown)
+- [ ] Props interfaces defined for all components
+- [ ] API responses have type definitions
+
+### Code Standards
+- [ ] All imports use path aliases (@/ prefix)
+- [ ] Components follow the established naming convention
+- [ ] Files are organized in correct directories
+- [ ] No unused imports or variables
+- [ ] Consistent code formatting
+
+## Component Implementation
+
+### UI Components
+- [ ] Use shadcn/ui components (Button, Card, Input, etc.) instead of building from scratch
+- [ ] All interactive elements have hover states
+- [ ] Components use the `cn()` utility for class merging
+- [ ] Proper TypeScript props interfaces defined
+- [ ] Components are responsive (mobile, tablet, desktop)
+
+### Animations
+- [ ] Motion library used for all animations (NOT framer-motion)
+- [ ] Page transitions implemented with fade/slide
+- [ ] Interactive elements have whileHover/whileTap animations
+- [ ] List items use stagger animations where appropriate
+- [ ] Animations respect `prefers-reduced-motion`
+
+### Icons
+- [ ] Lucide React icons used consistently
+- [ ] Icons have consistent sizing (h-4 w-4, h-5 w-5, h-6 w-6)
+- [ ] Icon colors match design system (text-primary, text-muted-foreground)
+
+## Data Management
+
+### React Query
+- [ ] All data fetching uses React Query hooks
+- [ ] Query keys follow the established pattern
+- [ ] Mutations invalidate related queries
+- [ ] Loading and error states handled
+- [ ] Optimistic updates implemented where appropriate
+
+### Forms
+- [ ] Forms use react-hook-form
+- [ ] Validation uses Zod schemas
+- [ ] Error messages display properly
+- [ ] Form submission shows loading state
+- [ ] Success/error feedback via toast notifications
+
+### API Layer
+- [ ] API functions in src/api/ directory
+- [ ] Axios used for HTTP requests
+- [ ] Proper error handling with try/catch
+- [ ] Auth tokens handled by interceptors
+- [ ] Type-safe API function signatures
+
+## User Experience
+
+### Notifications
+- [ ] Sonner toasts used for all notifications
+- [ ] Success actions show success toast
+- [ ] Errors show descriptive error messages
+- [ ] Loading states show toast.loading()
+
+### Loading States
+- [ ] Skeleton loaders shown during data fetch
+- [ ] Buttons show loading state during submission
+- [ ] Disabled state applied during async operations
+
+### Error Handling
+- [ ] Network errors caught and displayed
+- [ ] User-friendly error messages (no stack traces)
+- [ ] Fallback UI for error states
+- [ ] No unhandled promise rejections
+
+## Navigation
+
+### Route Accessibility
+- [ ] All pages have routes defined in router configuration
+- [ ] Every page is accessible through navigation (menu, sidebar, or direct URL)
+- [ ] Main pages (Dashboard, Home, Settings, etc.) accessible from primary navigation
+- [ ] Secondary pages accessible through contextual navigation or direct links
+- [ ] Deep-linked pages have breadcrumbs or back navigation
+- [ ] 404/Not Found page implemented for invalid routes
+- [ ] Protected routes have proper authentication checks
+- [ ] Navigation state persists across page refreshes where appropriate
+
+### Navigation UX
+- [ ] Active route highlighted in navigation menu
+- [ ] Clear visual hierarchy in navigation structure
+- [ ] Mobile navigation is accessible and usable
+- [ ] Navigation items have hover/focus states
+- [ ] Nested routes show parent-child relationships
+- [ ] User can always return to main areas (Dashboard/Home)
+
+## Styling
+
+### Tailwind CSS
+- [ ] Tailwind v3 classes used
+- [ ] HSL color variables from design system
+- [ ] Custom CSS properties used where defined
+- [ ] Responsive breakpoints: mobile-first approach
+- [ ] Dark mode support via CSS variables
+
+### Design System
+- [ ] Colors use theme variables (primary, secondary, accent)
+- [ ] Spacing uses Tailwind scale (p-4, gap-6, etc.)
+- [ ] Border radius uses theme values (rounded-lg)
+- [ ] Shadows use theme values (shadow-card)
+- [ ] Typography follows Inter font system
+
+## Accessibility
+
+- [ ] Semantic HTML elements used
+- [ ] Buttons have descriptive labels
+- [ ] Forms have proper labels
+- [ ] Focus states visible on interactive elements
+- [ ] Color contrast meets WCAG standards
+
+## Performance
+
+- [ ] No console.log statements in production code
+- [ ] No console errors in browser
+- [ ] Images optimized (WebP, lazy loading)
+- [ ] Large lists use virtualization if needed
+- [ ] React Query cache configured appropriately
+
+## Testing Readiness
+
+- [ ] Components structured for easy testing
+- [ ] Business logic separated from presentation
+- [ ] Mock-friendly API layer
+- [ ] No hardcoded values that should be configurable
+- [ ] Environment variables properly configured
+
+## Final Checks
+
+- [ ] Code builds without errors (`npm run build`)
+- [ ] Development server runs without errors (`npm run dev`)
+- [ ] No TypeScript errors in editor
+- [ ] Browser console is clean (no errors or warnings)
+- [ ] All functionality works as expected
+- [ ] Code follows existing project patterns
+- [ ] Changes are consistent with the rest of the codebase
+
+
+
+IMPORTANT: ALL styling and design decisions must follow the Design Reference section above EXACTLY. Do not make arbitrary design choices.
+
+Analyze the existing project structure and implement the task following the patterns already established. Ensure all success criteria are met.
