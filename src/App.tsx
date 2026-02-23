@@ -31,6 +31,9 @@ import { ProfilePage } from '@/pages/dashboard/settings/profile-page'
 import { TeamPage } from '@/pages/dashboard/settings/team-page'
 import { IntegrationsPage } from '@/pages/dashboard/settings/integrations-page'
 import { DataPage } from '@/pages/dashboard/settings/data-page'
+import { SubscriptionsPage } from '@/pages/dashboard/settings/subscriptions-page'
+import { ProjectDefaultsPage } from '@/pages/dashboard/settings/project-defaults-page'
+import { BackupsPage } from '@/pages/dashboard/settings/backups-page'
 import { DecisionsListPage } from '@/pages/decisions-list'
 import { ClientPortal } from '@/pages/client-portal'
 import { ClientConfirmationPage } from '@/pages/client-confirmation'
@@ -142,7 +145,10 @@ function App() {
                     <Route index element={<SettingsIndex />} />
                     <Route path="profile" element={<ProfilePage />} />
                     <Route path="team" element={<TeamPage />} />
+                    <Route path="subscriptions" element={<SubscriptionsPage />} />
                     <Route path="integrations" element={<IntegrationsPage />} />
+                    <Route path="project-defaults" element={<ProjectDefaultsPage />} />
+                    <Route path="backups" element={<BackupsPage />} />
                     <Route path="data" element={<DataPage />} />
                   </Route>
                 </Route>

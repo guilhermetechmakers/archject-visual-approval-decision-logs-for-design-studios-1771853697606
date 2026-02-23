@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { UserPlus, User, Trash2, History } from 'lucide-react'
+import { UserPlus, User, Trash2, History, Search, Send } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -56,6 +56,9 @@ const ACTION_LABELS: Record<string, string> = {
   team_member_removed: 'Removed',
 }
 
+type SortField = 'name' | 'role' | 'status'
+type SortDir = 'asc' | 'desc'
+
 export function TeamRolesTable() {
   const queryClient = useQueryClient()
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -65,6 +68,9 @@ export function TeamRolesTable() {
   const [removeConfirm, setRemoveConfirm] = useState('')
   const [auditOpen, setAuditOpen] = useState(false)
   const [editingRole, setEditingRole] = useState<{ member: TeamMember; newRole: Role } | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const { data: studio, isLoading } = useQuery({
     queryKey: ['studio', 'default'],
@@ -125,7 +131,35 @@ export function TeamRolesTable() {
     removeMutation.mutate(removeModal.id)
   }
 
+  const handleResendInvite = (member: TeamMember) => {
+    if (member.status === 'active') return
+    inviteMutation.mutate({ email: member.email, role: member.role })
+  }
+
   const members = studio?.team_members ?? []
+  const filteredAndSortedMembers = useMemo(() => {
+    let list = [...members]
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      list = list.filter(
+        (m) =>
+          m.email.toLowerCase().includes(q) ||
+          (m.name ?? '').toLowerCase().includes(q)
+      )
+    }
+    list.sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'name') {
+        cmp = (a.name ?? a.email).localeCompare(b.name ?? b.email)
+      } else if (sortField === 'role') {
+        cmp = a.role.localeCompare(b.role)
+      } else {
+        cmp = (a.status ?? '').localeCompare(b.status ?? '')
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return list
+  }, [members, searchQuery, sortField, sortDir])
 
   if (isLoading || !studio) {
     return (
@@ -162,7 +196,38 @@ export function TeamRolesTable() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 rounded-lg"
+                aria-label="Search members"
+              />
+            </div>
+            <div className="flex gap-2">
+              <select
+                value={`${sortField}-${sortDir}`}
+                onChange={(e) => {
+                  const [f, d] = e.target.value.split('-') as [SortField, SortDir]
+                  setSortField(f)
+                  setSortDir(d)
+                }}
+                className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                aria-label="Sort by"
+              >
+                <option value="name-asc">Name A–Z</option>
+                <option value="name-desc">Name Z–A</option>
+                <option value="role-asc">Role A–Z</option>
+                <option value="role-desc">Role Z–A</option>
+                <option value="status-asc">Status A–Z</option>
+                <option value="status-desc">Status Z–A</option>
+              </select>
+            </div>
+          </div>
           <div className="overflow-hidden rounded-lg border border-border">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -175,14 +240,16 @@ export function TeamRolesTable() {
                   </tr>
                 </thead>
                 <tbody>
-                  {members.length === 0 ? (
+                  {filteredAndSortedMembers.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-8 text-center text-muted-foreground">
-                        No team members yet. Invite someone to get started.
+                        {members.length === 0
+                          ? 'No team members yet. Invite someone to get started.'
+                          : 'No members match your search.'}
                       </td>
                     </tr>
                   ) : (
-                    members.map((m) => (
+                    filteredAndSortedMembers.map((m) => (
                       <tr
                         key={m.id}
                         className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
@@ -253,6 +320,18 @@ export function TeamRolesTable() {
                                 </>
                               ) : (
                                 <>
+                                  {m.status !== 'active' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleResendInvite(m)}
+                                      disabled={inviteMutation.isPending}
+                                      aria-label="Resend invitation"
+                                      title="Resend invitation"
+                                    >
+                                      <Send className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                   <Button
                                     variant="ghost"
                                     size="sm"

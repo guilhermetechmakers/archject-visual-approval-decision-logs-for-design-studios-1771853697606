@@ -8,6 +8,7 @@ export interface Studio {
   logo_url: string | null
   favicon_url?: string | null
   brand_color: string
+  client_link_branding?: { enabled?: boolean; customDomain?: string; domainValidated?: boolean } | null
   default_currency?: string
   subscription?: {
     plan_id: string
@@ -52,7 +53,13 @@ export async function getStudio(id: string = DEFAULT_STUDIO_ID): Promise<Studio>
 
 export async function updateStudio(
   id: string,
-  data: { name?: string; logo_url?: string | null; brand_color?: string }
+  data: {
+    name?: string
+    logo_url?: string | null
+    favicon_url?: string | null
+    brand_color?: string
+    client_link_branding?: { enabled: boolean; customDomain: string; domainValidated?: boolean }
+  }
 ): Promise<Studio> {
   return api.put<Studio>(`/studios/${id}`, data)
 }

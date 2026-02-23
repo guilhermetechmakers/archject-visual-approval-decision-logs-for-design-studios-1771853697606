@@ -498,6 +498,29 @@ export function initDb() {
     seedReminderTemplates()
     seedNotifications()
   }
+
+  // 023: Branding extensions (favicon, client link branding)
+  const brandingExtPath = path.join(process.cwd(), 'server', 'migrations', '023_branding_extended.sql')
+  if (fs.existsSync(brandingExtPath)) {
+    try {
+      const sql = fs.readFileSync(brandingExtPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+  }
 }
 
 function seedNotifications() {
