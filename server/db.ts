@@ -51,4 +51,28 @@ export function initDb() {
       "INSERT OR IGNORE INTO studios (id, name, default_currency) VALUES ('default', 'Default Studio', 'USD')"
     ).run()
   }
+
+  const adminMigrationPath = path.join(process.cwd(), 'server', 'migrations', '003_admin.sql')
+  if (fs.existsSync(adminMigrationPath)) {
+    try {
+      const sql = fs.readFileSync(adminMigrationPath, 'utf-8')
+      db.exec(sql)
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+    seedAdminUser()
+  }
+}
+
+function seedAdminUser() {
+  const existing = db.prepare('SELECT id FROM admin_users LIMIT 1').get()
+  if (existing) return
+  const bcrypt = require('bcryptjs')
+  const crypto = require('crypto')
+  const id = crypto.randomUUID()
+  const hash = bcrypt.hashSync('admin123', 10)
+  db.prepare(
+    "INSERT INTO admin_users (id, email, name, role, password_hash, is_active) VALUES (?, 'admin@archject.local', 'Admin', 'super-admin', ?, 1)"
+  ).run(id, hash)
 }
