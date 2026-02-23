@@ -730,6 +730,35 @@ export function initDb() {
       }
     }
   }
+
+  // 033: comments, mentions, collaboration
+  const migration033Path = path.join(process.cwd(), 'server', 'migrations', '033_comments_mentions_collaboration.sql')
+  if (fs.existsSync(migration033Path)) {
+    const sql = fs.readFileSync(migration033Path, 'utf-8')
+    const statements = sql
+      .split(';')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    for (const stmt of statements) {
+      try {
+        db.exec(stmt + ';')
+      } catch (e) {
+        if (!String(e).includes('duplicate column name') && !String(e).includes('already exists')) throw e
+      }
+    }
+  }
+  for (const col of ['resolved INTEGER DEFAULT 0', 'status TEXT DEFAULT \'active\'', 'flagged_by TEXT', 'updated_at TEXT']) {
+    try {
+      db.exec(`ALTER TABLE portal_comments ADD COLUMN ${col}`)
+    } catch (e) {
+      if (!String(e).includes('duplicate column name')) throw e
+    }
+  }
+  try {
+    db.exec('ALTER TABLE notifications ADD COLUMN payload_json TEXT')
+  } catch (e) {
+    if (!String(e).includes('duplicate column name')) throw e
+  }
 }
 
 function backfillSearchIndex() {
