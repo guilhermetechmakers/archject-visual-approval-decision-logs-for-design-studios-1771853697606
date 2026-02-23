@@ -36,6 +36,8 @@ import { PrivacyPage } from '@/pages/privacy'
 import { TermsPage } from '@/pages/terms'
 import { RequestDemoPage } from '@/pages/request-demo'
 import { NotFoundPage } from '@/pages/not-found'
+import { ServerErrorPageRoute } from '@/pages/server-error'
+import { GlobalErrorBoundary, ServerErrorGate } from '@/components/500'
 import { AdminLoginPage } from '@/pages/admin/admin-login'
 import { AdminDashboardPage } from '@/pages/admin/admin-dashboard'
 import { AdminAnalyticsPage } from '@/pages/admin/admin-analytics'
@@ -56,78 +58,83 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/request-demo" element={<LandingPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/login" element={<AuthPage />} />
-          <Route path="/signup" element={<AuthPage />} />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/password-reset" element={<PasswordResetPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/help" element={<HelpLayout />}>
-            <Route index element={<HelpPage />} />
-            <Route path="article/:slug" element={<HelpArticlePage />} />
-          </Route>
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/request-demo" element={<RequestDemoPage />} />
-          <Route path="/client/:token" element={<ClientPortal />} />
+      <GlobalErrorBoundary>
+        <BrowserRouter>
+          <ServerErrorGate>
+            <AuthProvider>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/request-demo" element={<LandingPage />} />
+                <Route path="/auth" element={<AuthPage />} />
+                <Route path="/login" element={<AuthPage />} />
+                <Route path="/signup" element={<AuthPage />} />
+                <Route path="/verify-email" element={<VerifyEmailPage />} />
+                <Route path="/password-reset" element={<PasswordResetPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/help" element={<HelpLayout />}>
+                  <Route index element={<HelpPage />} />
+                  <Route path="article/:slug" element={<HelpArticlePage />} />
+                </Route>
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/request-demo" element={<RequestDemoPage />} />
+                <Route path="/client/:token" element={<ClientPortal />} />
 
-          <Route path="/admin/login" element={<AdminLoginPage />} />
-          <Route
-            path="/admin"
-            element={
-              <AdminRouteGuard>
-                <AdminLayout />
-              </AdminRouteGuard>
-            }
-          >
-            <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboardPage />} />
-            <Route path="analytics" element={<AdminAnalyticsPage />} />
-            <Route path="users" element={<AdminUsersPage />} />
-            <Route path="sessions" element={<AdminSessionsPage />} />
-            <Route path="tickets" element={<AdminTicketsPage />} />
-            <Route path="settings" element={<AdminSettingsPage />} />
-          </Route>
+                <Route path="/admin/login" element={<AdminLoginPage />} />
+                <Route
+                  path="/admin"
+                  element={
+                    <AdminRouteGuard>
+                      <AdminLayout />
+                    </AdminRouteGuard>
+                  }
+                >
+                  <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                  <Route path="dashboard" element={<AdminDashboardPage />} />
+                  <Route path="analytics" element={<AdminAnalyticsPage />} />
+                  <Route path="users" element={<AdminUsersPage />} />
+                  <Route path="sessions" element={<AdminSessionsPage />} />
+                  <Route path="tickets" element={<AdminTicketsPage />} />
+                  <Route path="settings" element={<AdminSettingsPage />} />
+                </Route>
 
-          <Route
-            path="/dashboard"
-            element={
-              <DashboardRouteGuard>
-                <DashboardLayout />
-              </DashboardRouteGuard>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard/overview" replace />} />
-            <Route path="overview" element={<DashboardOverview />} />
-            <Route path="projects" element={<ProjectsListPage />} />
-            <Route path="projects/:projectId" element={<ProjectWorkspace />} />
-            <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
-            <Route path="projects/:projectId/decisions/new" element={<CreateDecisionPage />} />
-            <Route path="projects/:projectId/decisions/:decisionId" element={<DecisionDetail />} />
-            <Route path="projects/:projectId/library" element={<LibraryPage />} />
-            <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
-            <Route path="decisions" element={<DecisionsListPage />} />
-            <Route path="templates" element={<TemplatesPage />} />
-            <Route path="exports" element={<ExportsPage />} />
-            <Route path="notifications" element={<NotificationsPage />} />
-            <Route path="billing" element={<BillingPage />} />
-            <Route path="settings" element={<SettingsLayout />}>
-              <Route index element={<SettingsIndex />} />
-              <Route path="team" element={<TeamPage />} />
-              <Route path="integrations" element={<IntegrationsPage />} />
-              <Route path="data" element={<DataPage />} />
-            </Route>
-          </Route>
+                <Route
+                  path="/dashboard"
+                  element={
+                    <DashboardRouteGuard>
+                      <DashboardLayout />
+                    </DashboardRouteGuard>
+                  }
+                >
+                  <Route index element={<Navigate to="/dashboard/overview" replace />} />
+                  <Route path="overview" element={<DashboardOverview />} />
+                  <Route path="projects" element={<ProjectsListPage />} />
+                  <Route path="projects/:projectId" element={<ProjectWorkspace />} />
+                  <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
+                  <Route path="projects/:projectId/decisions/new" element={<CreateDecisionPage />} />
+                  <Route path="projects/:projectId/decisions/:decisionId" element={<DecisionDetail />} />
+                  <Route path="projects/:projectId/library" element={<LibraryPage />} />
+                  <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
+                  <Route path="decisions" element={<DecisionsListPage />} />
+                  <Route path="templates" element={<TemplatesPage />} />
+                  <Route path="exports" element={<ExportsPage />} />
+                  <Route path="notifications" element={<NotificationsPage />} />
+                  <Route path="billing" element={<BillingPage />} />
+                  <Route path="settings" element={<SettingsLayout />}>
+                    <Route index element={<SettingsIndex />} />
+                    <Route path="team" element={<TeamPage />} />
+                    <Route path="integrations" element={<IntegrationsPage />} />
+                    <Route path="data" element={<DataPage />} />
+                  </Route>
+                </Route>
 
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-        </AuthProvider>
-      </BrowserRouter>
+                <Route path="/500" element={<ServerErrorPageRoute />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </AuthProvider>
+          </ServerErrorGate>
+        </BrowserRouter>
+      </GlobalErrorBoundary>
       <Toaster position="top-right" richColors />
     </QueryClientProvider>
   )

@@ -1,3 +1,8 @@
+import {
+  reportError,
+  extractIncidentIdFromResponse,
+} from '@/services/error-reporter'
+
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
 
 export interface ApiError {
@@ -51,6 +56,40 @@ export async function apiFetch<T>(
     ...options,
     headers,
   })
+
+  if (!response.ok && response.status >= 500) {
+    let data: unknown = {}
+    try {
+      data = await response.clone().json()
+    } catch {
+      // ignore
+    }
+    const existingId = extractIncidentIdFromResponse(data)
+    const isErrorsReport = path.includes('/errors/report')
+    if (!isErrorsReport && typeof window !== 'undefined') {
+      const route = window.location.pathname + window.location.search
+      const dispatchError = (incidentId: string) => {
+        window.dispatchEvent(
+          new CustomEvent('archject:server-error', {
+            detail: { incidentId, errorContext: { route: window.location.pathname } },
+          })
+        )
+      }
+      if (existingId) {
+        dispatchError(existingId)
+      } else {
+        reportError({
+          route,
+          url: window.location.href,
+          method: (options.method as string) ?? 'GET',
+          errorMessage: (data as { message?: string })?.message ?? response.statusText,
+          tags: ['api-5xx'],
+        }).then((res) => {
+          dispatchError(res?.incidentId ?? crypto.randomUUID())
+        })
+      }
+    }
+  }
 
   return handleResponse<T>(response)
 }

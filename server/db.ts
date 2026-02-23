@@ -176,6 +176,28 @@ export function initDb() {
       if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
     }
   }
+
+  const serverErrorsPath = path.join(process.cwd(), 'server', 'migrations', '010_server_errors.sql')
+  if (fs.existsSync(serverErrorsPath)) {
+    try {
+      const sql = fs.readFileSync(serverErrorsPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+  }
 }
 
 function seedAnalyticsData() {
