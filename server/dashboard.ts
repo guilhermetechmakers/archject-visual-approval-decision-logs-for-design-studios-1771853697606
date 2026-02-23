@@ -52,17 +52,12 @@ dashboardRouter.get('/projects', requireAuth, (req: Request, res: Response) => {
   const page = Math.max(1, parseInt((req.query.page as string) || '1', 10))
   const pageSize = Math.min(50, Math.max(1, parseInt((req.query.pageSize as string) || '12', 10)))
   const search = (req.query.search as string)?.trim()
-  const status = req.query.status as string | undefined
 
   let where = '1=1'
   const params: unknown[] = []
   if (search) {
     where += ' AND p.name LIKE ?'
     params.push(`%${search}%`)
-  }
-  if (status && status !== 'all') {
-    where += ' AND p.status = ?'
-    params.push(status)
   }
 
   const pendingByProject = db.prepare(
@@ -138,12 +133,24 @@ dashboardRouter.get('/activities', requireAuth, (_req: Request, res: Response) =
       targetType: 'Decision',
       targetId: d.id,
       targetTitle: d.title,
+      projectId: d.project_id,
       projectName: d.project_name ?? 'Unknown',
       timestamp,
     }
   })
 
   res.json({ items: activities })
+})
+
+/**
+ * GET /api/dashboard/notifications/summary
+ * Returns unread notifications count for header bell.
+ */
+dashboardRouter.get('/notifications/summary', requireAuth, (_req: Request, res: Response) => {
+  const pendingCount = db.prepare(
+    "SELECT COUNT(*) as count FROM decisions WHERE status IN ('pending', 'in_review')"
+  ).get() as { count: number }
+  res.json({ unreadCount: pendingCount?.count ?? 0 })
 })
 
 /**
@@ -246,6 +253,7 @@ dashboardRouter.get('/summary', requireAuth, (req: Request, res: Response) => {
       title: a.title,
       client: 'Client',
       project: a.project_name ?? 'Unknown',
+      projectId: a.project_id,
     })),
     pendingApprovalsCount: pendingCount?.count ?? 0,
     quickActions,

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sidebar } from './sidebar'
 import { UserMenu } from '@/components/auth/user-menu'
+import { NotificationsBell } from '@/components/dashboard/notifications-bell'
 
 const SIDEBAR_KEY = 'archject-sidebar-collapsed'
 
@@ -66,6 +67,7 @@ export function DashboardLayout() {
             />
           </div>
 
+          <NotificationsBell />
           <UserMenu />
         </header>
 
