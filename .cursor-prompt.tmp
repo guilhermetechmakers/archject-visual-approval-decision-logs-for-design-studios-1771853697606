@@ -1,0 +1,1664 @@
+⚠️ CRITICAL EXECUTION RULES - READ FIRST ⚠️
+❌ NEVER run: npm run dev, npm start, yarn dev, pnpm dev, or ANY development server
+❌ NEVER run: long-running processes, servers, or commands that don't exit
+❌ NEVER test the application by starting it
+✅ ALLOWED: npm install, npm run build, npm run test (if needed)
+✅ YOUR TASK: Create/modify files only, then STOP and EXIT immediately
+⚠️ The MCP server handles all testing and validation separately
+
+You are an expert full-stack developer proficient in TypeScript, React, Next.js, and modern UI/UX frameworks (Tailwind CSS, Shadcn UI, Radix UI).
+
+=== DESIGN REFERENCE (MANDATORY) ===
+# Modern Design Best Practices
+
+## Philosophy
+
+Create unique, memorable experiences while maintaining consistency through modern design principles. Every project should feel distinct yet professional, innovative yet intuitive.
+
+---
+
+## Landing Pages & Marketing Sites
+
+### Hero Sections
+**Go beyond static backgrounds:**
+- Animated gradients with subtle movement
+- Particle systems or geometric shapes floating
+- Interactive canvas backgrounds (Three.js, WebGL)
+- Video backgrounds with proper fallbacks
+- Parallax scrolling effects
+- Gradient mesh animations
+- Morphing blob animations
+
+
+### Layout Patterns
+**Use modern grid systems:**
+- Bento grids (asymmetric card layouts)
+- Masonry layouts for varied content
+- Feature sections with diagonal cuts or curves
+- Overlapping elements with proper z-index
+- Split-screen designs with scroll-triggered reveals
+
+**Avoid:** Traditional 3-column equal grids
+
+### Scroll Animations
+**Engage users as they scroll:**
+- Fade-in and slide-up animations for sections
+- Scroll-triggered parallax effects
+- Progress indicators for long pages
+- Sticky elements that transform on scroll
+- Horizontal scroll sections for portfolios
+- Text reveal animations (word by word, letter by letter)
+- Number counters animating into view
+
+**Avoid:** Static pages with no scroll interaction
+
+### Call-to-Action Areas
+**Make CTAs impossible to miss:**
+- Gradient buttons with hover effects
+- Floating action buttons with micro-interactions
+- Animated borders or glowing effects
+- Scale/lift on hover
+- Interactive elements that respond to mouse position
+- Pulsing indicators for primary actions
+
+---
+
+## Dashboard Applications
+
+### Layout Structure
+**Always use collapsible side navigation:**
+- Sidebar that can collapse to icons only
+- Smooth transition animations between states
+- Persistent navigation state (remember user preference)
+- Mobile: drawer that slides in/out
+- Desktop: sidebar with expand/collapse toggle
+- Icons visible even when collapsed
+
+**Structure:**
+```
+/dashboard (layout wrapper with sidebar)
+  /dashboard/overview
+  /dashboard/analytics
+  /dashboard/settings
+  /dashboard/users
+  /dashboard/projects
+```
+
+All dashboard pages should be nested inside the dashboard layout, not separate routes.
+
+### Data Tables
+**Modern table design:**
+- Sticky headers on scroll
+- Row hover states with subtle elevation
+- Sortable columns with clear indicators
+- Pagination with items-per-page control
+- Search/filter with instant feedback
+- Selection checkboxes with bulk actions
+- Responsive: cards on mobile, table on desktop
+- Loading skeletons, not spinners
+- Empty states with illustrations or helpful text
+
+**Use modern table libraries:**
+- TanStack Table (React Table v8)
+- AG Grid for complex data
+- Data Grid from MUI (if using MUI)
+
+### Charts & Visualizations
+**Use the latest charting libraries:**
+- Recharts (for React, simple charts)
+- Chart.js v4 (versatile, well-maintained)
+- Apache ECharts (advanced, interactive)
+- D3.js (custom, complex visualizations)
+- Tremor (for dashboards, built on Recharts)
+
+**Chart best practices:**
+- Animated transitions when data changes
+- Interactive tooltips with detailed info
+- Responsive sizing
+- Color scheme matching design system
+- Legend placement that doesn't obstruct data
+- Loading states while fetching data
+
+### Dashboard Cards
+**Metric cards should stand out:**
+- Gradient backgrounds or colored accents
+- Trend indicators (↑ ↓ with color coding)
+- Sparkline charts for historical data
+- Hover effects revealing more detail
+- Icon representing the metric
+- Comparison to previous period
+
+---
+
+## Color & Visual Design
+
+### Color Palettes
+**Create depth with gradients:**
+- Primary gradient (not just solid primary color)
+- Subtle background gradients
+- Gradient text for headings
+- Gradient borders on cards
+- Elevated surfaces for depth
+
+**Color usage:**
+- 60-30-10 rule (dominant, secondary, accent)
+- Consistent semantic colors (success, warning, error)
+- Accessible contrast ratios (WCAG AA minimum)
+
+### Typography
+**Create hierarchy through contrast:**
+- Large, bold headings (48-72px for heroes)
+- Clear size differences between levels
+- Variable font weights (300, 400, 600, 700)
+- Letter spacing for small caps
+- Line height 1.5-1.7 for body text
+- Inter, Poppins, or DM Sans for modern feel
+
+### Shadows & Depth
+**Layer UI elements:**
+- Multi-layer shadows for realistic depth
+- Colored shadows matching element color
+- Elevated states on hover
+- Neumorphism for special elements (sparingly)
+
+---
+
+## Interactions & Micro-animations
+
+### Button Interactions
+**Every button should react:**
+- Scale slightly on hover (1.02-1.05)
+- Lift with shadow on hover
+- Ripple effect on click
+- Loading state with spinner or progress
+- Disabled state clearly visible
+- Success state with checkmark animation
+
+### Card Interactions
+**Make cards feel alive:**
+- Lift on hover with increased shadow
+- Subtle border glow on hover
+- Tilt effect following mouse (3D transform)
+- Smooth transitions (200-300ms)
+- Click feedback for interactive cards
+
+### Form Interactions
+**Guide users through forms:**
+- Input focus states with border color change
+- Floating labels that animate up
+- Real-time validation with inline messages
+- Success checkmarks for valid inputs
+- Error states with shake animation
+- Password strength indicators
+- Character count for text areas
+
+### Page Transitions
+**Smooth between views:**
+- Fade + slide for page changes
+- Skeleton loaders during data fetch
+- Optimistic UI updates
+- Stagger animations for lists
+- Route transition animations
+
+---
+
+## Mobile Responsiveness
+
+### Mobile-First Approach
+**Design for mobile, enhance for desktop:**
+- Touch targets minimum 44x44px
+- Generous padding and spacing
+- Sticky bottom navigation on mobile
+- Collapsible sections for long content
+- Swipeable cards and galleries
+- Pull-to-refresh where appropriate
+
+### Responsive Patterns
+**Adapt layouts intelligently:**
+- Hamburger menu → full nav bar
+- Card grid → stack on mobile
+- Sidebar → drawer
+- Multi-column → single column
+- Data tables → card list
+- Hide/show elements based on viewport
+
+---
+
+## Loading & Empty States
+
+### Loading States
+**Never leave users wondering:**
+- Skeleton screens matching content layout
+- Progress bars for known durations
+- Animated placeholders
+- Spinners only for short waits (<3s)
+- Stagger loading for multiple elements
+- Shimmer effects on skeletons
+
+### Empty States
+**Make empty states helpful:**
+- Illustrations or icons
+- Helpful copy explaining why it's empty
+- Clear CTA to add first item
+- Examples or suggestions
+- No "no data" text alone
+
+---
+
+## Unique Elements to Stand Out
+
+### Distinctive Features
+**Add personality:**
+- Custom cursor effects on landing pages
+- Animated page numbers or section indicators
+- Unusual hover effects (magnification, distortion)
+- Custom scrollbars
+- Glassmorphism for overlays
+- Animated SVG icons
+- Typewriter effects for hero text
+- Confetti or celebration animations for actions
+
+### Interactive Elements
+**Engage users:**
+- Drag-and-drop interfaces
+- Sliders and range controls
+- Toggle switches with animations
+- Progress steps with animations
+- Expandable/collapsible sections
+- Tabs with slide indicators
+- Image comparison sliders
+- Interactive demos or playgrounds
+
+---
+
+## Consistency Rules
+
+### Maintain Consistency
+**What should stay consistent:**
+- Spacing scale (4px, 8px, 16px, 24px, 32px, 48px, 64px)
+- Border radius values
+- Animation timing (200ms, 300ms, 500ms)
+- Color system (primary, secondary, accent, neutrals)
+- Typography scale
+- Icon style (outline vs filled)
+- Button styles across the app
+- Form element styles
+
+### What Can Vary
+**Project-specific customization:**
+- Color palette (different colors, same system)
+- Layout creativity (grids, asymmetry)
+- Illustration style
+- Animation personality
+- Feature-specific interactions
+- Hero section design
+- Card styling variations
+- Background patterns or textures
+
+---
+
+## Technical Excellence
+
+### Performance
+- Optimize images (WebP, lazy loading)
+- Code splitting for faster loads
+- Debounce search inputs
+- Virtualize long lists
+- Minimize re-renders
+- Use proper memoization
+
+### Accessibility
+- Keyboard navigation throughout
+- ARIA labels where needed
+- Focus indicators visible
+- Screen reader friendly
+- Sufficient color contrast
+- Respect reduced motion preferences
+
+---
+
+## Key Principles
+
+1. **Be Bold** - Don't be afraid to try unique layouts and interactions
+2. **Be Consistent** - Use the same patterns for similar functions
+3. **Be Responsive** - Design works beautifully on all devices
+4. **Be Fast** - Animations are smooth, loading is quick
+5. **Be Accessible** - Everyone can use what you build
+6. **Be Modern** - Use current design trends and technologies
+7. **Be Unique** - Each project should have its own personality
+8. **Be Intuitive** - Users shouldn't need instructions
+
+
+---
+
+# Project-Specific Customizations
+
+**IMPORTANT: This section contains the specific design requirements for THIS project. The guidelines above are universal best practices - these customizations below take precedence for project-specific decisions.**
+
+## User Design Requirements
+
+color, typography, spacing, component behavior, and responsive rules
+- [ ] All endpoints include appropriate error handling and return user-friendly messages; loading and error states are visible
+- [ ] Accessible (ARIA), keyboard-navigable, and mobile-responsive with proper focus handling
+
+## UI/UX Guidelines
+Apply the project's design system:
+- Maintain 12-column grid, 24–32px gutters, generous whitespace
+- Card-based sections with subtle shadows and borders
+- Left sidebar navigation with active state cues and collapsible folders
+- Topbar with clean separation and minimal border
+- Interactive elements: primary actions in #0052CC, secondary actions with outline/ghost styling
+- Status indicators with color semantics: success (#10B981), warning (#F59E42), error (#EF4444)
+- Data visualization: minimal or non-prominent; if used, keep it subtle and accessible
+- Ensure consistent typography: Inter or similar, 28px H1, 22px H2, 18px H3, body 15–16px
+
+---
+
+## Visual Style
+
+### Color Palette:
+- Primary background: #F7F7F9
+- Secondary background: #FFFFFF
+- Accent color: #0052CC
+- Neutral grays: #E5E7EB, #D1D5DB, #6B7280, #111827
+- Status colors: #10B981, #F59E42, #EF4444
+
+### Typography & Layout:
+- Font family: Inter or equivalent geometric sans-serif
+- Headings: H1 ~28px, H2 ~22px, H3 ~18px; font-weight 600–700
+- Body: 15–16px, 1.5x line-height
+- Layout: 12-column grid with 24–32px gutters/padding
+- Alignment: Left-aligned text, ample whitespace
+
+### Key Design Elements
+
+#### Card Design:
+- White cards, subtle shadow, 8–12px radius
+- Thin borders (#E5E7EB) for dividers
+- Hover state: mild elevation or tint
+
+#### Navigation:
+- Sidebar: permanent left, #F5F6FA, active highlight
+- Icons: monochrome, 6B7280; active state filled/colored
+- Top bar: white with bottom border
+
+#### Data Visualization:
+- Minimal charts if present; otherwise rely on crisp, legible text and icons
+- Status pills/dots in appropriate colors
+
+#### Interactive Elements:
+- Buttons: Primary #0052CC with white text; secondary ghost/outline
+- Form fields: rounded, borders #D1D5DB, focus ring
+- Search: full-width, rounded with left icon
+- Micro-interactions: smooth transitions on hover/focus
+
+### Design Philosophy
+- Modern, minimalist, calm, and professional
+- Emphasize clarity, simplicity, and quick scanning
+- Minimize cognitive load; provide a frictionless, inviting environment
+- Data/readability-first with structured visual hierarchy
+
+---
+
+Connected Pages:
+- Settings & Team Management: Branding, branding emails, team roles, subscription, integrations
+- Dashboard: Studio landing after login with project summaries, decisions, approvals, quick actions
+
+Connected Features:
+- User Profile Management, Session Management & Security, Password Management & Reset, 2FA, User Authentication (Signup / Login)
+
+---
+
+Note to AI development tool:
+- Use modular, reusable components with clear prop contracts
+- Provide mocks and storybook-ish examples for each component
+- Include unit tests scaffolding for critical flows (profile update, 2FA enable, session revoke, password reset)
+- Ensure localization-ready strings and accessibility hooks (aria-labels, aria-live regions)
+- Document API contracts in a separate spec with request/response examples and error schemas
+
+Generate the complete, detailed prompt now based on the above specifications.
+
+## Implementation Notes
+
+When implementing this project:
+
+1. **Follow Universal Guidelines**: Use the design best practices documented above as your foundation
+2. **Apply Project Customizations**: Implement the specific design requirements stated in the "User Design Requirements" section
+3. **Priority Order**: Project-specific requirements override universal guidelines when there's a conflict
+4. **Color System**: Extract and implement color values as CSS custom properties in RGB format
+5. **Typography**: Define font families, sizes, and weights based on specifications
+6. **Spacing**: Establish consistent spacing scale following the design system
+7. **Components**: Style all Shadcn components to match the design aesthetic
+8. **Animations**: Use Motion library for transitions matching the design personality
+9. **Responsive Design**: Ensure mobile-first responsive implementation
+
+## Implementation Checklist
+
+- [ ] Review universal design guidelines above
+- [ ] Extract project-specific color palette and define CSS variables
+- [ ] Configure Tailwind theme with custom colors
+- [ ] Set up typography system (fonts, sizes, weights)
+- [ ] Define spacing and sizing scales
+- [ ] Create component variants matching design
+- [ ] Implement responsive breakpoints
+- [ ] Add animations and transitions
+- [ ] Ensure accessibility standards
+- [ ] Validate against user design requirements
+
+---
+
+**Remember: Always reference this file for design decisions. Do not use generic or placeholder designs.**
+
+
+*IMPORTANT*: For every page or component refer to # Modern Design Best Practices
+
+## Philosophy
+
+Create unique, memorable experiences while maintaining consistency through modern design principles. Every project should feel distinct yet professional, innovative yet intuitive.
+
+---
+
+## Landing Pages & Marketing Sites
+
+### Hero Sections
+**Go beyond static backgrounds:**
+- Animated gradients with subtle movement
+- Particle systems or geometric shapes floating
+- Interactive canvas backgrounds (Three.js, WebGL)
+- Video backgrounds with proper fallbacks
+- Parallax scrolling effects
+- Gradient mesh animations
+- Morphing blob animations
+
+
+### Layout Patterns
+**Use modern grid systems:**
+- Bento grids (asymmetric card layouts)
+- Masonry layouts for varied content
+- Feature sections with diagonal cuts or curves
+- Overlapping elements with proper z-index
+- Split-screen designs with scroll-triggered reveals
+
+**Avoid:** Traditional 3-column equal grids
+
+### Scroll Animations
+**Engage users as they scroll:**
+- Fade-in and slide-up animations for sections
+- Scroll-triggered parallax effects
+- Progress indicators for long pages
+- Sticky elements that transform on scroll
+- Horizontal scroll sections for portfolios
+- Text reveal animations (word by word, letter by letter)
+- Number counters animating into view
+
+**Avoid:** Static pages with no scroll interaction
+
+### Call-to-Action Areas
+**Make CTAs impossible to miss:**
+- Gradient buttons with hover effects
+- Floating action buttons with micro-interactions
+- Animated borders or glowing effects
+- Scale/lift on hover
+- Interactive elements that respond to mouse position
+- Pulsing indicators for primary actions
+
+---
+
+## Dashboard Applications
+
+### Layout Structure
+**Always use collapsible side navigation:**
+- Sidebar that can collapse to icons only
+- Smooth transition animations between states
+- Persistent navigation state (remember user preference)
+- Mobile: drawer that slides in/out
+- Desktop: sidebar with expand/collapse toggle
+- Icons visible even when collapsed
+
+**Structure:**
+```
+/dashboard (layout wrapper with sidebar)
+  /dashboard/overview
+  /dashboard/analytics
+  /dashboard/settings
+  /dashboard/users
+  /dashboard/projects
+```
+
+All dashboard pages should be nested inside the dashboard layout, not separate routes.
+
+### Data Tables
+**Modern table design:**
+- Sticky headers on scroll
+- Row hover states with subtle elevation
+- Sortable columns with clear indicators
+- Pagination with items-per-page control
+- Search/filter with instant feedback
+- Selection checkboxes with bulk actions
+- Responsive: cards on mobile, table on desktop
+- Loading skeletons, not spinners
+- Empty states with illustrations or helpful text
+
+**Use modern table libraries:**
+- TanStack Table (React Table v8)
+- AG Grid for complex data
+- Data Grid from MUI (if using MUI)
+
+### Charts & Visualizations
+**Use the latest charting libraries:**
+- Recharts (for React, simple charts)
+- Chart.js v4 (versatile, well-maintained)
+- Apache ECharts (advanced, interactive)
+- D3.js (custom, complex visualizations)
+- Tremor (for dashboards, built on Recharts)
+
+**Chart best practices:**
+- Animated transitions when data changes
+- Interactive tooltips with detailed info
+- Responsive sizing
+- Color scheme matching design system
+- Legend placement that doesn't obstruct data
+- Loading states while fetching data
+
+### Dashboard Cards
+**Metric cards should stand out:**
+- Gradient backgrounds or colored accents
+- Trend indicators (↑ ↓ with color coding)
+- Sparkline charts for historical data
+- Hover effects revealing more detail
+- Icon representing the metric
+- Comparison to previous period
+
+---
+
+## Color & Visual Design
+
+### Color Palettes
+**Create depth with gradients:**
+- Primary gradient (not just solid primary color)
+- Subtle background gradients
+- Gradient text for headings
+- Gradient borders on cards
+- Elevated surfaces for depth
+
+**Color usage:**
+- 60-30-10 rule (dominant, secondary, accent)
+- Consistent semantic colors (success, warning, error)
+- Accessible contrast ratios (WCAG AA minimum)
+
+### Typography
+**Create hierarchy through contrast:**
+- Large, bold headings (48-72px for heroes)
+- Clear size differences between levels
+- Variable font weights (300, 400, 600, 700)
+- Letter spacing for small caps
+- Line height 1.5-1.7 for body text
+- Inter, Poppins, or DM Sans for modern feel
+
+### Shadows & Depth
+**Layer UI elements:**
+- Multi-layer shadows for realistic depth
+- Colored shadows matching element color
+- Elevated states on hover
+- Neumorphism for special elements (sparingly)
+
+---
+
+## Interactions & Micro-animations
+
+### Button Interactions
+**Every button should react:**
+- Scale slightly on hover (1.02-1.05)
+- Lift with shadow on hover
+- Ripple effect on click
+- Loading state with spinner or progress
+- Disabled state clearly visible
+- Success state with checkmark animation
+
+### Card Interactions
+**Make cards feel alive:**
+- Lift on hover with increased shadow
+- Subtle border glow on hover
+- Tilt effect following mouse (3D transform)
+- Smooth transitions (200-300ms)
+- Click feedback for interactive cards
+
+### Form Interactions
+**Guide users through forms:**
+- Input focus states with border color change
+- Floating labels that animate up
+- Real-time validation with inline messages
+- Success checkmarks for valid inputs
+- Error states with shake animation
+- Password strength indicators
+- Character count for text areas
+
+### Page Transitions
+**Smooth between views:**
+- Fade + slide for page changes
+- Skeleton loaders during data fetch
+- Optimistic UI updates
+- Stagger animations for lists
+- Route transition animations
+
+---
+
+## Mobile Responsiveness
+
+### Mobile-First Approach
+**Design for mobile, enhance for desktop:**
+- Touch targets minimum 44x44px
+- Generous padding and spacing
+- Sticky bottom navigation on mobile
+- Collapsible sections for long content
+- Swipeable cards and galleries
+- Pull-to-refresh where appropriate
+
+### Responsive Patterns
+**Adapt layouts intelligently:**
+- Hamburger menu → full nav bar
+- Card grid → stack on mobile
+- Sidebar → drawer
+- Multi-column → single column
+- Data tables → card list
+- Hide/show elements based on viewport
+
+---
+
+## Loading & Empty States
+
+### Loading States
+**Never leave users wondering:**
+- Skeleton screens matching content layout
+- Progress bars for known durations
+- Animated placeholders
+- Spinners only for short waits (<3s)
+- Stagger loading for multiple elements
+- Shimmer effects on skeletons
+
+### Empty States
+**Make empty states helpful:**
+- Illustrations or icons
+- Helpful copy explaining why it's empty
+- Clear CTA to add first item
+- Examples or suggestions
+- No "no data" text alone
+
+---
+
+## Unique Elements to Stand Out
+
+### Distinctive Features
+**Add personality:**
+- Custom cursor effects on landing pages
+- Animated page numbers or section indicators
+- Unusual hover effects (magnification, distortion)
+- Custom scrollbars
+- Glassmorphism for overlays
+- Animated SVG icons
+- Typewriter effects for hero text
+- Confetti or celebration animations for actions
+
+### Interactive Elements
+**Engage users:**
+- Drag-and-drop interfaces
+- Sliders and range controls
+- Toggle switches with animations
+- Progress steps with animations
+- Expandable/collapsible sections
+- Tabs with slide indicators
+- Image comparison sliders
+- Interactive demos or playgrounds
+
+---
+
+## Consistency Rules
+
+### Maintain Consistency
+**What should stay consistent:**
+- Spacing scale (4px, 8px, 16px, 24px, 32px, 48px, 64px)
+- Border radius values
+- Animation timing (200ms, 300ms, 500ms)
+- Color system (primary, secondary, accent, neutrals)
+- Typography scale
+- Icon style (outline vs filled)
+- Button styles across the app
+- Form element styles
+
+### What Can Vary
+**Project-specific customization:**
+- Color palette (different colors, same system)
+- Layout creativity (grids, asymmetry)
+- Illustration style
+- Animation personality
+- Feature-specific interactions
+- Hero section design
+- Card styling variations
+- Background patterns or textures
+
+---
+
+## Technical Excellence
+
+### Performance
+- Optimize images (WebP, lazy loading)
+- Code splitting for faster loads
+- Debounce search inputs
+- Virtualize long lists
+- Minimize re-renders
+- Use proper memoization
+
+### Accessibility
+- Keyboard navigation throughout
+- ARIA labels where needed
+- Focus indicators visible
+- Screen reader friendly
+- Sufficient color contrast
+- Respect reduced motion preferences
+
+---
+
+## Key Principles
+
+1. **Be Bold** - Don't be afraid to try unique layouts and interactions
+2. **Be Consistent** - Use the same patterns for similar functions
+3. **Be Responsive** - Design works beautifully on all devices
+4. **Be Fast** - Animations are smooth, loading is quick
+5. **Be Accessible** - Everyone can use what you build
+6. **Be Modern** - Use current design trends and technologies
+7. **Be Unique** - Each project should have its own personality
+8. **Be Intuitive** - Users shouldn't need instructions
+
+
+---
+
+# Project-Specific Customizations
+
+**IMPORTANT: This section contains the specific design requirements for THIS project. The guidelines above are universal best practices - these customizations below take precedence for project-specific decisions.**
+
+## User Design Requirements
+
+color, typography, spacing, component behavior, and responsive rules
+- [ ] All endpoints include appropriate error handling and return user-friendly messages; loading and error states are visible
+- [ ] Accessible (ARIA), keyboard-navigable, and mobile-responsive with proper focus handling
+
+## UI/UX Guidelines
+Apply the project's design system:
+- Maintain 12-column grid, 24–32px gutters, generous whitespace
+- Card-based sections with subtle shadows and borders
+- Left sidebar navigation with active state cues and collapsible folders
+- Topbar with clean separation and minimal border
+- Interactive elements: primary actions in #0052CC, secondary actions with outline/ghost styling
+- Status indicators with color semantics: success (#10B981), warning (#F59E42), error (#EF4444)
+- Data visualization: minimal or non-prominent; if used, keep it subtle and accessible
+- Ensure consistent typography: Inter or similar, 28px H1, 22px H2, 18px H3, body 15–16px
+
+---
+
+## Visual Style
+
+### Color Palette:
+- Primary background: #F7F7F9
+- Secondary background: #FFFFFF
+- Accent color: #0052CC
+- Neutral grays: #E5E7EB, #D1D5DB, #6B7280, #111827
+- Status colors: #10B981, #F59E42, #EF4444
+
+### Typography & Layout:
+- Font family: Inter or equivalent geometric sans-serif
+- Headings: H1 ~28px, H2 ~22px, H3 ~18px; font-weight 600–700
+- Body: 15–16px, 1.5x line-height
+- Layout: 12-column grid with 24–32px gutters/padding
+- Alignment: Left-aligned text, ample whitespace
+
+### Key Design Elements
+
+#### Card Design:
+- White cards, subtle shadow, 8–12px radius
+- Thin borders (#E5E7EB) for dividers
+- Hover state: mild elevation or tint
+
+#### Navigation:
+- Sidebar: permanent left, #F5F6FA, active highlight
+- Icons: monochrome, 6B7280; active state filled/colored
+- Top bar: white with bottom border
+
+#### Data Visualization:
+- Minimal charts if present; otherwise rely on crisp, legible text and icons
+- Status pills/dots in appropriate colors
+
+#### Interactive Elements:
+- Buttons: Primary #0052CC with white text; secondary ghost/outline
+- Form fields: rounded, borders #D1D5DB, focus ring
+- Search: full-width, rounded with left icon
+- Micro-interactions: smooth transitions on hover/focus
+
+### Design Philosophy
+- Modern, minimalist, calm, and professional
+- Emphasize clarity, simplicity, and quick scanning
+- Minimize cognitive load; provide a frictionless, inviting environment
+- Data/readability-first with structured visual hierarchy
+
+---
+
+Connected Pages:
+- Settings & Team Management: Branding, branding emails, team roles, subscription, integrations
+- Dashboard: Studio landing after login with project summaries, decisions, approvals, quick actions
+
+Connected Features:
+- User Profile Management, Session Management & Security, Password Management & Reset, 2FA, User Authentication (Signup / Login)
+
+---
+
+Note to AI development tool:
+- Use modular, reusable components with clear prop contracts
+- Provide mocks and storybook-ish examples for each component
+- Include unit tests scaffolding for critical flows (profile update, 2FA enable, session revoke, password reset)
+- Ensure localization-ready strings and accessibility hooks (aria-labels, aria-live regions)
+- Document API contracts in a separate spec with request/response examples and error schemas
+
+Generate the complete, detailed prompt now based on the above specifications.
+
+## Implementation Notes
+
+When implementing this project:
+
+1. **Follow Universal Guidelines**: Use the design best practices documented above as your foundation
+2. **Apply Project Customizations**: Implement the specific design requirements stated in the "User Design Requirements" section
+3. **Priority Order**: Project-specific requirements override universal guidelines when there's a conflict
+4. **Color System**: Extract and implement color values as CSS custom properties in RGB format
+5. **Typography**: Define font families, sizes, and weights based on specifications
+6. **Spacing**: Establish consistent spacing scale following the design system
+7. **Components**: Style all Shadcn components to match the design aesthetic
+8. **Animations**: Use Motion library for transitions matching the design personality
+9. **Responsive Design**: Ensure mobile-first responsive implementation
+
+## Implementation Checklist
+
+- [ ] Review universal design guidelines above
+- [ ] Extract project-specific color palette and define CSS variables
+- [ ] Configure Tailwind theme with custom colors
+- [ ] Set up typography system (fonts, sizes, weights)
+- [ ] Define spacing and sizing scales
+- [ ] Create component variants matching design
+- [ ] Implement responsive breakpoints
+- [ ] Add animations and transitions
+- [ ] Ensure accessibility standards
+- [ ] Validate against user design requirements
+
+---
+
+**Remember: Always reference this file for design decisions. Do not use generic or placeholder designs.**
+ for bestpractices and # File Upload & Management
+
+## Overview
+Build a secure, scalable File Upload & Management system to support uploading, storing, versioning, previewing, and securely serving drawings, images, and attachments for Archject. This system powers:
+
+- Signed uploads/downloads to AWS S3 (or Cloudinary direct uploads as an optional alternative)
+- Server-side malware/virus scanning pipeline
+- Thumbnail and PDF preview generation (via Lambda or server workers)
+- Fine-grained access controls and temporary signed URLs
+- Integration with Drawings & Specs Library, Decision Detail Page, and Create Decision Page
+- Versioning history, thumbnails, quick-attach to decisions, and export artifacts
+
+The implementation must align with Archject’s UX and design system, ensuring a calm, readable interface, clear visual hierarchy, and reliable data integrity across devices and client access.
+
+---
+
+## components to Build
+
+1) File Storage Service (Backend Core)
+- Purpose: Store and manage file objects with versioning, access control, and provenance.
+- Storage: AWS S3 (preferred) with lifecycle rules; optional Cloudinary direct upload path as alternative.
+- Features:
+  - Object metadata: projectId, fileId, version, filename, mimeType, size, ownerUserId, createdAt, expiry (if signed URL is temporary)
+  - Versioning: keep previous versions accessible; expose API to fetch specific version or latest
+  - Access control: per-file ACLs; ability to generate time-limited signed URLs for download or upload
+  - Triggers: on upload, trigger malware scan, thumbnail generation, and optional PDF generation
+  - Thumbnails/previews: support for image thumbnails and PDF previews (via Lambda or server worker)
+  - Lifecycle: auto-archive/delete non-active versions after policy window (configurable)
+
+2) Ingestion & Security Pipeline
+- Malware/virus scanning: integrate with scanning service (e.g., ClamAV, AV, or a managed scanner). Ensure scans run asynchronously and block or quarantine uploads on detection.
+- Validation: MIME type sniffing, file size limits, allowed extensions per project policy.
+- Thumbnails & Preview generation: 
+  - Images: generate thumbnail at multiple sizes (e.g., 256px, 64px)
+  - Drawings: generate thumbnail for quick attachment previews
+  - PDFs: generate first-page thumbnail and optional text rendering for previews
+- Signaling: publish status events (SCANNED, CLEAN, INFECTED, THUMBNAIL_READY, PREVIEW_READY)
+
+3) Drawings & Specs Library Page (Frontend)
+- Central repository per project
+- Features:
+  - Upload new drawings/spec files with versioning
+  - View library with thumbnail grid/list; sort by date, version, name
+  - Version history panel for each file
+  - Quick attach to decisions (attach file to a decision card)
+  - Preview pane for images and PDFs (inline)
+  - Client-side search and filters (by name, type, version, date)
+- UI: card-based and grid/list toggle; thumbnails; status badges; action menu (download, share, versioned view)
+
+4) Decision Detail Page (Frontend)
+- Full Decision Card view
+- Features:
+  - Visual comparison of options (side-by-side thumbnails/previews)
+  - Comments thread with threaded responses
+  - Approval status badge (Approved, Pending, Rejected)
+  - History timeline with file attachments and actions
+  - Attachments management: view, download, replace, and remove
+  - Actions: share link (no-login or token-based), export decision pack (PDF/ZIP), create follow-up task
+- UX: emphasis on visual decision-making and easy access to attachments and history
+
+5) Create Decision Page (Frontend)
+- Multi-step flow (modal or page)
+- Steps:
+  - Template selection: choose from predefined templates or create custom
+  - Options: add decision options (images/drawings, descriptions, pricing, materials)
+  - Attachments: attach drawings/specs from library or uploaded files
+  - Recipients: select client recipients for reminders and approvals
+  - Reminder Schedule: set automatic reminders and due dates
+- UX: progress indicators, inline validation, and contextual help
+
+6) API Layer (Backend)
+- Authentication & Authorization
+  - Bearer token/session-based auth; per-user access to the project space
+  - Role-based access: Viewer, Editor, Approver, Admin
+- File APIs
+  - Upload: signed POST URL generation or direct upload (multipart)
+  - Download: signed GET URL with expiry
+  - Preview/Thumbnail: signed URLs for preview endpoints
+  - Versioning: endpoints to fetch file versions, promote a version, restore
+  - Attachments: attach/detach to decisions
+- Drawings & Specs Library APIs
+  - CRUD for library items; version history retrieval
+  - Attach to decision: API to attach a file reference to a decision
+- Decision APIs
+  - Create decision (from multi-step flow)
+  - Update decision (options, attachments, recipients)
+  - Decision detail retrieval (with attachments and history)
+- Webhook & Events
+  - Notify frontend or workspace services on file scans, thumbnail ready, new version, or new attachment
+
+7) Database Models (Data Layer)
+- Projects
+- Users
+- Files
+  - id, projectId, fileName, mimeType, size, version, isLatest, uploadedBy, uploadDate, s3Key, etag, scanStatus, thumbnailS3Key, previewUrl, expiry
+  - versionHistory: separate table to track per-file versions (fileId, version, s3Key, uploadedAt, uploadedBy, mimeType, size)
+- Decisions
+  - id, projectId, title, status, createdAt, dueDate, approvedAt
+- DecisionOptions
+  - id, decisionId, label, description, assetFileId (attachment)
+- Attachments
+  - decisionId, fileId, role (attachment type)
+- Recipients & Reminders
+- ActivityLog
+  - track actions: created decision, attached file, approved, reminder sent, export, share
+
+8) Frontend Components & Pages
+- File Library Grid/List with thumbnail previews
+- File Preview Panel (image/PDF)
+- Thumbnail generation display
+- Attachment Picker integrated with decision creation/edit flows
+- Signed URL display and copy/share utilities
+- Multi-step modal for Create Decision
+- Decision Card View with side-by-side comparison layout
+- Activity Timeline component
+
+9) Utilities & Helpers
+- Signed URL generator (server-side)
+- File type validators and MIME-type mapping
+- Image/PDF thumbnail renderer or thumbnail URL generator
+- PDF export pack assembler (gathers decision content and attachments into a PDF/ZIP)
+- Validation utilities for forms and inputs
+- Retry/backoff logic for uploads and scans
+
+---
+
+## Implementation Requirements
+
+### Frontend
+- Frameworks: React (with hooks) or a modern alternative; state management with Redux/Context
+- UI Components: Reusable components aligned to design system (cards, buttons, inputs, selects, modals, sidebars)
+- Accessibility: ARIA labels, keyboard navigation, proper focus states
+- Networking: Fetch/Axios with retry logic; handle signed URLs
+- Performance: Lazy load thumbnails; pagination/infinite scroll for large libraries
+- Upload UX: 
+  - Drag-and-drop zone
+  - Show progress bars, chunked uploads for large files
+  - Real-time status (Uploaded, Scanned, Ready)
+- Preview: Inline previews for images; embedded PDF viewer or canvas-based thumbnail; fallback viewer for unsupported types
+- Error handling: Clear error messages, retry options, and degraded mode for offline/slow networks
+- Security: Do not expose raw S3 keys; always use signed URLs for client operations
+
+### Backend
+- Language/Stack: Node.js (NestJS/Express) or Python (FastAPI) or Java (Spring) depending on project baseline
+- API Design: RESTful endpoints with versioned routes; consistent response schema; thorough Swagger/OpenAPI docs
+- Storage Integration:
+  - AWS SDK v3 integration for S3 operations
+  - Optional Cloudinary integration path with direct uploads
+- Scanning & Thumbnails:
+  - Lambda-based workers or in-service background jobs (e.g., using SQS/SNS or a queue)
+  - Image processing via Sharp or equivalent; PDF thumbnail via PDF renderer
+- Security:
+  - JWT or OAuth-based authentication
+  - Per-file signed URL generation with short TTL (e.g., 15 minutes)
+  - Access control checks on every request
+- Data Integrity:
+  - Database migrations; data seeding for projects/users
+  - Audit trails for file version changes and decision updates
+- Observability:
+  - Logging, metrics, and error tracking (e.g., Sentry)
+  - Job status dashboards for scans and thumbnail generation
+
+### Integration
+- Linking components:
+  - File storage service exposes APIs for upload/download/versions
+  - Library and Decision pages fetch file metadata and thumbnails via API
+  - Decision Create flow uses library attachments and uploads to populate attachments
+  - Event bus or webhook system to propagate updates (new version, scan result, reminder)
+- Consistency:
+  - Ensure data consistency between file version history and the visible latest version
+  - Ensure signed URLs are refreshed when expired and access controls are enforced
+
+## User Experience Flow
+
+- Uploading a File
+  1) User opens Drawings & Specs Library or Decision Create flow
+  2) Drag-and-drop or click to select a file
+  3) Client shows upload progress; files queued for upload
+  4) Backend stores the file; malware scan starts automatically
+  5) If clean, thumbnail and preview are generated; status updated to Ready
+  6) User sees the file in library with thumbnail; option to attach to decisions
+
+- Attaching to a Decision
+  1) User opens a Decision (Detail or Create)
+  2) User selects “Attach” and picks files from the library
+  3) System creates a link between the file version (latest or chosen version) and the decision
+  4) Attachments appear in the Decision’s Attachments section; user can download the file or view preview
+
+- Viewing a Decision
+  1) Decision detail shows options in a side-by-side comparison, comments, and status
+  2) Attachments are accessible via thumbnails; user can share or export the decision pack
+  3) User can create a follow-up task from the decision actions
+
+- Creating a Decision
+  1) User starts Create Decision flow
+  2) User picks a template (or custom)
+  3) User adds options and attaches drawings/specs from the library
+  4) User selects client recipients and sets reminder schedule
+  5) On finish, a new Decision is created with all attachments and related files stored in library
+
+## Technical Specifications
+
+Data Models: (Core shapes)
+- File
+  - id, projectId, fileName, mimeType, size, version, isLatest, uploadedBy, uploadedAt, s3Key, thumbnailKey, previewUrl, scanStatus, accessControlList, expiresAt
+- FileVersion
+  - id, fileId, version, s3Key, uploadedAt, uploadedBy, mimeType, size
+- Decision
+  - id, projectId, title, status, createdAt, dueDate, approvedAt, createdBy
+- DecisionAttachment
+  - id, decisionId, fileId, role (attachment_type)
+- LibraryItem
+  - id, projectId, fileId, metadata (tags, description), version, createdAt
+- User
+  - id, name, email, role, permissions
+- ActivityLog
+  - id, type, subjectId, details, timestamp, userId
+
+API Endpoints (examples; adapt to stack)
+- POST /api/v1/projects/{projectId}/files/sign-upload-url
+  - body: { fileName, mimeType, size, folderPath }
+  - returns: { uploadUrl, fileId, signedHeaders }
+- POST /api/v1/projects/{projectId}/files
+  - upload completed event payload; creates file record; initiates scan
+- GET /api/v1/projects/{projectId}/files/{fileId}
+  - returns file metadata
+- GET /api/v1/projects/{projectId}/files/{fileId}/versions
+  - returns version history
+- GET /api/v1/projects/{projectId}/files/{fileId}/download-url?version={version}
+  - returns signed URL for download
+- GET /api/v1/projects/{projectId}/libraries
+  - list library items with pagination
+- POST /api/v1/projects/{projectId}/libraries/upload
+  - alternative endpoint for direct signed URL upload
+- POST /api/v1/projects/{projectId}/decisions
+  - create decision (from multi-step flow)
+- GET /api/v1/projects/{projectId}/decisions/{decisionId}
+  - retrieve decision with attachments
+- POST /api/v1/projects/{projectId}/decisions/{decisionId}/attachments
+  - attach file to decision
+- POST /api/v1/projects/{projectId}/decisions/{decisionId}/export
+  - export decision as PDF/ZIP
+- POST /api/v1/projects/{projectId}/scans/trigger
+  - enqueue scan job (if separate)
+
+Security
+- Authentication: JWT/OAuth2; access restricted by project and user roles
+- Authorization: Verify project membership and role for every operation
+- Signed URLs: Short TTL (e.g., 15 minutes) for read/write operations
+- Virus scanning: Reject and quarantine files with malware; provide remediation steps
+- Data retention: Enforce lifecycle rules; archive or delete according to policy
+
+Validation
+- File type/size restrictions per policy
+- Required fields for creation and attachments
+- Consistent versioning rules (increment version correctly; mark isLatest)
+- All endpoints return predictable success/error formats with codes and messages
+
+Acceptance Criteria
+- [ ] Users can upload large drawings and attachments with progress feedback; files are stored in S3 with version history
+- [ ] Uploaded files pass malware scanning; only clean files become visible with thumbnails/previews
+- [ ] Thumbnails and first-page PDF previews are generated and accessible via signed URLs
+- [ ] Quick attach to decisions works; attachments display in Decision Detail with correct version
+- [ ] Create Decision flow supports multi-step process, including attachment of library items and reminder scheduling
+- [ ] Export of a Decision generates a packaged artifact (PDF/ZIP) containing decision content and attachments
+- [ ] All UI components align with the design system and pass accessibility checks
+
+UI/UX Guidelines
+Apply the project’s design system:
+- Clean, calm workspace background (#F7F7F9) with cards on white panels
+- Primary actions use accent color (#0052CC); secondary actions are ghost or outline
+- Consistent typography; H1 ~28px, H2 ~22px, body 15–16px
+- 12-column grid with 24–32px gutters; generous whitespace
+- Card design: soft shadows, rounded corners, borders in #E5E7EB
+- Sidebar navigation with clear active states; top bar with minimal borders
+- Status indicators using color codes: success (#10B981), warning (#F59E42), error (#EF4444)
+- Interactive elements have smooth transitions and accessible focus states
+
+Visual Style
+- Maintain high readability and clarity; minimize decorative elements
+- Use thumbnails and visual cues to aid quick decision-making
+- Ensure responsive behavior for desktop and mobile clients
+
+---
+
+ Connected Pages
+- Page_Drawings_Library: central repository with versioning, thumbnails, and quick attach to decisions
+- Page_Create_Decision: multi-step modal or page to create a Decision Card with options, attachments, recipients, reminders
+- Page_Decision_Detail: full decision view with visual comparisons, comments, approvals, history, attachments, and actions (share, export, follow-up task)
+
+ Connected APIs
+- AWS S3 (File Storage): object storage for large drawings, attachments, and export artifacts; signed URLs; lifecycle rules
+- Optional: Cloudinary direct upload path if preferred
+
+---
+
+Please generate the complete, detailed development prompt that an AI development tool can use to build this feature set, following the structure above and incorporating all project-specific constraints, styles, and workflows. Include explicit data models, API contract examples, and step-by-step user flows as necessary. for style.
+
+CRITICAL DESIGN REQUIREMENTS:
+- You MUST follow ALL design principles and patterns specified in the Design Reference above
+- Do NOT deviate from the design specifications without explicit user permission
+- Implement ALL visual design elements (colors, typography, spacing, shadows, animations) as specified
+- Follow the layout patterns and component designs exactly as documented
+- Ensure all interactions and micro-animations match the reference specifications
+
+CRITICAL TECHNICAL REQUIREMENTS:
+- React 18.3.1, React Router 6.30.1
+- Tailwind CSS v3 with tailwind.config.js and custom keyframes
+- @tailwindcss/typography plugin for rich text content
+- Tailwind CSS animations (NOT Motion library or framer-motion)
+- Sonner for toasts
+- Recharts for data visualization
+- Native fetch() with API utilities in src/lib/api.ts
+- Design system with CSS custom properties
+- Use RGB color values for theming
+- When Supabase is configured: use Edge Functions for LLM and server-only logic; never expose API keys in the client
+
+=== TASK ===
+# File Upload & Management
+
+## Overview
+Build a secure, scalable File Upload & Management system to support uploading, storing, versioning, previewing, and securely serving drawings, images, and attachments for Archject. This system powers:
+
+- Signed uploads/downloads to AWS S3 (or Cloudinary direct uploads as an optional alternative)
+- Server-side malware/virus scanning pipeline
+- Thumbnail and PDF preview generation (via Lambda or server workers)
+- Fine-grained access controls and temporary signed URLs
+- Integration with Drawings & Specs Library, Decision Detail Page, and Create Decision Page
+- Versioning history, thumbnails, quick-attach to decisions, and export artifacts
+
+The implementation must align with Archject’s UX and design system, ensuring a calm, readable interface, clear visual hierarchy, and reliable data integrity across devices and client access.
+
+---
+
+## components to Build
+
+1) File Storage Service (Backend Core)
+- Purpose: Store and manage file objects with versioning, access control, and provenance.
+- Storage: AWS S3 (preferred) with lifecycle rules; optional Cloudinary direct upload path as alternative.
+- Features:
+  - Object metadata: projectId, fileId, version, filename, mimeType, size, ownerUserId, createdAt, expiry (if signed URL is temporary)
+  - Versioning: keep previous versions accessible; expose API to fetch specific version or latest
+  - Access control: per-file ACLs; ability to generate time-limited signed URLs for download or upload
+  - Triggers: on upload, trigger malware scan, thumbnail generation, and optional PDF generation
+  - Thumbnails/previews: support for image thumbnails and PDF previews (via Lambda or server worker)
+  - Lifecycle: auto-archive/delete non-active versions after policy window (configurable)
+
+2) Ingestion & Security Pipeline
+- Malware/virus scanning: integrate with scanning service (e.g., ClamAV, AV, or a managed scanner). Ensure scans run asynchronously and block or quarantine uploads on detection.
+- Validation: MIME type sniffing, file size limits, allowed extensions per project policy.
+- Thumbnails & Preview generation: 
+  - Images: generate thumbnail at multiple sizes (e.g., 256px, 64px)
+  - Drawings: generate thumbnail for quick attachment previews
+  - PDFs: generate first-page thumbnail and optional text rendering for previews
+- Signaling: publish status events (SCANNED, CLEAN, INFECTED, THUMBNAIL_READY, PREVIEW_READY)
+
+3) Drawings & Specs Library Page (Frontend)
+- Central repository per project
+- Features:
+  - Upload new drawings/spec files with versioning
+  - View library with thumbnail grid/list; sort by date, version, name
+  - Version history panel for each file
+  - Quick attach to decisions (attach file to a decision card)
+  - Preview pane for images and PDFs (inline)
+  - Client-side search and filters (by name, type, version, date)
+- UI: card-based and grid/list toggle; thumbnails; status badges; action menu (download, share, versioned view)
+
+4) Decision Detail Page (Frontend)
+- Full Decision Card view
+- Features:
+  - Visual comparison of options (side-by-side thumbnails/previews)
+  - Comments thread with threaded responses
+  - Approval status badge (Approved, Pending, Rejected)
+  - History timeline with file attachments and actions
+  - Attachments management: view, download, replace, and remove
+  - Actions: share link (no-login or token-based), export decision pack (PDF/ZIP), create follow-up task
+- UX: emphasis on visual decision-making and easy access to attachments and history
+
+5) Create Decision Page (Frontend)
+- Multi-step flow (modal or page)
+- Steps:
+  - Template selection: choose from predefined templates or create custom
+  - Options: add decision options (images/drawings, descriptions, pricing, materials)
+  - Attachments: attach drawings/specs from library or uploaded files
+  - Recipients: select client recipients for reminders and approvals
+  - Reminder Schedule: set automatic reminders and due dates
+- UX: progress indicators, inline validation, and contextual help
+
+6) API Layer (Backend)
+- Authentication & Authorization
+  - Bearer token/session-based auth; per-user access to the project space
+  - Role-based access: Viewer, Editor, Approver, Admin
+- File APIs
+  - Upload: signed POST URL generation or direct upload (multipart)
+  - Download: signed GET URL with expiry
+  - Preview/Thumbnail: signed URLs for preview endpoints
+  - Versioning: endpoints to fetch file versions, promote a version, restore
+  - Attachments: attach/detach to decisions
+- Drawings & Specs Library APIs
+  - CRUD for library items; version history retrieval
+  - Attach to decision: API to attach a file reference to a decision
+- Decision APIs
+  - Create decision (from multi-step flow)
+  - Update decision (options, attachments, recipients)
+  - Decision detail retrieval (with attachments and history)
+- Webhook & Events
+  - Notify frontend or workspace services on file scans, thumbnail ready, new version, or new attachment
+
+7) Database Models (Data Layer)
+- Projects
+- Users
+- Files
+  - id, projectId, fileName, mimeType, size, version, isLatest, uploadedBy, uploadDate, s3Key, etag, scanStatus, thumbnailS3Key, previewUrl, expiry
+  - versionHistory: separate table to track per-file versions (fileId, version, s3Key, uploadedAt, uploadedBy, mimeType, size)
+- Decisions
+  - id, projectId, title, status, createdAt, dueDate, approvedAt
+- DecisionOptions
+  - id, decisionId, label, description, assetFileId (attachment)
+- Attachments
+  - decisionId, fileId, role (attachment type)
+- Recipients & Reminders
+- ActivityLog
+  - track actions: created decision, attached file, approved, reminder sent, export, share
+
+8) Frontend Components & Pages
+- File Library Grid/List with thumbnail previews
+- File Preview Panel (image/PDF)
+- Thumbnail generation display
+- Attachment Picker integrated with decision creation/edit flows
+- Signed URL display and copy/share utilities
+- Multi-step modal for Create Decision
+- Decision Card View with side-by-side comparison layout
+- Activity Timeline component
+
+9) Utilities & Helpers
+- Signed URL generator (server-side)
+- File type validators and MIME-type mapping
+- Image/PDF thumbnail renderer or thumbnail URL generator
+- PDF export pack assembler (gathers decision content and attachments into a PDF/ZIP)
+- Validation utilities for forms and inputs
+- Retry/backoff logic for uploads and scans
+
+---
+
+## Implementation Requirements
+
+### Frontend
+- Frameworks: React (with hooks) or a modern alternative; state management with Redux/Context
+- UI Components: Reusable components aligned to design system (cards, buttons, inputs, selects, modals, sidebars)
+- Accessibility: ARIA labels, keyboard navigation, proper focus states
+- Networking: Fetch/Axios with retry logic; handle signed URLs
+- Performance: Lazy load thumbnails; pagination/infinite scroll for large libraries
+- Upload UX: 
+  - Drag-and-drop zone
+  - Show progress bars, chunked uploads for large files
+  - Real-time status (Uploaded, Scanned, Ready)
+- Preview: Inline previews for images; embedded PDF viewer or canvas-based thumbnail; fallback viewer for unsupported types
+- Error handling: Clear error messages, retry options, and degraded mode for offline/slow networks
+- Security: Do not expose raw S3 keys; always use signed URLs for client operations
+
+### Backend
+- Language/Stack: Node.js (NestJS/Express) or Python (FastAPI) or Java (Spring) depending on project baseline
+- API Design: RESTful endpoints with versioned routes; consistent response schema; thorough Swagger/OpenAPI docs
+- Storage Integration:
+  - AWS SDK v3 integration for S3 operations
+  - Optional Cloudinary integration path with direct uploads
+- Scanning & Thumbnails:
+  - Lambda-based workers or in-service background jobs (e.g., using SQS/SNS or a queue)
+  - Image processing via Sharp or equivalent; PDF thumbnail via PDF renderer
+- Security:
+  - JWT or OAuth-based authentication
+  - Per-file signed URL generation with short TTL (e.g., 15 minutes)
+  - Access control checks on every request
+- Data Integrity:
+  - Database migrations; data seeding for projects/users
+  - Audit trails for file version changes and decision updates
+- Observability:
+  - Logging, metrics, and error tracking (e.g., Sentry)
+  - Job status dashboards for scans and thumbnail generation
+
+### Integration
+- Linking components:
+  - File storage service exposes APIs for upload/download/versions
+  - Library and Decision pages fetch file metadata and thumbnails via API
+  - Decision Create flow uses library attachments and uploads to populate attachments
+  - Event bus or webhook system to propagate updates (new version, scan result, reminder)
+- Consistency:
+  - Ensure data consistency between file version history and the visible latest version
+  - Ensure signed URLs are refreshed when expired and access controls are enforced
+
+## User Experience Flow
+
+- Uploading a File
+  1) User opens Drawings & Specs Library or Decision Create flow
+  2) Drag-and-drop or click to select a file
+  3) Client shows upload progress; files queued for upload
+  4) Backend stores the file; malware scan starts automatically
+  5) If clean, thumbnail and preview are generated; status updated to Ready
+  6) User sees the file in library with thumbnail; option to attach to decisions
+
+- Attaching to a Decision
+  1) User opens a Decision (Detail or Create)
+  2) User selects “Attach” and picks files from the library
+  3) System creates a link between the file version (latest or chosen version) and the decision
+  4) Attachments appear in the Decision’s Attachments section; user can download the file or view preview
+
+- Viewing a Decision
+  1) Decision detail shows options in a side-by-side comparison, comments, and status
+  2) Attachments are accessible via thumbnails; user can share or export the decision pack
+  3) User can create a follow-up task from the decision actions
+
+- Creating a Decision
+  1) User starts Create Decision flow
+  2) User picks a template (or custom)
+  3) User adds options and attaches drawings/specs from the library
+  4) User selects client recipients and sets reminder schedule
+  5) On finish, a new Decision is created with all attachments and related files stored in library
+
+## Technical Specifications
+
+Data Models: (Core shapes)
+- File
+  - id, projectId, fileName, mimeType, size, version, isLatest, uploadedBy, uploadedAt, s3Key, thumbnailKey, previewUrl, scanStatus, accessControlList, expiresAt
+- FileVersion
+  - id, fileId, version, s3Key, uploadedAt, uploadedBy, mimeType, size
+- Decision
+  - id, projectId, title, status, createdAt, dueDate, approvedAt, createdBy
+- DecisionAttachment
+  - id, decisionId, fileId, role (attachment_type)
+- LibraryItem
+  - id, projectId, fileId, metadata (tags, description), version, createdAt
+- User
+  - id, name, email, role, permissions
+- ActivityLog
+  - id, type, subjectId, details, timestamp, userId
+
+API Endpoints (examples; adapt to stack)
+- POST /api/v1/projects/{projectId}/files/sign-upload-url
+  - body: { fileName, mimeType, size, folderPath }
+  - returns: { uploadUrl, fileId, signedHeaders }
+- POST /api/v1/projects/{projectId}/files
+  - upload completed event payload; creates file record; initiates scan
+- GET /api/v1/projects/{projectId}/files/{fileId}
+  - returns file metadata
+- GET /api/v1/projects/{projectId}/files/{fileId}/versions
+  - returns version history
+- GET /api/v1/projects/{projectId}/files/{fileId}/download-url?version={version}
+  - returns signed URL for download
+- GET /api/v1/projects/{projectId}/libraries
+  - list library items with pagination
+- POST /api/v1/projects/{projectId}/libraries/upload
+  - alternative endpoint for direct signed URL upload
+- POST /api/v1/projects/{projectId}/decisions
+  - create decision (from multi-step flow)
+- GET /api/v1/projects/{projectId}/decisions/{decisionId}
+  - retrieve decision with attachments
+- POST /api/v1/projects/{projectId}/decisions/{decisionId}/attachments
+  - attach file to decision
+- POST /api/v1/projects/{projectId}/decisions/{decisionId}/export
+  - export decision as PDF/ZIP
+- POST /api/v1/projects/{projectId}/scans/trigger
+  - enqueue scan job (if separate)
+
+Security
+- Authentication: JWT/OAuth2; access restricted by project and user roles
+- Authorization: Verify project membership and role for every operation
+- Signed URLs: Short TTL (e.g., 15 minutes) for read/write operations
+- Virus scanning: Reject and quarantine files with malware; provide remediation steps
+- Data retention: Enforce lifecycle rules; archive or delete according to policy
+
+Validation
+- File type/size restrictions per policy
+- Required fields for creation and attachments
+- Consistent versioning rules (increment version correctly; mark isLatest)
+- All endpoints return predictable success/error formats with codes and messages
+
+Acceptance Criteria
+- [ ] Users can upload large drawings and attachments with progress feedback; files are stored in S3 with version history
+- [ ] Uploaded files pass malware scanning; only clean files become visible with thumbnails/previews
+- [ ] Thumbnails and first-page PDF previews are generated and accessible via signed URLs
+- [ ] Quick attach to decisions works; attachments display in Decision Detail with correct version
+- [ ] Create Decision flow supports multi-step process, including attachment of library items and reminder scheduling
+- [ ] Export of a Decision generates a packaged artifact (PDF/ZIP) containing decision content and attachments
+- [ ] All UI components align with the design system and pass accessibility checks
+
+UI/UX Guidelines
+Apply the project’s design system:
+- Clean, calm workspace background (#F7F7F9) with cards on white panels
+- Primary actions use accent color (#0052CC); secondary actions are ghost or outline
+- Consistent typography; H1 ~28px, H2 ~22px, body 15–16px
+- 12-column grid with 24–32px gutters; generous whitespace
+- Card design: soft shadows, rounded corners, borders in #E5E7EB
+- Sidebar navigation with clear active states; top bar with minimal borders
+- Status indicators using color codes: success (#10B981), warning (#F59E42), error (#EF4444)
+- Interactive elements have smooth transitions and accessible focus states
+
+Visual Style
+- Maintain high readability and clarity; minimize decorative elements
+- Use thumbnails and visual cues to aid quick decision-making
+- Ensure responsive behavior for desktop and mobile clients
+
+---
+
+ Connected Pages
+- Page_Drawings_Library: central repository with versioning, thumbnails, and quick attach to decisions
+- Page_Create_Decision: multi-step modal or page to create a Decision Card with options, attachments, recipients, reminders
+- Page_Decision_Detail: full decision view with visual comparisons, comments, approvals, history, attachments, and actions (share, export, follow-up task)
+
+ Connected APIs
+- AWS S3 (File Storage): object storage for large drawings, attachments, and export artifacts; signed URLs; lifecycle rules
+- Optional: Cloudinary direct upload path if preferred
+
+---
+
+Please generate the complete, detailed development prompt that an AI development tool can use to build this feature set, following the structure above and incorporating all project-specific constraints, styles, and workflows. Include explicit data models, API contract examples, and step-by-step user flows as necessary.
+
+=== SUCCESS CRITERIA ===
+# Success Criteria Checklist
+
+## Code Quality
+
+### TypeScript
+- [ ] No TypeScript errors (`tsc --noEmit` passes)
+- [ ] All functions and components have proper type definitions
+- [ ] No `any` types used (use `unknown` if type is truly unknown)
+- [ ] Props interfaces defined for all components
+- [ ] API responses have type definitions
+
+### Code Standards
+- [ ] All imports use path aliases (@/ prefix)
+- [ ] Components follow the established naming convention
+- [ ] Files are organized in correct directories
+- [ ] No unused imports or variables
+- [ ] Consistent code formatting
+
+## Component Implementation
+
+### UI Components
+- [ ] Use shadcn/ui components (Button, Card, Input, etc.) instead of building from scratch
+- [ ] All interactive elements have hover states
+- [ ] Components use the `cn()` utility for class merging
+- [ ] Proper TypeScript props interfaces defined
+- [ ] Components are responsive (mobile, tablet, desktop)
+
+### Animations
+- [ ] Motion library used for all animations (NOT framer-motion)
+- [ ] Page transitions implemented with fade/slide
+- [ ] Interactive elements have whileHover/whileTap animations
+- [ ] List items use stagger animations where appropriate
+- [ ] Animations respect `prefers-reduced-motion`
+
+### Icons
+- [ ] Lucide React icons used consistently
+- [ ] Icons have consistent sizing (h-4 w-4, h-5 w-5, h-6 w-6)
+- [ ] Icon colors match design system (text-primary, text-muted-foreground)
+
+## Data Management
+
+### React Query
+- [ ] All data fetching uses React Query hooks
+- [ ] Query keys follow the established pattern
+- [ ] Mutations invalidate related queries
+- [ ] Loading and error states handled
+- [ ] Optimistic updates implemented where appropriate
+
+### Forms
+- [ ] Forms use react-hook-form
+- [ ] Validation uses Zod schemas
+- [ ] Error messages display properly
+- [ ] Form submission shows loading state
+- [ ] Success/error feedback via toast notifications
+
+### API Layer
+- [ ] API functions in src/api/ directory
+- [ ] Axios used for HTTP requests
+- [ ] Proper error handling with try/catch
+- [ ] Auth tokens handled by interceptors
+- [ ] Type-safe API function signatures
+
+## User Experience
+
+### Notifications
+- [ ] Sonner toasts used for all notifications
+- [ ] Success actions show success toast
+- [ ] Errors show descriptive error messages
+- [ ] Loading states show toast.loading()
+
+### Loading States
+- [ ] Skeleton loaders shown during data fetch
+- [ ] Buttons show loading state during submission
+- [ ] Disabled state applied during async operations
+
+### Error Handling
+- [ ] Network errors caught and displayed
+- [ ] User-friendly error messages (no stack traces)
+- [ ] Fallback UI for error states
+- [ ] No unhandled promise rejections
+
+## Navigation
+
+### Route Accessibility
+- [ ] All pages have routes defined in router configuration
+- [ ] Every page is accessible through navigation (menu, sidebar, or direct URL)
+- [ ] Main pages (Dashboard, Home, Settings, etc.) accessible from primary navigation
+- [ ] Secondary pages accessible through contextual navigation or direct links
+- [ ] Deep-linked pages have breadcrumbs or back navigation
+- [ ] 404/Not Found page implemented for invalid routes
+- [ ] Protected routes have proper authentication checks
+- [ ] Navigation state persists across page refreshes where appropriate
+
+### Navigation UX
+- [ ] Active route highlighted in navigation menu
+- [ ] Clear visual hierarchy in navigation structure
+- [ ] Mobile navigation is accessible and usable
+- [ ] Navigation items have hover/focus states
+- [ ] Nested routes show parent-child relationships
+- [ ] User can always return to main areas (Dashboard/Home)
+
+## Styling
+
+### Tailwind CSS
+- [ ] Tailwind v3 classes used
+- [ ] HSL color variables from design system
+- [ ] Custom CSS properties used where defined
+- [ ] Responsive breakpoints: mobile-first approach
+- [ ] Dark mode support via CSS variables
+
+### Design System
+- [ ] Colors use theme variables (primary, secondary, accent)
+- [ ] Spacing uses Tailwind scale (p-4, gap-6, etc.)
+- [ ] Border radius uses theme values (rounded-lg)
+- [ ] Shadows use theme values (shadow-card)
+- [ ] Typography follows Inter font system
+
+## Accessibility
+
+- [ ] Semantic HTML elements used
+- [ ] Buttons have descriptive labels
+- [ ] Forms have proper labels
+- [ ] Focus states visible on interactive elements
+- [ ] Color contrast meets WCAG standards
+
+## Performance
+
+- [ ] No console.log statements in production code
+- [ ] No console errors in browser
+- [ ] Images optimized (WebP, lazy loading)
+- [ ] Large lists use virtualization if needed
+- [ ] React Query cache configured appropriately
+
+## Testing Readiness
+
+- [ ] Components structured for easy testing
+- [ ] Business logic separated from presentation
+- [ ] Mock-friendly API layer
+- [ ] No hardcoded values that should be configurable
+- [ ] Environment variables properly configured
+
+## Final Checks
+
+- [ ] Code builds without errors (`npm run build`)
+- [ ] Development server runs without errors (`npm run dev`)
+- [ ] No TypeScript errors in editor
+- [ ] Browser console is clean (no errors or warnings)
+- [ ] All functionality works as expected
+- [ ] Code follows existing project patterns
+- [ ] Changes are consistent with the rest of the codebase
+
+
+
+IMPORTANT: ALL styling and design decisions must follow the Design Reference section above EXACTLY. Do not make arbitrary design choices.
+
+Analyze the existing project structure and implement the task following the patterns already established. Ensure all success criteria are met.

@@ -146,23 +146,25 @@ templatesRouter.post('/templates/import', requireAuth, upload.single('file'), (r
 
   let templates: Array<{ name: string; description?: string; type?: string; content?: Record<string, unknown>; tags?: string[] }>
 
+  const templateItem = { name: string; description?: string; type?: string; content?: Record<string, unknown>; tags?: string[] }
   if (file?.buffer) {
     try {
       const text = file.buffer.toString('utf-8')
       const data = JSON.parse(text) as
         | { name?: string; type?: string; content?: Record<string, unknown>; tags?: string[] }
         | { templates?: Array<{ name?: string; type?: string; content?: Record<string, unknown>; tags?: string[] }> }
-      templates = Array.isArray(data)
+      const raw = Array.isArray(data)
         ? data
         : (data as { templates?: unknown[] }).templates
           ? (data as { templates: unknown[] }).templates
           : [data]
+      templates = raw as Array<{ name: string; description?: string; type?: string; content?: Record<string, unknown>; tags?: string[] }>
     } catch {
       return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid JSON file' })
     }
   } else {
     const body = req.body as { templates?: Array<{ name: string; description?: string; type?: string; content?: Record<string, unknown>; tags?: string[] }> }
-    templates = body.templates ?? (Array.isArray(body) ? body : [body])
+    templates = (body.templates ?? (Array.isArray(body) ? body : [body])) as Array<{ name: string; description?: string; type?: string; content?: Record<string, unknown>; tags?: string[] }>
   }
 
   if (!Array.isArray(templates) || templates.length === 0) {

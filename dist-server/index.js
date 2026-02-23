@@ -58,8 +58,6 @@ app.use('/api', leadsRouter);
 app.use('/api', brandingPreviewRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api', projectsRouter);
-app.use('/api', projectsRouter);
-app.use('/api', projectsRouter);
 app.use('/api', decisionsRouter);
 app.use('/api', exportsDecisionLogsRouter);
 app.use('/api', libraryRouter);
