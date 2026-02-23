@@ -12,6 +12,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { AlertBanner } from '@/components/ui/alert-banner'
 import { useSignup, useLogin, useResendVerification } from '@/hooks/use-auth'
 import { getAuthErrorMessage } from '@/api/auth'
+import { SignupConsent } from '@/components/terms'
+import { useActiveTerms } from '@/hooks/use-terms'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -30,6 +32,9 @@ const signupSchema = z.object({
       'Password must include uppercase, lowercase, digit, and special character'
     ),
   company: z.string().max(200).optional(),
+  terms_accepted: z.boolean().refine((v) => v === true, {
+    message: 'You must accept the Terms of Service',
+  }),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -66,8 +71,11 @@ export function AuthPage() {
       email: '',
       password: '',
       company: '',
+      terms_accepted: false,
     },
   })
+
+  const { data: activeTerms } = useActiveTerms()
 
   const onLogin = async (data: LoginFormData) => {
     try {
@@ -86,6 +94,10 @@ export function AuthPage() {
   }
 
   const onSignup = async (data: SignupFormData) => {
+    if (!activeTerms?.id) {
+      toast.error('Unable to load Terms of Service. Please try again.')
+      return
+    }
     try {
       const res = await signupMutation.mutateAsync({
         first_name: data.first_name,
@@ -93,6 +105,8 @@ export function AuthPage() {
         email: data.email,
         password: data.password,
         company: data.company || undefined,
+        terms_accepted: true,
+        terms_version_id: activeTerms.id,
       })
       setSignupSuccess({ maskedEmail: res.masked_email, email: data.email })
       toast.success('Check your email to verify your account')
@@ -308,7 +322,18 @@ export function AuthPage() {
                       </p>
                     )}
                   </div>
-                  <Button type="submit" className="w-full" isLoading={signupMutation.isPending}>
+                  <SignupConsent
+                    checked={signupForm.watch('terms_accepted')}
+                    onCheckedChange={(checked) => signupForm.setValue('terms_accepted', checked)}
+                    error={signupForm.formState.errors.terms_accepted?.message}
+                    disabled={!activeTerms}
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    isLoading={signupMutation.isPending}
+                    disabled={!activeTerms}
+                  >
                     Sign up
                   </Button>
                 </form>

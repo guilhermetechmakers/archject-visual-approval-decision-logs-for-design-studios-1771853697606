@@ -21,11 +21,17 @@ function maskEmail(email) {
 export const authRouter = Router();
 authRouter.post('/signup', async (req, res) => {
     try {
-        const { first_name, last_name, email, password, company } = req.body;
+        const { first_name, last_name, email, password, company, terms_accepted, terms_version_id } = req.body;
         if (!first_name || !last_name || !email || !password) {
             return res.status(400).json({
                 code: 'VALIDATION_ERROR',
                 message: 'first_name, last_name, email, and password are required',
+            });
+        }
+        if (!terms_accepted || !terms_version_id) {
+            return res.status(400).json({
+                code: 'VALIDATION_ERROR',
+                message: 'You must accept the Terms of Service to sign up',
             });
         }
         if (first_name.length > 100 || last_name.length > 100) {
@@ -50,6 +56,12 @@ authRouter.post('/signup', async (req, res) => {
         const passwordHash = await bcrypt.hash(password, 10);
         db.prepare(`INSERT INTO users (id, first_name, last_name, email, email_verified, password_hash, company, verification_attempts_count)
        VALUES (?, ?, ?, ?, 0, ?, ?, 0)`).run(id, first_name, last_name, email, passwordHash, company ?? null);
+        const version = db.prepare('SELECT id FROM terms_versions WHERE id = ?').get(terms_version_id);
+        if (version) {
+            const acceptId = crypto.randomUUID();
+            db.prepare(`INSERT INTO terms_acceptances (id, user_id, version_id, accepted_at, ip_address, user_agent)
+         VALUES (?, ?, ?, datetime('now'), ?, ?)`).run(acceptId, id, terms_version_id, req.ip ?? null, req.get('user-agent') ?? null);
+        }
         const token = crypto.randomBytes(48).toString('hex');
         const tokenHash = hashToken(token);
         const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);

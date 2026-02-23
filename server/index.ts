@@ -9,6 +9,7 @@ import { adminRouter } from './admin.js'
 import { analyticsRouter } from './analytics.js'
 import { helpRouter } from './help.js'
 import { privacyRouter } from './privacy.js'
+import { termsRouter } from './terms.js'
 
 initDb()
 
@@ -24,6 +25,7 @@ app.use('/api', analyticsRouter)
 app.use('/api', billingRouter)
 app.use('/api', helpRouter)
 app.use('/api', privacyRouter)
+app.use('/api/terms', termsRouter)
 app.use('/webhooks', webhooksRouter)
 
 const uploadsDir = path.join(process.cwd(), 'uploads')

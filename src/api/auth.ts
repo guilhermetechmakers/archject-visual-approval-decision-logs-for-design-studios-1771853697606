@@ -6,6 +6,8 @@ export interface SignupRequest {
   email: string
   password: string
   company?: string
+  terms_accepted: boolean
+  terms_version_id: string
 }
 
 export interface SignupResponse {

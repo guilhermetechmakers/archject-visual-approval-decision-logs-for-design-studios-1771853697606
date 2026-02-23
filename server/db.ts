@@ -131,6 +131,29 @@ export function initDb() {
       if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
     }
   }
+
+  const termsPath = path.join(process.cwd(), 'server', 'migrations', '008_terms.sql')
+  if (fs.existsSync(termsPath)) {
+    try {
+      const sql = fs.readFileSync(termsPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+    seedTermsVersion()
+  }
 }
 
 function seedAnalyticsData() {
@@ -296,5 +319,57 @@ Navigate to **Exports** in the dashboard to generate Decision Logs.
     }
   } catch (e) {
     if (!String(e).includes('UNIQUE')) console.error('[DB] seedKbArticles:', e)
+  }
+}
+
+function seedTermsVersion() {
+  try {
+    const hasTerms = db.prepare('SELECT 1 FROM terms_versions LIMIT 1').get()
+    if (hasTerms) return
+    const crypto = require('crypto')
+    const id = crypto.randomUUID()
+    const effectiveDate = new Date().toISOString().slice(0, 10)
+    const changeLog = JSON.stringify([{ date: effectiveDate, note: 'Initial version' }])
+    const content = `## 1. Usage Rules
+
+By using Archject ("Service"), you agree to use it only for lawful purposes and in accordance with these Terms. You must not use the Service to violate any applicable laws, infringe on others' rights, or transmit harmful content. You are responsible for all activity under your account.
+
+## 2. Accounts & Trials
+
+You may create an account to access the Service. We may offer free trials; trial terms will be specified at signup. You must provide accurate information and keep your account secure. You are responsible for maintaining the confidentiality of your credentials.
+
+## 3. Paid Terms
+
+Paid plans are billed according to the pricing in effect at the time of subscription. Fees are non-refundable except as required by law. We may change pricing with reasonable notice; continued use after changes constitutes acceptance.
+
+## 4. Liability Limits
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, ARCHJECT AND ITS AFFILIATES SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES. OUR TOTAL LIABILITY SHALL NOT EXCEED THE AMOUNT YOU PAID US IN THE TWELVE MONTHS PRECEDING THE CLAIM.
+
+## 5. Intellectual Property
+
+Archject and its licensors retain all rights in the Service, including software, design, and branding. You retain rights in your content. By using the Service, you grant us a limited license to host, process, and display your content as necessary to provide the Service.
+
+## 6. Termination
+
+We may suspend or terminate your access for breach of these Terms or for any reason with notice. You may terminate your account at any time. Upon termination, your right to use the Service ceases. Provisions that by their nature should survive will survive.
+
+## 7. Dispute Resolution
+
+Disputes shall be resolved by binding arbitration in accordance with applicable rules, except where prohibited. You waive the right to participate in class actions. The governing law shall be the laws of the jurisdiction in which Archject is incorporated.
+
+## 8. Changes & Revision History
+
+We may update these Terms from time to time. Material changes will be communicated via email or in-app notice. The "Last updated" date and revision history on this page reflect changes. Continued use after changes constitutes acceptance. You may view prior versions in the Revision History.
+
+## 9. Contact
+
+For questions about these Terms, contact legal@archject.com. For general support, see our Help Center.`
+    db.prepare(
+      `INSERT INTO terms_versions (id, version_number, slug, content_markdown, effective_date, change_log, published)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`
+    ).run(id, 'v1.0', `terms-${effectiveDate}`, content, effectiveDate, changeLog)
+  } catch (e) {
+    if (!String(e).includes('UNIQUE')) console.error('[DB] seedTermsVersion:', e)
   }
 }

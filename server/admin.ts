@@ -684,4 +684,44 @@ adminRouter.post('/maintenance-mode', requireAdmin(['super-admin']), (req: Reque
   res.json({ enabled: next === 1 })
 })
 
+// Terms of Service admin
+adminRouter.post('/terms', requireAdmin(['super-admin', 'admin']), (req: Request, res: Response) => {
+  try {
+    const { version_number, content_markdown, effective_date, change_log } = req.body ?? {}
+    if (!version_number || !content_markdown || !effective_date) {
+      return res.status(400).json({ message: 'version_number, content_markdown, and effective_date are required' })
+    }
+    const effectiveDateStr = String(effective_date).slice(0, 10)
+    const slug = `terms-${effectiveDateStr}`
+    const changeLogArr = Array.isArray(change_log) ? change_log : [{ date: effectiveDateStr, note: 'Initial version' }]
+    const changeLogStr = JSON.stringify(changeLogArr)
+    const id = crypto.randomUUID()
+    db.prepare(
+      `INSERT INTO terms_versions (id, version_number, slug, content_markdown, effective_date, change_log, published)
+       VALUES (?, ?, ?, ?, ?, ?, 0)`
+    ).run(id, version_number, slug, content_markdown, effectiveDateStr, changeLogStr)
+    return res.status(201).json({ id })
+  } catch (err) {
+    console.error('[Admin] Terms create error:', err)
+    return res.status(500).json({ message: 'An error occurred' })
+  }
+})
+
+adminRouter.patch('/terms/:id/publish', requireAdmin(['super-admin', 'admin']), (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const version = db.prepare('SELECT id FROM terms_versions WHERE id = ?').get(id) as { id: string } | undefined
+    if (!version) return res.status(404).json({ message: 'Terms version not found' })
+    db.prepare('UPDATE terms_versions SET published = 0').run()
+    db.prepare('UPDATE terms_versions SET published = 1, updated_at = ? WHERE id = ?').run(
+      new Date().toISOString(),
+      id
+    )
+    return res.json({ success: true })
+  } catch (err) {
+    console.error('[Admin] Terms publish error:', err)
+    return res.status(500).json({ message: 'An error occurred' })
+  }
+})
+
 export { seedAdminIfEmpty }

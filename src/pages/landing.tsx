@@ -1,12 +1,19 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { Check, FileCheck, Share2, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ContactForm } from '@/components/help'
 
 export function LandingPage() {
-  const [demoOpen, setDemoOpen] = useState(false)
+  const location = useLocation()
+  const [demoOpen, setDemoOpen] = useState(location.pathname === '/request-demo')
+
+  useEffect(() => {
+    if (location.pathname === '/request-demo') {
+      setDemoOpen(true)
+    }
+  }, [location.pathname])
   return (
     <div className="min-h-screen bg-background">
       {/* Hero */}
@@ -45,14 +52,15 @@ export function LandingPage() {
                   Sign up
                 </Button>
               </Link>
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-full sm:w-auto"
-                onClick={() => setDemoOpen(true)}
-              >
-                Request demo
-              </Button>
+              <Link to="/request-demo">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full sm:w-auto"
+                >
+                  Request demo
+                </Button>
+              </Link>
               <Link to="/help">
                 <Button variant="ghost" size="lg" className="w-full sm:w-auto">
                   Help & Docs
@@ -164,9 +172,11 @@ export function LandingPage() {
             <Link to="/signup">
               <Button size="lg">Get started free</Button>
             </Link>
-            <Button variant="outline" size="lg" onClick={() => setDemoOpen(true)}>
-              Compare plans / Request demo
-            </Button>
+            <Link to="/request-demo">
+              <Button variant="outline" size="lg">
+                Compare plans / Request demo
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -182,11 +192,11 @@ export function LandingPage() {
             <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground">
               About
             </Link>
-            <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground">
-              Privacy
-            </Link>
             <Link to="/terms" className="text-sm text-muted-foreground hover:text-foreground">
-              Terms
+              Terms of Service
+            </Link>
+            <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground">
+              Privacy Policy
             </Link>
           </div>
         </div>

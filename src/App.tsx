@@ -32,6 +32,7 @@ import { HelpArticlePage } from '@/pages/help-article'
 import { HelpLayout } from '@/components/layout/help-layout'
 import { PrivacyPage } from '@/pages/privacy'
 import { TermsPage } from '@/pages/terms'
+import { RequestDemoPage } from '@/pages/request-demo'
 import { NotFoundPage } from '@/pages/not-found'
 import { AdminLoginPage } from '@/pages/admin/admin-login'
 import { AdminDashboardPage } from '@/pages/admin/admin-dashboard'
@@ -56,6 +57,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/request-demo" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/signup" element={<AuthPage />} />
@@ -68,6 +70,7 @@ function App() {
           </Route>
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/request-demo" element={<RequestDemoPage />} />
           <Route path="/client/:token" element={<ClientPortal />} />
 
           <Route path="/admin/login" element={<AdminLoginPage />} />

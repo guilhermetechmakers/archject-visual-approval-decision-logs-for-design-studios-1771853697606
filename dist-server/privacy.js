@@ -123,7 +123,7 @@ privacyRouter.get('/v1/privacy/exports/:id', authMiddleware, (req, res) => {
         return res.status(500).json({ message: 'An error occurred' });
     }
 });
-// GET /api/v1/privacy/exports/:id/download - download export (redirect or stream)
+// GET /api/v1/privacy/exports/:id/download - download export (stream placeholder; production: S3 presigned)
 privacyRouter.get('/v1/privacy/exports/:id/download', authMiddleware, (req, res) => {
     try {
         const userId = req.userId;
@@ -138,11 +138,11 @@ privacyRouter.get('/v1/privacy/exports/:id/download', authMiddleware, (req, res)
         if (row.expires_at && new Date(row.expires_at) < new Date()) {
             return res.status(410).json({ message: 'Download link has expired' });
         }
-        // In production: generate presigned S3 URL and redirect. For now return a placeholder.
-        return res.json({
-            download_url: `/api/v1/privacy/exports/${id}/download`,
-            message: 'Export ready. In production, a presigned URL would be provided.',
-        });
+        // In production: stream from S3 or redirect to presigned URL. For now return a placeholder file.
+        const placeholder = `Archject Data Export\nExport ID: ${id}\nRequested: ${new Date().toISOString()}\n\nIn production, this file would contain your full account data (JSON, CSV, PDF Decision Logs, attachments).`;
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="archject-export-${id}.txt"`);
+        return res.send(placeholder);
     }
     catch (err) {
         console.error('[Privacy] Export download error:', err);
