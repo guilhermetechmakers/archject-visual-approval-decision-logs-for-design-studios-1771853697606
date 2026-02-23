@@ -642,6 +642,28 @@ export function initDb() {
   } catch (e) {
     if (!String(e).includes('already exists')) throw e
   }
+
+  // 028: File scan status, preview URL for upload pipeline
+  for (const col of [
+    'scan_status TEXT DEFAULT \'CLEAN\'',
+    'preview_url TEXT',
+  ]) {
+    try {
+      db.exec(`ALTER TABLE library_files ADD COLUMN ${col}`)
+    } catch (e) {
+      if (!String(e).includes('duplicate column name')) throw e
+    }
+  }
+  try {
+    db.exec('ALTER TABLE library_file_attachments ADD COLUMN role TEXT DEFAULT \'attachment\'')
+  } catch (e) {
+    if (!String(e).includes('duplicate column name')) throw e
+  }
+  try {
+    db.exec('CREATE INDEX IF NOT EXISTS idx_library_files_scan_status ON library_files(scan_status)')
+  } catch (e) {
+    if (!String(e).includes('already exists')) throw e
+  }
 }
 
 function backfillSearchIndex() {

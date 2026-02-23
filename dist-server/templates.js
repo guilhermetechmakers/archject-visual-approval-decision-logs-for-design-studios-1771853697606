@@ -120,11 +120,12 @@ templatesRouter.post('/templates/import', requireAuth, upload.single('file'), (r
         try {
             const text = file.buffer.toString('utf-8');
             const data = JSON.parse(text);
-            templates = Array.isArray(data)
+            const raw = Array.isArray(data)
                 ? data
                 : data.templates
                     ? data.templates
                     : [data];
+            templates = raw;
         }
         catch {
             return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid JSON file' });
@@ -132,7 +133,8 @@ templatesRouter.post('/templates/import', requireAuth, upload.single('file'), (r
     }
     else {
         const body = req.body;
-        templates = body.templates ?? (Array.isArray(body) ? body : [body]);
+        const arr = body.templates ?? (Array.isArray(body) ? body : [body]);
+        templates = arr;
     }
     if (!Array.isArray(templates) || templates.length === 0) {
         return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'templates array is required' });

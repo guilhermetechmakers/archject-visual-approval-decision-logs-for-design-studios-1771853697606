@@ -90,7 +90,7 @@ libraryRouter.get('/projects/:projectId/files', requireAuth, (req: Request, res:
 
   const rows = db.prepare(
     `SELECT f.id, f.project_id, f.filename, f.filepath, f.filetype, f.size, f.uploader_id, f.uploaded_at,
-            f.current_version_id, f.is_archived, f.thumbnail_url,
+            f.current_version_id, f.is_archived, f.thumbnail_url, f.scan_status, f.preview_url,
             v.version_number as current_version
      FROM library_files f
      LEFT JOIN library_file_versions v ON f.current_version_id = v.id
@@ -108,12 +108,16 @@ libraryRouter.get('/projects/:projectId/files', requireAuth, (req: Request, res:
     current_version_id: string | null
     is_archived: number
     thumbnail_url: string | null
+    scan_status: string | null
+    preview_url: string | null
     current_version: number | null
   }[]
 
   const files = rows.map((r) => {
-    const relPath = r.filepath.startsWith('uploads/') ? r.filepath : `uploads/library/${r.project_id}/${path.basename(r.filepath)}`
-    const url = `${UPLOAD_BASE.replace('/uploads', '')}/uploads/library/${r.project_id}/${path.basename(r.filepath)}`
+    const base = (UPLOAD_BASE || '/uploads').replace(/\/$/, '')
+    const thumbUrl = r.thumbnail_url ?? (r.filetype?.startsWith('image/')
+      ? `${base}/library/${r.project_id}/${path.basename(r.filepath)}`
+      : null)
     return {
       id: r.id,
       projectId: r.project_id,
@@ -126,7 +130,9 @@ libraryRouter.get('/projects/:projectId/files', requireAuth, (req: Request, res:
       currentVersionId: r.current_version_id,
       currentVersion: r.current_version ?? 1,
       isArchived: !!r.is_archived,
-      thumbnailUrl: r.thumbnail_url,
+      thumbnailUrl: thumbUrl,
+      scanStatus: r.scan_status ?? 'CLEAN',
+      previewUrl: r.preview_url ?? undefined,
       downloadUrl: `/api/projects/${projectId}/files/${r.id}/download`,
     }
   })
@@ -161,8 +167,8 @@ libraryRouter.post(
     ).run(versionId, fileId, relPath, file.size, now, userId, 'Initial upload')
 
     db.prepare(
-      `INSERT INTO library_files (id, project_id, filename, filepath, filetype, size, uploader_id, uploaded_at, current_version_id, is_archived)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+      `INSERT INTO library_files (id, project_id, filename, filepath, filetype, size, uploader_id, uploaded_at, current_version_id, is_archived, scan_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'CLEAN')`
     ).run(fileId, projectId, file.originalname, relPath, file.mimetype, file.size, userId, now, versionId)
 
     const thumbUrl = file.mimetype.startsWith('image/')
@@ -437,6 +443,23 @@ libraryRouter.get('/projects/:projectId/decisions/:decisionId/attachments', requ
   }))
 
   res.json({ attachments })
+})
+
+// DELETE /api/projects/:projectId/decisions/:decisionId/attachments/:attachmentId
+libraryRouter.delete('/projects/:projectId/decisions/:decisionId/attachments/:attachmentId', requireAuth, (req: Request, res: Response) => {
+  const { projectId, decisionId, attachmentId } = req.params
+  const decision = db.prepare('SELECT id FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, projectId)
+  if (!decision) return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+
+  const row = db.prepare(
+    `SELECT a.id FROM library_file_attachments a
+     JOIN library_files f ON f.id = a.file_id AND f.project_id = ?
+     WHERE a.id = ? AND a.decision_id = ?`
+  ).get(projectId, attachmentId, decisionId)
+  if (!row) return res.status(404).json({ code: 'NOT_FOUND', message: 'Attachment not found' })
+
+  db.prepare('DELETE FROM library_file_attachments WHERE id = ?').run(attachmentId)
+  res.json({ removed: true })
 })
 
 // POST /api/projects/:projectId/files/:fileId/attach

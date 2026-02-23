@@ -164,6 +164,16 @@ export async function attachFileToDecision(
   })
 }
 
+export async function removeAttachmentFromDecision(
+  projectId: string,
+  decisionId: string,
+  attachmentId: string
+): Promise<{ removed: boolean }> {
+  return api.delete<{ removed: boolean }>(
+    `/projects/${projectId}/decisions/${decisionId}/attachments/${attachmentId}`
+  )
+}
+
 export async function downloadLibraryFile(
   projectId: string,
   fileId: string,
@@ -183,4 +193,21 @@ export async function downloadLibraryFile(
   a.download = filename
   a.click()
   URL.revokeObjectURL(a.href)
+}
+
+/** Returns a blob URL for inline preview (images, PDF). Caller must revoke the URL when done. */
+export async function getFilePreviewBlobUrl(
+  projectId: string,
+  fileId: string
+): Promise<string> {
+  const base = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+  const url = base ? `${base}/api/projects/${projectId}/files/${fileId}/preview` : `/api/projects/${projectId}/files/${fileId}/preview`
+  const token = localStorage.getItem('auth_token')
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Preview failed')
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
 }
