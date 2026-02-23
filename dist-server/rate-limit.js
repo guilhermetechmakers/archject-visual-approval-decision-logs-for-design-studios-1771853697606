@@ -101,3 +101,10 @@ export function checkPasswordResetSubmitLimit(ip, tokenHash) {
     }
     return { allowed: true };
 }
+/** Leads (demo/signup): 5 requests per IP per minute */
+const leadsPerIp = new Map();
+const LEADS_IP_LIMIT = 5;
+const LEADS_IP_WINDOW_MS = 60 * 1000;
+export function checkLeadsRateLimit(ip) {
+    return checkLimit(leadsPerIp, ip, LEADS_IP_LIMIT, LEADS_IP_WINDOW_MS);
+}

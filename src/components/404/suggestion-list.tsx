@@ -4,6 +4,7 @@ import {
   FileCheck,
   HelpCircle,
   ExternalLink,
+  CreditCard,
 } from 'lucide-react'
 import { SuggestionCard } from './suggestion-card'
 import { cn } from '@/lib/utils'
@@ -39,6 +40,12 @@ const DEFAULT_SUGGESTIONS: SuggestionItem[] = [
     icon: HelpCircle,
     title: 'Help Center',
     description: 'Documentation, FAQs, and guides',
+  },
+  {
+    to: '/pricing',
+    icon: CreditCard,
+    title: 'Pricing',
+    description: 'View plans and pricing',
   },
   {
     to: '/',

@@ -22,6 +22,8 @@ import { errorsRouter } from './errors.js';
 import { supportTicketRouter } from './support-ticket.js';
 import { jobsRouter } from './jobs.js';
 import { v1Router } from './v1.js';
+import { leadsRouter } from './leads.js';
+import { brandingPreviewRouter } from './branding-preview.js';
 initDb();
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -44,12 +46,17 @@ app.use('/api', errorsRouter);
 app.use('/api', supportTicketRouter);
 app.use('/api', jobsRouter);
 app.use('/api/v1', v1Router);
+app.use('/api', leadsRouter);
+app.use('/api', brandingPreviewRouter);
 app.use('/api', privacyRouter);
 app.use('/api/terms', termsRouter);
 app.use('/webhooks', webhooksRouter);
 const uploadsDir = path.join(process.cwd(), 'uploads');
 app.use('/uploads', express.static(uploadsDir));
 app.get('/health', (_req, res) => {
+    res.json({ status: 'ok' });
+});
+app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
 });
 app.use(errorHandler);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { ContactForm } from '@/components/help'
+import { LandingHeader, DemoRequestForm } from '@/components/landing'
 
 export function RequestDemoPage() {
   const [demoOpen, setDemoOpen] = useState(true)
@@ -23,30 +23,19 @@ export function RequestDemoPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b border-border px-4 py-4">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <Link to="/" className="text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link to="/signup">
-              <Button>Sign up</Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <LandingHeader />
 
       <main className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-3xl font-bold">Request a Demo</h1>
+        <h1 className="text-3xl font-bold text-foreground">Request a Demo</h1>
         <p className="mt-4 text-muted-foreground">
           Tell us about your setup and we&apos;ll schedule a walkthrough of Archject.
         </p>
-        <Button className="mt-8" onClick={() => setDemoOpen(true)}>
+        <Button className="mt-8 transition-all hover:scale-[1.02]" onClick={() => setDemoOpen(true)}>
           Open demo request form
         </Button>
       </main>
 
-      <ContactForm open={demoOpen} onOpenChange={handleClose} source="demo" />
+      <DemoRequestForm open={demoOpen} onOpenChange={handleClose} />
     </div>
   )
 }

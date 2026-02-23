@@ -423,6 +423,32 @@ export function initDb() {
                 throw e;
         }
     }
+    // 018: leads table for demo/signup capture
+    const leadsPath = path.join(process.cwd(), 'server', 'migrations', '018_leads.sql');
+    if (fs.existsSync(leadsPath)) {
+        try {
+            const sql = fs.readFileSync(leadsPath, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+    }
 }
 function seedAnalyticsData() {
     try {

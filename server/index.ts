@@ -22,6 +22,8 @@ import { errorsRouter } from './errors.js'
 import { supportTicketRouter } from './support-ticket.js'
 import { jobsRouter } from './jobs.js'
 import { v1Router } from './v1.js'
+import { leadsRouter } from './leads.js'
+import { brandingPreviewRouter } from './branding-preview.js'
 
 initDb()
 
@@ -48,6 +50,8 @@ app.use('/api', errorsRouter)
 app.use('/api', supportTicketRouter)
 app.use('/api', jobsRouter)
 app.use('/api/v1', v1Router)
+app.use('/api', leadsRouter)
+app.use('/api', brandingPreviewRouter)
 app.use('/api', privacyRouter)
 app.use('/api/terms', termsRouter)
 app.use('/webhooks', webhooksRouter)
@@ -57,6 +61,32 @@ app.use('/uploads', express.static(uploadsDir))
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })
+})
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok' })
+})
+
+app.get('/robots.txt', (_req, res) => {
+  res.type('text/plain')
+  res.send(`User-agent: *
+Allow: /
+
+Sitemap: https://archject.com/sitemap.xml`)
+})
+
+app.get('/sitemap.xml', (_req, res) => {
+  res.type('application/xml')
+  const base = 'https://archject.com'
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${base}/</loc><changefreq>weekly</changefreq><priority>1</priority></url>
+  <url><loc>${base}/pricing</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>${base}/about</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>${base}/help</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>${base}/privacy</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>${base}/terms</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>${base}/auth</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+</urlset>`)
 })
 
 app.use(errorHandler)

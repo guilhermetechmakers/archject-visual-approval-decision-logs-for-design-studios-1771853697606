@@ -40,6 +40,7 @@ import { HelpLayout } from '@/components/layout/help-layout'
 import { PrivacyPage } from '@/pages/privacy'
 import { TermsPage } from '@/pages/terms'
 import { RequestDemoPage } from '@/pages/request-demo'
+import { PricingPage } from '@/pages/pricing'
 import { NotFoundPage } from '@/pages/not-found'
 import { ServerErrorPageRoute } from '@/pages/server-error'
 import { GlobalErrorBoundary, ServerErrorGate } from '@/components/500'
@@ -69,7 +70,6 @@ function App() {
             <AuthProvider>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
-                <Route path="/request-demo" element={<LandingPage />} />
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/auth/oauth-callback" element={<AuthOAuthCallbackPage />} />
                 <Route path="/login" element={<AuthPage />} />
@@ -84,6 +84,7 @@ function App() {
                 </Route>
                 <Route path="/privacy" element={<PrivacyPage />} />
                 <Route path="/terms" element={<TermsPage />} />
+                <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/request-demo" element={<RequestDemoPage />} />
                 <Route path="/client/:token/confirmation" element={<ClientConfirmationPage />} />
                 <Route path="/client/:token" element={<ClientPortal />} />

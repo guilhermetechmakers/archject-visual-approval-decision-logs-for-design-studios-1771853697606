@@ -151,3 +151,12 @@ export function checkPasswordResetSubmitLimit(
   }
   return { allowed: true }
 }
+
+/** Leads (demo/signup): 5 requests per IP per minute */
+const leadsPerIp = new Map<string, RateLimitEntry>()
+const LEADS_IP_LIMIT = 5
+const LEADS_IP_WINDOW_MS = 60 * 1000
+
+export function checkLeadsRateLimit(ip: string): { allowed: boolean; nextAllowedAt?: number } {
+  return checkLimit(leadsPerIp, ip, LEADS_IP_LIMIT, LEADS_IP_WINDOW_MS)
+}
