@@ -17,6 +17,7 @@ import {
 } from '@/api/auth'
 import { useAuth } from '@/contexts/auth-context'
 import { PasswordStrengthMeter, getPasswordStrength } from '@/components/auth/password-strength-meter'
+import { AuthCardHeader } from '@/components/auth/unified-auth-card'
 
 const requestSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -149,11 +150,9 @@ export function PasswordResetPage() {
     if (!tokenValid) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
-          <div className="w-full max-w-md animate-in-up">
-            <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-              Archject
-            </Link>
-            <Card className="shadow-card">
+          <div className="w-full max-w-[420px] animate-in-up">
+            <AuthCardHeader />
+            <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
               <CardHeader>
                 <CardTitle>Invalid or expired link</CardTitle>
                 <CardDescription>
@@ -181,8 +180,9 @@ export function PasswordResetPage() {
     if (confirmSuccess) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
-          <div className="w-full max-w-md animate-in-up">
-            <Card className="shadow-card">
+          <div className="w-full max-w-[420px] animate-in-up">
+            <AuthCardHeader />
+            <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
               <CardHeader>
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
                   <span className="text-2xl text-success" aria-hidden>
@@ -209,11 +209,9 @@ export function PasswordResetPage() {
 
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
-        <div className="w-full max-w-md animate-in-up">
-          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <Card className="shadow-card">
+        <div className="w-full max-w-[420px] animate-in-up">
+          <AuthCardHeader />
+          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
             <CardHeader>
               <CardTitle className="text-[22px]">Create a new password</CardTitle>
               <CardDescription>
@@ -291,11 +289,9 @@ export function PasswordResetPage() {
   if (submitted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
-        <div className="w-full max-w-md animate-in-up">
-          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <Card className="shadow-card">
+        <div className="w-full max-w-[420px] animate-in-up">
+          <AuthCardHeader />
+          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
             <CardHeader>
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
                 <Mail className="mx-auto h-6 w-6 text-success" />
@@ -327,11 +323,9 @@ export function PasswordResetPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
-      <div className="w-full max-w-md animate-in-up">
-        <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-          Archject
-        </Link>
-        <Card className="shadow-card">
+      <div className="w-full max-w-[420px] animate-in-up">
+        <AuthCardHeader />
+        <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
           <CardHeader>
             <CardTitle className="text-[22px]">Reset your password</CardTitle>
             <CardDescription>

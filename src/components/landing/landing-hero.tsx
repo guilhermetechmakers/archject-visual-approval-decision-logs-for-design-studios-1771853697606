@@ -40,8 +40,11 @@ export function LandingHero({ onBookDemo }: LandingHeroProps) {
             </ul>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
               <Link to="/signup">
-                <Button size="lg" className="w-full sm:w-auto min-w-[160px] transition-all hover:scale-[1.02] hover:shadow-lg">
-                  Get Started
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto min-w-[160px] bg-[#0052CC] hover:bg-[#0052CC]/90 transition-all hover:scale-[1.02] hover:shadow-lg"
+                >
+                  Sign up
                 </Button>
               </Link>
               {onBookDemo && (
@@ -51,7 +54,7 @@ export function LandingHero({ onBookDemo }: LandingHeroProps) {
                   className="w-full sm:w-auto min-w-[160px] transition-all hover:scale-[1.02]"
                   onClick={onBookDemo}
                 >
-                  Book Demo
+                  Request a demo
                 </Button>
               )}
             </div>

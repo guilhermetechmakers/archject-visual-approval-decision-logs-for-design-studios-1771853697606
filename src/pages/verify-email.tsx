@@ -13,6 +13,7 @@ import { RateLimitNotice } from '@/components/ui/rate-limit-notice'
 import { useVerifyEmail, useResendVerification } from '@/hooks/use-auth'
 import type { ApiError } from '@/lib/api'
 import { resendVerificationSchema, type ResendVerificationFormData } from '@/auth/validation'
+import { AuthCardHeader } from '@/components/auth/unified-auth-card'
 
 type VerifyState =
   | 'verifying'
@@ -87,11 +88,9 @@ export function VerifyEmailPage() {
   if (state === 'verifying') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
-        <div className="w-full max-w-md animate-in-up">
-          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <Card className="shadow-card">
+        <div className="w-full max-w-[420px] animate-in-up">
+          <AuthCardHeader />
+          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               <p className="mt-4 text-muted-foreground">Verifying your email...</p>
@@ -105,25 +104,23 @@ export function VerifyEmailPage() {
   if (state === 'success') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
-        <div className="w-full max-w-md animate-in-up">
-          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <Card className="shadow-card">
+        <div className="w-full max-w-[420px] animate-in-up">
+          <AuthCardHeader />
+          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
             <CardHeader>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
-                <CheckCircle2 className="h-6 w-6 text-success" aria-hidden />
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#10B981]/10">
+                <CheckCircle2 className="h-6 w-6 text-[#10B981]" aria-hidden />
               </div>
               <Badge variant="success" className="mx-auto w-fit">
                 Verified
               </Badge>
-              <CardTitle className="text-center">Email verified — Welcome to Archject</CardTitle>
-              <CardDescription className="text-center">
+              <CardTitle className="text-center text-[22px]">Email verified — Welcome to Archject</CardTitle>
+              <CardDescription className="text-center text-[15px]">
                 Your account is now active. You can start using Archject to manage your design decisions and approvals.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full" onClick={() => navigate('/dashboard')}>
+              <Button className="w-full bg-[#0052CC] hover:bg-[#0052CC]/90" onClick={() => navigate('/dashboard')}>
                 Go to Dashboard
               </Button>
               <Link to="/auth?tab=login" className="block">
@@ -141,11 +138,9 @@ export function VerifyEmailPage() {
   if (state === 'already_verified') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
-        <div className="w-full max-w-md animate-in-up">
-          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <Card className="shadow-card">
+        <div className="w-full max-w-[420px] animate-in-up">
+          <AuthCardHeader />
+          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
             <CardHeader>
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
                 <CheckCircle2 className="h-6 w-6 text-success" aria-hidden />
@@ -169,11 +164,9 @@ export function VerifyEmailPage() {
   if (state === 'resend_success') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
-        <div className="w-full max-w-md animate-in-up">
-          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <Card className="shadow-card">
+        <div className="w-full max-w-[420px] animate-in-up">
+          <AuthCardHeader />
+          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
             <CardHeader>
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
                 <Mail className="h-6 w-6 text-success" aria-hidden />
@@ -205,11 +198,9 @@ export function VerifyEmailPage() {
   if (state === 'rate_limited' && rateLimitUntil) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
-        <div className="w-full max-w-md animate-in-up">
-          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <Card className="shadow-card">
+        <div className="w-full max-w-[420px] animate-in-up">
+          <AuthCardHeader />
+          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
             <CardHeader>
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
                 <XCircle className="h-6 w-6 text-destructive" aria-hidden />
@@ -248,11 +239,9 @@ export function VerifyEmailPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
-      <div className="w-full max-w-md animate-in-up">
-        <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-          Archject
-        </Link>
-        <Card className="shadow-card">
+      <div className="w-full max-w-[420px] animate-in-up">
+        <AuthCardHeader />
+        <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
           <CardHeader>
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
               <XCircle className="h-6 w-6 text-destructive" aria-hidden />

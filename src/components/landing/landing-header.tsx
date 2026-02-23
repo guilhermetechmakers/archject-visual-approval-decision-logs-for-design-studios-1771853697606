@@ -46,12 +46,12 @@ export function LandingHeader({ onBookDemo }: LandingHeaderProps) {
           </Link>
           {onBookDemo && (
             <Button variant="outline" size="sm" onClick={onBookDemo} className="focus-visible:ring-2 focus-visible:ring-ring">
-              Book Demo
+              Request a demo
             </Button>
           )}
           <Link to="/signup">
-            <Button size="sm" className="bg-primary hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring">
-              Get Started
+            <Button size="sm" className="bg-[#0052CC] hover:bg-[#0052CC]/90 focus-visible:ring-2 focus-visible:ring-ring">
+              Sign up
             </Button>
           </Link>
         </div>
@@ -90,12 +90,12 @@ export function LandingHeader({ onBookDemo }: LandingHeaderProps) {
               </Link>
               {onBookDemo && (
                 <Button variant="outline" className="w-full" onClick={() => { onBookDemo(); setMobileOpen(false); }}>
-                  Book Demo
+                  Request a demo
                 </Button>
               )}
               <Link to="/signup" onClick={() => setMobileOpen(false)}>
-                <Button className="w-full bg-primary hover:bg-primary/90">
-                  Get Started
+                <Button className="w-full bg-[#0052CC] hover:bg-[#0052CC]/90">
+                  Sign up
                 </Button>
               </Link>
             </div>

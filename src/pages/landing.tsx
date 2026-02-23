@@ -24,7 +24,7 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <LandingHeader />
+      <LandingHeader onBookDemo={() => setDemoOpen(true)} />
 
       <main>
         <LandingHero onBookDemo={() => setDemoOpen(true)} />
@@ -63,8 +63,8 @@ export function LandingPage() {
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link to="/signup">
-                <Button size="lg" className="w-full sm:w-auto transition-all hover:scale-[1.02]">
-                  Get Started
+                <Button size="lg" className="w-full sm:w-auto transition-all hover:scale-[1.02] bg-[#0052CC] hover:bg-[#0052CC]/90">
+                  Sign up
                 </Button>
               </Link>
               <Button
@@ -73,7 +73,7 @@ export function LandingPage() {
                 className="w-full sm:w-auto transition-all hover:scale-[1.02]"
                 onClick={() => setDemoOpen(true)}
               >
-                Book Demo
+                Request a demo
               </Button>
             </div>
           </div>

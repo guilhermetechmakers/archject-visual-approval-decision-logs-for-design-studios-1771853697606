@@ -6,15 +6,18 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Checkbox } from '@/components/ui/checkbox'
 import { useSignup, useLogin, useResendVerification } from '@/hooks/use-auth'
 import { getAuthErrorMessage, is2FARequired } from '@/api/auth'
 import { verify2FA, sendSMSOTP } from '@/api/twofa'
-import { SignupConsent } from '@/components/terms'
+import {
+  UnifiedAuthCard,
+  AuthCardHeader,
+  AuthCardFooter,
+} from '@/components/auth/unified-auth-card'
+import { AuthToggle, type AuthTab } from '@/components/auth/auth-toggle'
+import { SSOButtons } from '@/components/auth/sso-buttons'
+import { LoginEmailPasswordForm, SignupEmailPasswordForm } from '@/components/auth/email-password-form'
+import { TwoFactorModal, type TwoFAStep } from '@/components/auth/two-factor-modal'
 import { useActiveTerms } from '@/hooks/use-terms'
 
 const loginSchema = z.object({
@@ -54,11 +57,11 @@ export function AuthPage() {
   const [searchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
   const pathTab = location.pathname === '/signup' ? 'signup' : 'login'
-  const [tab, setTab] = useState(tabParam === 'signup' ? 'signup' : pathTab)
+  const [tab, setTab] = useState<AuthTab>(tabParam === 'signup' ? 'signup' : pathTab)
 
   useEffect(() => {
-    if (tabParam === 'signup' || tabParam === 'login') setTab(tabParam)
-    else setTab(pathTab)
+    if (tabParam === 'signup' || tabParam === 'login') setTab(tabParam as AuthTab)
+    else setTab(pathTab as AuthTab)
   }, [tabParam, pathTab])
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname
@@ -69,21 +72,14 @@ export function AuthPage() {
       navigate(redirectTo, { replace: true })
     }
   }, [authLoading, isAuthenticated, navigate, redirectTo])
+
   const [signupSuccess, setSignupSuccess] = useState<{ maskedEmail: string; email: string } | null>(null)
-  const [twofaStep, setTwofaStep] = useState<{
-    sessionTempToken: string
-    twofaMethods: ('totp' | 'sms')[]
-    phoneMasked: string | null
-  } | null>(null)
-  const [twofaUseRecovery, setTwofaUseRecovery] = useState(false)
-  const [twofaCode, setTwofaCode] = useState('')
-  const [twofaRememberDevice, setTwofaRememberDevice] = useState(false)
-  const [twofaError, setTwofaError] = useState<string | null>(null)
-  const [twofaSmsCooldown, setTwofaSmsCooldown] = useState(0)
+  const [twofaStep, setTwofaStep] = useState<TwoFAStep | null>(null)
 
   const signupMutation = useSignup()
   const loginMutation = useLogin()
   const resendMutation = useResendVerification()
+  const { data: activeTerms } = useActiveTerms()
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -103,14 +99,6 @@ export function AuthPage() {
     },
   })
 
-  const { data: activeTerms } = useActiveTerms()
-
-  useEffect(() => {
-    if (twofaSmsCooldown <= 0) return
-    const t = setTimeout(() => setTwofaSmsCooldown((c) => c - 1), 1000)
-    return () => clearTimeout(t)
-  }, [twofaSmsCooldown])
-
   const onLogin = async (data: LoginFormData) => {
     try {
       const res = await loginMutation.mutateAsync({
@@ -124,8 +112,6 @@ export function AuthPage() {
           twofaMethods: res.twofa_methods,
           phoneMasked: res.phone_masked,
         })
-        setTwofaCode('')
-        setTwofaError(null)
         return
       }
       const token = res.accessToken ?? res.sessionToken
@@ -142,44 +128,32 @@ export function AuthPage() {
     }
   }
 
-  const on2FAVerify = async () => {
-    if (!twofaStep || !twofaCode.trim()) return
-    setTwofaError(null)
-    try {
-      const method = twofaUseRecovery ? 'recovery' : (twofaStep.twofaMethods.includes('totp') ? 'totp' : 'sms')
-      const res = await verify2FA(
-        twofaStep.sessionTempToken,
-        twofaCode.trim(),
-        method,
-        twofaRememberDevice
-      )
-      const token = res.accessToken ?? res.sessionToken
-      login(res.user, token)
-      toast.success('Welcome back!')
-      setTwofaStep(null)
-      navigate(redirectTo)
-    } catch (err) {
-      setTwofaError(err instanceof Error ? err.message : 'Invalid code. Please try again.')
-      const data = err && typeof err === 'object' && 'data' in err ? (err as { data?: { code?: string } }).data : undefined
-      if (data?.code === '2FA_LOCKOUT') {
-        setTwofaError('Too many failed attempts. Please try again later.')
-      }
-    }
+  const on2FAVerify = async (
+    code: string,
+    method: 'totp' | 'sms' | 'recovery',
+    rememberDevice: boolean
+  ) => {
+    if (!twofaStep) return
+    const res = await verify2FA(
+      twofaStep.sessionTempToken,
+      code,
+      method,
+      rememberDevice
+    )
+    const token = res.accessToken ?? res.sessionToken
+    login(res.user, token)
+    toast.success('Welcome back!')
+    setTwofaStep(null)
+    navigate(redirectTo)
   }
 
   const on2FASendSms = async () => {
-    if (!twofaStep || twofaSmsCooldown > 0) return
-    try {
-      const res = await sendSMSOTP('', 'login', twofaStep.sessionTempToken)
-      if (res.sent) {
-        setTwofaSmsCooldown(res.cooldown_seconds ?? 60)
-        toast.success('Verification code sent')
-      } else {
-        setTwofaSmsCooldown(res.cooldown_seconds ?? 60)
-        toast.error('Please wait before requesting another code.')
-      }
-    } catch {
-      toast.error('Failed to send code')
+    if (!twofaStep) return
+    const res = await sendSMSOTP('', 'login', twofaStep.sessionTempToken)
+    if (res.sent) {
+      toast.success('Verification code sent')
+    } else {
+      toast.error('Please wait before requesting another code.')
     }
   }
 
@@ -222,26 +196,18 @@ export function AuthPage() {
   if (signupSuccess) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
-        <div className="w-full max-w-md animate-in-up">
-          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <Card className="shadow-card">
-            <CardHeader>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
-                <span className="text-2xl text-success" aria-hidden>
-                  ✓
-                </span>
+        <div className="w-full max-w-[420px] animate-in-up">
+          <AuthCardHeader />
+          <UnifiedAuthCard
+            title="Check your email"
+            description={`We sent a verification link to ${signupSuccess.maskedEmail}. Click the link to activate your account and continue to Archject.`}
+          >
+            <div className="space-y-4">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#10B981]/10">
+                <span className="text-2xl text-[#10B981]" aria-hidden>✓</span>
               </div>
-              <CardTitle className="text-center">Check your email</CardTitle>
-              <CardDescription className="text-center">
-                We sent a verification link to {signupSuccess.maskedEmail}. Click the link to activate your account and
-                continue to Archject.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <Button
-                className="w-full"
+                className="w-full bg-[#0052CC] hover:bg-[#0052CC]/90"
                 onClick={async () => {
                   if (!signupSuccess.email) return
                   try {
@@ -272,100 +238,24 @@ export function AuthPage() {
                   Log in
                 </Link>
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </UnifiedAuthCard>
         </div>
       </div>
     )
   }
 
   if (twofaStep) {
-    const methodLabel =
-      twofaStep.twofaMethods.length === 1 && twofaStep.twofaMethods[0] === 'totp'
-        ? 'Authenticator app'
-        : twofaStep.twofaMethods.length === 1 && twofaStep.twofaMethods[0] === 'sms'
-          ? `SMS to ${twofaStep.phoneMasked ?? '***'}`
-          : 'Authenticator app or SMS to ' + (twofaStep.phoneMasked ?? '***')
-
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
-        <div className="w-full max-w-md animate-in-up">
-          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-            Archject
-          </Link>
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="text-center">Two-factor authentication</CardTitle>
-              <CardDescription className="text-center">
-                Enter the 6-digit code from your {methodLabel}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="2fa-code">Authentication code</Label>
-                <Input
-                  id="2fa-code"
-                  inputMode="numeric"
-                  maxLength={twofaUseRecovery ? 20 : 6}
-                  placeholder={twofaUseRecovery ? 'Recovery code' : '000000'}
-                  value={twofaCode}
-                  onChange={(e) => setTwofaCode(e.target.value)}
-                  className={twofaError ? 'border-destructive' : ''}
-                  aria-invalid={!!twofaError}
-                  aria-describedby={twofaError ? '2fa-error' : undefined}
-                />
-                {twofaError && (
-                  <p id="2fa-error" className="text-sm text-destructive" role="alert">
-                    {twofaError}
-                  </p>
-                )}
-              </div>
-              {twofaStep.twofaMethods.includes('sms') && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Didn't receive a code?</span>
-                  <button
-                    type="button"
-                    onClick={on2FASendSms}
-                    disabled={twofaSmsCooldown > 0}
-                    className="text-primary hover:underline disabled:opacity-50 disabled:no-underline"
-                  >
-                    {twofaSmsCooldown > 0 ? `Resend in ${twofaSmsCooldown}s` : 'Send code'}
-                  </button>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="2fa-remember"
-                  checked={twofaRememberDevice}
-                  onCheckedChange={(checked) => setTwofaRememberDevice(!!checked)}
-                />
-                <Label htmlFor="2fa-remember" className="text-sm font-normal cursor-pointer">
-                  Remember this device for 30 days
-                </Label>
-              </div>
-              <Button className="w-full" onClick={on2FAVerify}>
-                Verify
-              </Button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTwofaUseRecovery(!twofaUseRecovery)
-                  setTwofaCode('')
-                  setTwofaError(null)
-                }}
-                className="w-full text-center text-sm text-primary hover:underline"
-              >
-                {twofaUseRecovery ? 'Use authentication code' : 'Use a recovery code'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setTwofaStep(null)}
-                className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
-              >
-                Back to login
-              </button>
-            </CardContent>
-          </Card>
+        <div className="w-full max-w-[420px] animate-in-up">
+          <AuthCardHeader />
+          <TwoFactorModal
+            step={twofaStep}
+            onVerify={on2FAVerify}
+            onSendSms={twofaStep.twofaMethods.includes('sms') ? on2FASendSms : undefined}
+            onBack={() => setTwofaStep(null)}
+          />
         </div>
       </div>
     )
@@ -373,254 +263,53 @@ export function AuthPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
-      <div className="w-full max-w-md animate-in-up">
-        <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
-          Archject
-        </Link>
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="text-center">Welcome to Archject</CardTitle>
-            <CardDescription className="text-center">
-              Sign in to your studio or create a new account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-6 flex flex-col gap-3">
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-3 border-[#D1D5DB] bg-white hover:bg-muted/50"
-                onClick={() => {
-                  const redirect = encodeURIComponent(redirectTo)
-                  window.location.href = `/api/auth/oauth/google?redirect=${redirect}`
-                }}
-                aria-label="Continue with Google"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                Continue with Google
-              </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 border-[#D1D5DB] bg-white hover:bg-muted/50" disabled aria-label="Continue with Apple (coming soon)">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                </svg>
-                Continue with Apple (coming soon)
-              </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 border-[#D1D5DB] bg-white hover:bg-muted/50" disabled aria-label="Continue with Microsoft (coming soon)">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
-                  <path fill="#f25022" d="M1 1h10v10H1z"/>
-                  <path fill="#00a4ef" d="M1 13h10v10H1z"/>
-                  <path fill="#7fba00" d="M13 1h10v10H13z"/>
-                  <path fill="#ffb900" d="M13 13h10v10H13z"/>
-                </svg>
-                Continue with Microsoft (coming soon)
-              </Button>
+      <div className="w-full max-w-[420px] animate-in-up">
+        <AuthCardHeader />
+        <UnifiedAuthCard
+          title="Welcome to Archject"
+          description="Sign in to your studio or create a new account"
+        >
+          <SSOButtons redirectTo={redirectTo} />
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
             </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
-              </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
             </div>
-
-            <Tabs value={tab} onValueChange={setTab} className="mt-6">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Log in</TabsTrigger>
-                <TabsTrigger value="signup">Sign up</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="login">
-                <form onSubmit={loginForm.handleSubmit(onLogin)} className="mt-4 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="you@studio.com"
-                      {...loginForm.register('email')}
-                      className={loginForm.formState.errors.email ? 'border-destructive' : ''}
-                      aria-invalid={!!loginForm.formState.errors.email}
-                    />
-                    {loginForm.formState.errors.email && (
-                      <p className="text-sm text-destructive" role="alert">
-                        {loginForm.formState.errors.email.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="login-password">Password</Label>
-                      <Link to="/password-reset" className="text-sm text-primary hover:underline">
-                        Forgot password?
-                      </Link>
-                    </div>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      {...loginForm.register('password')}
-                      className={loginForm.formState.errors.password ? 'border-destructive' : ''}
-                      aria-invalid={!!loginForm.formState.errors.password}
-                    />
-                    {loginForm.formState.errors.password && (
-                      <p className="text-sm text-destructive" role="alert">
-                        {loginForm.formState.errors.password.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="remember-me"
-                      checked={loginForm.watch('rememberMe')}
-                      onCheckedChange={(checked) => loginForm.setValue('rememberMe', !!checked)}
-                    />
-                    <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer">
-                      Remember me
-                    </Label>
-                  </div>
-                  <Button type="submit" className="w-full" isLoading={loginMutation.isPending}>
-                    Log in
-                  </Button>
-                </form>
-                <p className="mt-4 text-center text-sm text-muted-foreground">
-                  Need to verify your email?{' '}
-                  <Link to="/verify-email" className="text-primary hover:underline">
-                    Resend verification
-                  </Link>
-                </p>
-              </TabsContent>
-
-              <TabsContent value="signup">
-                <form onSubmit={signupForm.handleSubmit(onSignup)} className="mt-4 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="first_name">First name</Label>
-                      <Input
-                        id="first_name"
-                        placeholder="Jane"
-                        {...signupForm.register('first_name')}
-                        className={signupForm.formState.errors.first_name ? 'border-destructive' : ''}
-                        aria-invalid={!!signupForm.formState.errors.first_name}
-                      />
-                      {signupForm.formState.errors.first_name && (
-                        <p className="text-sm text-destructive" role="alert">
-                          {signupForm.formState.errors.first_name.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="last_name">Last name</Label>
-                      <Input
-                        id="last_name"
-                        placeholder="Doe"
-                        {...signupForm.register('last_name')}
-                        className={signupForm.formState.errors.last_name ? 'border-destructive' : ''}
-                        aria-invalid={!!signupForm.formState.errors.last_name}
-                      />
-                      {signupForm.formState.errors.last_name && (
-                        <p className="text-sm text-destructive" role="alert">
-                          {signupForm.formState.errors.last_name.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="you@studio.com"
-                      {...signupForm.register('email')}
-                      className={signupForm.formState.errors.email ? 'border-destructive' : ''}
-                      aria-invalid={!!signupForm.formState.errors.email}
-                    />
-                    {signupForm.formState.errors.email && (
-                      <p className="text-sm text-destructive" role="alert">
-                        {signupForm.formState.errors.email.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Studio name (optional)</Label>
-                    <Input
-                      id="company"
-                      placeholder="Acme Design Studio"
-                      {...signupForm.register('company')}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="Min 12 chars, include A-Z, a-z, 0-9, special"
-                      {...signupForm.register('password')}
-                      className={signupForm.formState.errors.password ? 'border-destructive' : ''}
-                      aria-invalid={!!signupForm.formState.errors.password}
-                    />
-                    {signupForm.formState.errors.password && (
-                      <p className="text-sm text-destructive" role="alert">
-                        {signupForm.formState.errors.password.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      placeholder="Re-enter password"
-                      {...signupForm.register('confirmPassword')}
-                      className={signupForm.formState.errors.confirmPassword ? 'border-destructive' : ''}
-                      aria-invalid={!!signupForm.formState.errors.confirmPassword}
-                    />
-                    {signupForm.formState.errors.confirmPassword && (
-                      <p className="text-sm text-destructive" role="alert">
-                        {signupForm.formState.errors.confirmPassword.message}
-                      </p>
-                    )}
-                  </div>
-                  <SignupConsent
-                    checked={signupForm.watch('terms_accepted')}
-                    onCheckedChange={(checked) => signupForm.setValue('terms_accepted', checked)}
-                    error={signupForm.formState.errors.terms_accepted?.message}
-                    disabled={!activeTerms}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    isLoading={signupMutation.isPending}
-                    disabled={!activeTerms}
-                  >
-                    Sign up
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              <Link to="/help" className="text-primary hover:underline">
-                Need help?
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
-        <p className="mt-6 text-center text-xs text-muted-foreground">
+          </div>
+          <AuthToggle value={tab} onChange={setTab} />
+          {tab === 'login' ? (
+            <LoginEmailPasswordForm
+              form={loginForm}
+              onSubmit={onLogin}
+              isLoading={loginMutation.isPending}
+            />
+          ) : (
+            <SignupEmailPasswordForm
+              form={signupForm}
+              onSubmit={onSignup}
+              isLoading={signupMutation.isPending}
+              activeTerms={activeTerms}
+            />
+          )}
+          <p className="text-center text-sm text-muted-foreground">
+            <Link to="/help" className="text-primary hover:underline">
+              Need help?
+            </Link>
+          </p>
+        </UnifiedAuthCard>
+        <AuthCardFooter className="mt-6">
           By signing in, you agree to our{' '}
-          <Link to="/terms" className="underline">
+          <Link to="/terms" className="underline hover:text-foreground">
             Terms
           </Link>{' '}
           and{' '}
-          <Link to="/privacy" className="underline">
+          <Link to="/privacy" className="underline hover:text-foreground">
             Privacy Policy
           </Link>
           .
-        </p>
+        </AuthCardFooter>
       </div>
     </div>
   )
