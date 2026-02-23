@@ -11,6 +11,7 @@ import { PasswordResetPage } from '@/pages/password-reset'
 import { DashboardOverview } from '@/pages/dashboard/overview'
 import { ProjectsListPage } from '@/pages/projects-list'
 import { ProjectWorkspace } from '@/pages/dashboard/project-workspace'
+import { ProjectAnalyticsPage } from '@/pages/dashboard/project-analytics'
 import { DecisionDetail } from '@/pages/dashboard/decision-detail'
 import { CreateDecisionPage } from '@/pages/dashboard/create-decision'
 import { TemplatesPage } from '@/pages/dashboard/templates'
@@ -84,9 +85,11 @@ function App() {
             <Route path="overview" element={<DashboardOverview />} />
             <Route path="projects" element={<ProjectsListPage />} />
             <Route path="projects/:projectId" element={<ProjectWorkspace />} />
+            <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
             <Route path="projects/:projectId/decisions/new" element={<CreateDecisionPage />} />
             <Route path="projects/:projectId/decisions/:decisionId" element={<DecisionDetail />} />
             <Route path="projects/:projectId/library" element={<LibraryPage />} />
+            <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
             <Route path="decisions" element={<DecisionsListPage />} />
             <Route path="templates" element={<TemplatesPage />} />
             <Route path="exports" element={<ExportsPage />} />

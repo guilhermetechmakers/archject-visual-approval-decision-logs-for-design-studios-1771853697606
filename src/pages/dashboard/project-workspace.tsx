@@ -6,6 +6,7 @@ import {
   FileCheck,
   FileStack,
   LayoutTemplate,
+  BarChart3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -66,14 +67,22 @@ export function ProjectWorkspace() {
           )}
         </div>
         <div className="flex gap-2">
+          <Link to={`/dashboard/projects/${projectId}/analytics`}>
+            <Button variant="outline" size="sm">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Analytics
+            </Button>
+          </Link>
           <Button variant="outline" size="sm">
             <Share2 className="mr-2 h-4 w-4" />
             Share
           </Button>
-          <Button size="sm">
-            <Plus className="mr-2 h-4 w-4" />
-            New decision
-          </Button>
+          <Link to={`/dashboard/projects/${projectId}/decisions/new`}>
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              New decision
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -149,6 +158,21 @@ export function ProjectWorkspace() {
               <Link to="/dashboard/templates">
                 <Button variant="outline" size="sm" className="w-full">
                   Browse templates
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="h-4 w-4" />
+                Analytics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Link to={`/dashboard/projects/${projectId}/analytics`}>
+                <Button variant="outline" size="sm" className="w-full">
+                  View analytics
                 </Button>
               </Link>
             </CardContent>

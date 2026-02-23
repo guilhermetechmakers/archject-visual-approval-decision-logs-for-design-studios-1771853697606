@@ -5,6 +5,7 @@ import { authRouter } from './auth.js'
 import { webhooksRouter } from './webhooks.js'
 import { billingRouter } from './billing.js'
 import { adminRouter } from './admin.js'
+import { analyticsRouter } from './analytics.js'
 
 initDb()
 
@@ -16,6 +17,7 @@ app.use(express.json())
 
 app.use('/api/auth', authRouter)
 app.use('/api/admin', adminRouter)
+app.use('/api', analyticsRouter)
 app.use('/api', billingRouter)
 app.use('/webhooks', webhooksRouter)
 

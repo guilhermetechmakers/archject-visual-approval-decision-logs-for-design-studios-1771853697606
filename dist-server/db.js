@@ -73,6 +73,44 @@ export function initDb() {
                 throw e;
         }
     }
+    const analyticsPath = path.join(process.cwd(), 'server', 'migrations', '005_analytics.sql');
+    if (fs.existsSync(analyticsPath)) {
+        try {
+            const sql = fs.readFileSync(analyticsPath, 'utf-8');
+            db.exec(sql);
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+        seedAnalyticsData();
+    }
+}
+function seedAnalyticsData() {
+    try {
+        const hasProjects = db.prepare('SELECT 1 FROM projects LIMIT 1').get();
+        if (hasProjects)
+            return;
+        const crypto = require('crypto');
+        const projectId = crypto.randomUUID();
+        db.prepare('INSERT INTO projects (id, name, account_id, studio_id) VALUES (?, ?, ?, ?)').run(projectId, 'Riverside Residence', 'default', 'default');
+        for (let i = 0; i < 12; i++) {
+            const id = crypto.randomUUID();
+            const statuses = ['pending', 'in_review', 'approved', 'declined', 're_requested'];
+            const status = statuses[i % statuses.length];
+            const d = new Date();
+            d.setDate(d.getDate() - (30 - i * 2));
+            const created = d.toISOString();
+            const decisionMade = status !== 'pending' && status !== 'in_review' ? new Date(d.getTime() + 3600000 * (i + 1)).toISOString() : null;
+            db.prepare(`INSERT INTO decisions (id, project_id, account_id, title, type, status, created_at, decision_made_at, reviewer_id) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, projectId, 'default', `Decision ${i + 1}: Sample item`, 'finishes', status, created, decisionMade, 'user-1');
+        }
+    }
+    catch (e) {
+        if (!String(e).includes('UNIQUE'))
+            console.error('[DB] seedAnalyticsData:', e);
+    }
 }
 function seedAdminUser() {
     const existing = db.prepare('SELECT id FROM admin_users LIMIT 1').get();
