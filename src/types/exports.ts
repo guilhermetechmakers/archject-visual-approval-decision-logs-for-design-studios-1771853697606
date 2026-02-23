@@ -34,6 +34,7 @@ export interface CreateExportPayload {
   types: ExportType[]
   options?: {
     includeImages?: boolean
+    includeAttachments?: boolean
     brandingId?: string
     signer?: {
       type: 'internal' | 'provider'
@@ -45,4 +46,16 @@ export interface CreateExportPayload {
 export interface CreateExportResponse {
   jobId: string
   exportIdsPending: string[]
+}
+
+export interface BrandingProfile {
+  id: string
+  studioId: string
+  name: string
+  logoUrl?: string | null
+  colorHex?: string | null
+  domain?: string | null
+  font?: string | null
+  headerMarkdown?: string | null
+  isActive: boolean
 }

@@ -24,10 +24,13 @@ studiosRouter.get('/:id', requireAuth, (req, res) => {
         if (studioId !== getStudioIdForUser(userId)) {
             return res.status(403).json({ code: 'FORBIDDEN', message: 'Access denied' });
         }
-        const studio = db.prepare('SELECT id, name, branding_logo_url, branding_invoice_accent_color, default_currency, created_at, updated_at FROM studios WHERE id = ?').get(studioId);
+        const studio = db.prepare('SELECT id, name, branding_logo_url, branding_favicon_url, branding_invoice_accent_color, client_link_branding, default_currency, created_at, updated_at FROM studios WHERE id = ?').get(studioId);
         if (!studio) {
             return res.status(404).json({ code: 'NOT_FOUND', message: 'Studio not found' });
         }
+        const clientLinkBranding = studio.client_link_branding
+            ? JSON.parse(studio.client_link_branding)
+            : null;
         const sub = db.prepare('SELECT plan_id, seats, seats_used, status, billing_cycle FROM subscriptions WHERE studio_id = ? ORDER BY updated_at DESC LIMIT 1').get(studioId);
         const teamMembers = db.prepare(`SELECT stm.id, stm.email, stm.role, stm.invited_at, stm.accepted_at, u.first_name, u.last_name
        FROM studio_team_members stm
@@ -38,7 +41,9 @@ studiosRouter.get('/:id', requireAuth, (req, res) => {
             id: studio.id,
             name: studio.name,
             logo_url: studio.branding_logo_url,
+            favicon_url: studio.branding_favicon_url ?? null,
             brand_color: studio.branding_invoice_accent_color ?? '#0052CC',
+            client_link_branding: clientLinkBranding,
             default_currency: studio.default_currency,
             subscription: sub
                 ? {
@@ -71,7 +76,7 @@ studiosRouter.put('/:id', requireAuth, (req, res) => {
         if (studioId !== getStudioIdForUser(userId)) {
             return res.status(403).json({ code: 'FORBIDDEN', message: 'Access denied' });
         }
-        const { name, logo_url, brand_color } = req.body;
+        const { name, logo_url, favicon_url, brand_color, client_link_branding } = req.body;
         const updates = [];
         const values = [];
         if (typeof name === 'string' && name.length >= 1 && name.length <= 200) {
@@ -82,9 +87,17 @@ studiosRouter.put('/:id', requireAuth, (req, res) => {
             updates.push('branding_logo_url = ?');
             values.push(typeof logo_url === 'string' ? logo_url : null);
         }
+        if (favicon_url !== undefined) {
+            updates.push('branding_favicon_url = ?');
+            values.push(typeof favicon_url === 'string' ? favicon_url : null);
+        }
         if (typeof brand_color === 'string' && brand_color.length <= 32) {
             updates.push('branding_invoice_accent_color = ?');
             values.push(brand_color);
+        }
+        if (client_link_branding !== undefined && typeof client_link_branding === 'object') {
+            updates.push('client_link_branding = ?');
+            values.push(JSON.stringify(client_link_branding));
         }
         if (updates.length === 0) {
             return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'No valid fields to update' });
@@ -92,16 +105,73 @@ studiosRouter.put('/:id', requireAuth, (req, res) => {
         updates.push('updated_at = datetime("now")');
         values.push(studioId);
         db.prepare(`UPDATE studios SET ${updates.join(', ')} WHERE id = ?`).run(...values);
-        const studio = db.prepare('SELECT id, name, branding_logo_url, branding_invoice_accent_color FROM studios WHERE id = ?').get(studioId);
+        const studio = db.prepare('SELECT id, name, branding_logo_url, branding_favicon_url, branding_invoice_accent_color, client_link_branding FROM studios WHERE id = ?').get(studioId);
+        const clb = studio.client_link_branding
+            ? JSON.parse(studio.client_link_branding)
+            : null;
         return res.json({
             id: studio.id,
             name: studio.name,
             logo_url: studio.branding_logo_url,
+            favicon_url: studio.branding_favicon_url ?? null,
             brand_color: studio.branding_invoice_accent_color ?? '#0052CC',
+            client_link_branding: clb,
         });
     }
     catch (err) {
         console.error('[Studios] Put error:', err);
+        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
+    }
+});
+studiosRouter.get('/:id/defaults', requireAuth, (req, res) => {
+    try {
+        const userId = req.userId;
+        const studioId = req.params.id;
+        if (studioId !== getStudioIdForUser(userId)) {
+            return res.status(403).json({ code: 'FORBIDDEN', message: 'Access denied' });
+        }
+        const studio = db.prepare('SELECT project_defaults FROM studios WHERE id = ?').get(studioId);
+        const defaults = studio?.project_defaults
+            ? JSON.parse(studio.project_defaults)
+            : {};
+        return res.json({
+            reminderCadence: defaults.reminderCadence ?? 'immediately',
+            exportFormats: defaults.exportFormats ?? ['pdf', 'csv'],
+            autoNotification: defaults.autoNotification ?? true,
+        });
+    }
+    catch (err) {
+        console.error('[Studios] Defaults get error:', err);
+        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
+    }
+});
+studiosRouter.put('/:id/defaults', requireAuth, (req, res) => {
+    try {
+        const userId = req.userId;
+        const studioId = req.params.id;
+        if (studioId !== getStudioIdForUser(userId)) {
+            return res.status(403).json({ code: 'FORBIDDEN', message: 'Access denied' });
+        }
+        const { reminderCadence, exportFormats, autoNotification } = req.body;
+        const payload = {};
+        if (['immediately', 'daily', 'weekly'].includes(reminderCadence)) {
+            payload.reminderCadence = reminderCadence;
+        }
+        if (Array.isArray(exportFormats)) {
+            payload.exportFormats = exportFormats;
+        }
+        if (typeof autoNotification === 'boolean') {
+            payload.autoNotification = autoNotification;
+        }
+        db.prepare('UPDATE studios SET project_defaults = ?, updated_at = datetime("now") WHERE id = ?').run(JSON.stringify(payload), studioId);
+        return res.json({
+            reminderCadence: payload.reminderCadence ?? 'immediately',
+            exportFormats: payload.exportFormats ?? ['pdf', 'csv'],
+            autoNotification: payload.autoNotification ?? true,
+        });
+    }
+    catch (err) {
+        console.error('[Studios] Defaults put error:', err);
         return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
     }
 });

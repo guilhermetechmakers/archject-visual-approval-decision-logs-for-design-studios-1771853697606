@@ -40,6 +40,7 @@ import { PortalDecisionsPage } from '@/pages/client-portal/portal-decisions-page
 import { PortalDecisionDetailPage } from '@/pages/client-portal/portal-decision-detail-page'
 import { ClientConfirmationPage } from '@/pages/client-confirmation'
 import { ActionSuccessPage } from '@/pages/dashboard/action-success'
+import { SuccessConfirmationPage } from '@/pages/dashboard/success-confirmation'
 import { AboutPage } from '@/pages/about'
 import { HelpPage } from '@/pages/help'
 import { HelpArticlePage } from '@/pages/help-article'
@@ -144,6 +145,7 @@ function App() {
                   <Route path="templates" element={<TemplatesLibraryPage />} />
                   <Route path="projects/:projectId/templates" element={<TemplatesLibraryPage />} />
                   <Route path="exports" element={<ExportsPage />} />
+                  <Route path="success" element={<SuccessConfirmationPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="billing" element={<BillingPage />} />
                   <Route path="settings" element={<SettingsLayout />}>

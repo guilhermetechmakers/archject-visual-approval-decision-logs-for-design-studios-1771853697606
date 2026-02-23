@@ -1,13 +1,13 @@
-import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useCallback } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Share2, Download, Check, MessageSquare } from 'lucide-react'
+import { Share2, Download, Check, MessageSquare, Paperclip, ListTodo } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LoadingOverlay } from '@/components/loading-overlay'
-import { createJob } from '@/api/jobs'
+import { createExport, getDecisionAudit } from '@/api/exports-decision-logs'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import type { Decision } from '@/types'
@@ -29,33 +29,48 @@ const mockDecision: Decision = {
 
 export function DecisionDetail() {
   const { projectId, decisionId } = useParams<{ projectId: string; decisionId: string }>()
+  const navigate = useNavigate()
   const [exportJobId, setExportJobId] = useState<string | null>(null)
   const [exportOverlayOpen, setExportOverlayOpen] = useState(false)
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     if (!decisionId || !projectId) return
     try {
-      const { jobId } = await createJob({
-        type: 'EXPORT_PDF',
+      const { jobId } = await createExport({
         projectId,
-        payload: { decisionIds: [decisionId], includeSigned: true },
+        decisionIds: [decisionId],
+        format: 'PDF',
+        includeAttachments: true,
       })
       setExportJobId(jobId)
       setExportOverlayOpen(true)
     } catch {
       toast.error('Failed to start export')
     }
-  }
+  }, [decisionId, projectId])
 
-  const handleRetryExport = async () => {
+  const handleRetryExport = useCallback(() => {
     setExportJobId(null)
     setExportOverlayOpen(false)
-    await handleExport()
-  }
+    handleExport()
+  }, [handleExport])
+
+  const handleCreateFollowUp = useCallback(() => {
+    toast.info('Create follow-up task — coming soon')
+  }, [])
 
   const { data: decision = mockDecision, isLoading } = useQuery({
-    queryKey: ['decision', decisionId],
-    queryFn: () => api.get<Decision>(`/decisions/${decisionId}`).catch(() => mockDecision),
+    queryKey: ['decision', projectId, decisionId],
+    queryFn: () =>
+      api
+        .get<Decision>(`/projects/${projectId}/decisions/${decisionId}`)
+        .catch(() => mockDecision),
+    enabled: !!projectId && !!decisionId,
+  })
+
+  const { data: auditEntries = [] } = useQuery({
+    queryKey: ['decision-audit', decisionId],
+    queryFn: () => getDecisionAudit(decisionId!),
     enabled: !!decisionId,
   })
 
@@ -87,14 +102,26 @@ export function DecisionDetail() {
             )}
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" aria-label="Share decision link">
             <Share2 className="mr-2 h-4 w-4" />
             Share link
           </Button>
-          <Button size="sm" onClick={handleExport}>
+          <Button size="sm" onClick={handleExport} aria-label="Export decision log">
             <Download className="mr-2 h-4 w-4" />
             Export
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/dashboard/exports')}
+            aria-label="View exports"
+          >
+            View exports
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleCreateFollowUp} aria-label="Create follow-up task">
+            <ListTodo className="mr-2 h-4 w-4" />
+            Create follow-up task
           </Button>
         </div>
       </div>
@@ -140,7 +167,7 @@ export function DecisionDetail() {
         </CardContent>
       </Card>
 
-      {/* Comments & Audit */}
+      {/* Comments, Audit & Attachments */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -169,30 +196,78 @@ export function DecisionDetail() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex gap-3">
-                <div className="h-2 w-2 shrink-0 rounded-full bg-primary mt-2" />
-                <div>
-                  <p className="text-sm">Decision created</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(decision.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              {decision.approvedAt && (
-                <div className="flex gap-3">
-                  <div className="h-2 w-2 shrink-0 rounded-full bg-success mt-2" />
-                  <div>
-                    <p className="text-sm">Approved by {decision.approvedByName ?? 'Client'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(decision.approvedAt).toLocaleString()}
-                    </p>
+              {auditEntries.length > 0 ? (
+                auditEntries.map((entry) => (
+                  <div key={entry.id} className="flex gap-3">
+                    <div
+                      className={`h-2 w-2 shrink-0 rounded-full mt-2 ${
+                        entry.action === 'approved' ? 'bg-success' : entry.action === 'created' ? 'bg-primary' : 'bg-muted-foreground'
+                      }`}
+                    />
+                    <div>
+                      <p className="text-sm capitalize">
+                        {entry.action.replace(/_/g, ' ')}
+                        {entry.performedBy && ` by ${entry.performedBy}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(entry.timestamp).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                ))
+              ) : (
+                <>
+                  <div className="flex gap-3">
+                    <div className="h-2 w-2 shrink-0 rounded-full bg-primary mt-2" />
+                    <div>
+                      <p className="text-sm">Decision created</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(decision.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  {decision.approvedAt && (
+                    <div className="flex gap-3">
+                      <div className="h-2 w-2 shrink-0 rounded-full bg-success mt-2" />
+                      <div>
+                        <p className="text-sm">Approved by {decision.approvedByName ?? 'Client'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(decision.approvedAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Attachments gallery */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Paperclip className="h-5 w-5" />
+            Attachments
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Files and images attached to this decision
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Paperclip className="h-12 w-12 text-muted-foreground" />
+            <p className="mt-4 font-medium">No attachments yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Attach drawings, specs, or reference images from the library
+            </p>
+            <Button variant="outline" size="sm" className="mt-4">
+              Add attachment
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <LoadingOverlay
         jobId={exportJobId}

@@ -1,112 +1,123 @@
-import { useState } from 'react'
-import { Download, FileText } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { LoadingOverlay } from '@/components/loading-overlay'
-import { createJob } from '@/api/jobs'
+import { useState, useCallback } from 'react'
+import { Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  ExportGeneratorPanel,
+  ExportSettingsPanel,
+  ExportHistoryList,
+  BillingInfoPanel,
+} from '@/components/exports'
+import { LoadingOverlay } from '@/components/loading-overlay/loading-overlay'
+import { createExport } from '@/api/exports-decision-logs'
+import type { ExportGeneratorState } from '@/components/exports'
+import type { ExportSettingsState } from '@/components/exports'
+
+const initialGeneratorState: ExportGeneratorState = {
+  projectId: '',
+  decisionIds: [],
+  format: 'PDF',
+  includeAttachments: false,
+}
+
+const initialSettingsState: ExportSettingsState = {
+  brandingProfileId: '',
+  signatureRequested: false,
+  timestampGranularity: 'second',
+}
 
 export function ExportsPage() {
-  const [pdfJobId, setPdfJobId] = useState<string | null>(null)
-  const [csvJobId, setCsvJobId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  const [generatorState, setGeneratorState] = useState(initialGeneratorState)
+  const [settingsState, setSettingsState] = useState(initialSettingsState)
+  const [exportJobId, setExportJobId] = useState<string | null>(null)
+  const [overlayOpen, setOverlayOpen] = useState(false)
 
-  const handleExportPdf = async () => {
-    try {
-      const { jobId } = await createJob({
-        type: 'EXPORT_PDF',
-        payload: { decisionIds: [] },
-      })
-      setPdfJobId(jobId)
-    } catch {
-      toast.error('Failed to start PDF export')
+  const handleSubmit = useCallback(async () => {
+    if (!generatorState.projectId || generatorState.decisionIds.length === 0) {
+      toast.error('Select a project and at least one decision')
+      return
     }
-  }
 
-  const handleExportCsv = async () => {
     try {
-      const { jobId } = await createJob({
-        type: 'EXPORT_CSV',
-        payload: { decisionIds: [] },
+      const { jobId } = await createExport({
+        projectId: generatorState.projectId,
+        decisionIds: generatorState.decisionIds,
+        format: generatorState.format,
+        includeAttachments: generatorState.includeAttachments,
+        brandingProfileId: settingsState.brandingProfileId || undefined,
+        signatureRequested: settingsState.signatureRequested,
       })
-      setCsvJobId(jobId)
-    } catch {
-      toast.error('Failed to start CSV export')
+      setExportJobId(jobId)
+      setOverlayOpen(true)
+      queryClient.invalidateQueries({ queryKey: ['export-history'] })
+      toast.success('Export started')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start export')
     }
-  }
+  }, [generatorState, settingsState, queryClient])
+
+  const handleOverlayClose = useCallback(() => {
+    setOverlayOpen(false)
+    setExportJobId(null)
+    queryClient.invalidateQueries({ queryKey: ['export-history'] })
+  }, [queryClient])
+
+  const handleRetry = useCallback(() => {
+    setExportJobId(null)
+    setOverlayOpen(false)
+    handleSubmit()
+  }, [handleSubmit])
 
   return (
     <div className="space-y-8 animate-in">
+      {/* Breadcrumb header */}
       <div>
-        <h1 className="text-2xl font-bold">Exports & Decision Logs</h1>
-        <p className="mt-1 text-muted-foreground">Generate and download approval packs</p>
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground" aria-label="Breadcrumb">
+          <Link to="/dashboard" className="hover:text-foreground transition-colors">
+            Dashboard
+          </Link>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">Exports & Decision Logs</span>
+        </nav>
+        <h1 className="mt-2 text-[28px] font-semibold">Exports & Decision Logs</h1>
+        <p className="mt-1 text-[15px] text-muted-foreground">
+          Generate downloadable approval packs with full history, attachments, and firm branding.
+        </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Export generator
-          </CardTitle>
-          <CardDescription>
-            Create PDF or CSV Decision Logs with firm branding. Include signed options for legal-grade records.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-4">
-            <Button onClick={handleExportPdf}>
-              <Download className="mr-2 h-4 w-4" />
-              Export to PDF
-            </Button>
-            <Button variant="outline" onClick={handleExportCsv}>
-              <Download className="mr-2 h-4 w-4" />
-              Export to CSV
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Select a project and date range to include in the export. Large exports are processed in the background.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Export history</CardTitle>
-          <CardDescription>Recent exports and their status</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 font-medium">No exports yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Your export history will appear here
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Main grid: generator + settings | history + billing */}
+      <div className="grid gap-6 lg:grid-cols-12">
+        <div className="space-y-6 lg:col-span-8">
+          <ExportGeneratorPanel
+            state={generatorState}
+            onStateChange={setGeneratorState}
+            onSubmit={handleSubmit}
+            isSubmitting={!!exportJobId && overlayOpen}
+          />
+          <ExportSettingsPanel
+            state={settingsState}
+            onStateChange={setSettingsState}
+          />
+        </div>
+        <div className="space-y-6 lg:col-span-4">
+          <BillingInfoPanel />
+          <ExportHistoryList limit={10} />
+        </div>
+      </div>
 
       <LoadingOverlay
-        jobId={pdfJobId}
-        operationName="Generating approval pack"
-        subtitle="Compiling Decision Log — PDF export"
-        open={!!pdfJobId}
-        onOpenChange={(open) => !open && setPdfJobId(null)}
-        onRetry={() => {
-          setPdfJobId(null)
-          handleExportPdf()
-        }}
-        exportsPagePath="/dashboard/exports"
-      />
-
-      <LoadingOverlay
-        jobId={csvJobId}
-        operationName="Generating CSV export"
-        subtitle="Compiling Decision Log — CSV export"
-        open={!!csvJobId}
-        onOpenChange={(open) => !open && setCsvJobId(null)}
-        onRetry={() => {
-          setCsvJobId(null)
-          handleExportCsv()
-        }}
+        jobId={exportJobId}
+        operationName="Generating Decision Log"
+        subtitle={
+          generatorState.format === 'PDF'
+            ? 'Compiling PDF with audit trail and branding'
+            : 'Compiling CSV export'
+        }
+        open={overlayOpen}
+        onOpenChange={(open) => !open && handleOverlayClose()}
+        onRetry={handleRetry}
         exportsPagePath="/dashboard/exports"
       />
     </div>

@@ -143,19 +143,20 @@ exportsRouter.get('/exports/:exportId', requireAuth, (req: Request, res: Respons
 })
 
 exportsRouter.get('/exports', requireAuth, (req: Request, res: Response) => {
-  const projectId = req.query.projectId as string
+  const userId = (req as Request & { userId: string }).userId
+  const projectId = req.query.projectId as string | undefined
   const limit = Math.min(50, Math.max(1, parseInt((req.query.limit as string) || '20', 10)))
 
-  if (!projectId) {
-    return res.status(400).json({
-      code: 'VALIDATION_ERROR',
-      message: 'projectId is required',
-    })
+  let rows: Record<string, unknown>[]
+  if (projectId) {
+    rows = db.prepare(
+      `SELECT * FROM exports WHERE project_id = ? AND created_by = ? ORDER BY created_at DESC LIMIT ?`
+    ).all(projectId, userId, limit) as Record<string, unknown>[]
+  } else {
+    rows = db.prepare(
+      `SELECT * FROM exports WHERE created_by = ? ORDER BY created_at DESC LIMIT ?`
+    ).all(userId, limit) as Record<string, unknown>[]
   }
-
-  const rows = db.prepare(
-    `SELECT * FROM exports WHERE project_id = ? ORDER BY created_at DESC LIMIT ?`
-  ).all(projectId, limit) as Record<string, unknown>[]
 
   const baseUrl = (req.get('x-forwarded-proto') || req.protocol) + '://' + (req.get('x-forwarded-host') || req.get('host') || 'localhost:3001')
 

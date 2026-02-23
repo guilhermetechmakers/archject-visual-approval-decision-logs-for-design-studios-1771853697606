@@ -33,7 +33,7 @@ function validateClientToken(token) {
 export const actionsRouter = Router();
 actionsRouter.post('/actions/:actionId/confirm', (req, res) => {
     const { actionId } = req.params;
-    const { source = 'internal', token, exportOptions } = req.body;
+    const { source = 'internal', token, exportOptions, approverName, optionId } = req.body;
     const decision = db.prepare('SELECT id, project_id FROM decisions WHERE id = ?').get(actionId);
     if (!decision) {
         return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' });
@@ -56,7 +56,11 @@ actionsRouter.post('/actions/:actionId/confirm', (req, res) => {
             return res.status(403).json({ code: 'FORBIDDEN', message: 'Token not allowed for this decision' });
         }
         confirmedContext = 'client_token';
-        lastConfirmedBy = JSON.stringify({ clientTokenId: token.slice(0, 12) + '...', clientName: null });
+        lastConfirmedBy = JSON.stringify({
+            clientTokenId: token.slice(0, 12) + '...',
+            clientName: approverName ?? null,
+            optionId: optionId ?? null,
+        });
     }
     else {
         userId = optionalAuth(req);
@@ -78,7 +82,7 @@ actionsRouter.post('/actions/:actionId/confirm', (req, res) => {
     WHERE id = ?`).run(now, lastConfirmedBy, referenceId, confirmedContext, now, userId ?? null, actionId);
     const auditId = crypto.randomUUID();
     db.prepare(`INSERT INTO audit_log (id, project_id, actor_type, actor_id, client_token_id, action_type, reference_id, payload, immutable)
-     VALUES (?, ?, ?, ?, ?, 'decision_approved', ?, ?, 1)`).run(auditId, decision.project_id, confirmedContext === 'client_token' ? 'client_token' : 'user', userId ?? null, confirmedContext === 'client_token' ? token?.slice(0, 20) : null, referenceId, JSON.stringify({ decisionId: actionId }));
+     VALUES (?, ?, ?, ?, ?, 'decision_approved', ?, ?, 1)`).run(auditId, decision.project_id, confirmedContext === 'client_token' ? 'client_token' : 'user', userId ?? null, confirmedContext === 'client_token' ? token?.slice(0, 20) : null, referenceId, JSON.stringify({ decisionId: actionId, optionId: optionId ?? null }));
     let exportJobId;
     if (exportOptions?.types?.length) {
         const jobId = crypto.randomUUID();

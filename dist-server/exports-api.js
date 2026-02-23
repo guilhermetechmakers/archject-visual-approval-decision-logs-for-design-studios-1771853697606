@@ -89,15 +89,16 @@ exportsRouter.get('/exports/:exportId', requireAuth, (req, res) => {
     });
 });
 exportsRouter.get('/exports', requireAuth, (req, res) => {
+    const userId = req.userId;
     const projectId = req.query.projectId;
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || '20', 10)));
-    if (!projectId) {
-        return res.status(400).json({
-            code: 'VALIDATION_ERROR',
-            message: 'projectId is required',
-        });
+    let rows;
+    if (projectId) {
+        rows = db.prepare(`SELECT * FROM exports WHERE project_id = ? AND created_by = ? ORDER BY created_at DESC LIMIT ?`).all(projectId, userId, limit);
     }
-    const rows = db.prepare(`SELECT * FROM exports WHERE project_id = ? ORDER BY created_at DESC LIMIT ?`).all(projectId, limit);
+    else {
+        rows = db.prepare(`SELECT * FROM exports WHERE created_by = ? ORDER BY created_at DESC LIMIT ?`).all(userId, limit);
+    }
     const baseUrl = (req.get('x-forwarded-proto') || req.protocol) + '://' + (req.get('x-forwarded-host') || req.get('host') || 'localhost:3001');
     const exports = rows.map((r) => ({
         id: r.id,

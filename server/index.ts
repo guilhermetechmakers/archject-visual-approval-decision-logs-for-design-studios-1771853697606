@@ -29,6 +29,7 @@ import { decisionsRouter } from './decisions-router.js'
 import { libraryRouter } from './library.js'
 import { templatesRouter } from './templates.js'
 import { notificationsFeedRouter, notificationSettingsRouter, reminderTemplatesRouter } from './notifications.js'
+import { exportsDecisionLogsRouter } from './exports-decision-logs.js'
 
 initDb()
 
@@ -59,6 +60,7 @@ app.use('/api', leadsRouter)
 app.use('/api', brandingPreviewRouter)
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api', decisionsRouter)
+app.use('/api', exportsDecisionLogsRouter)
 app.use('/api', libraryRouter)
 app.use('/api', templatesRouter)
 app.use('/api/notifications', notificationsFeedRouter)
