@@ -84,3 +84,20 @@ export async function deleteProject(id: string): Promise<{ id: string; deletedAt
 export async function restoreProject(id: string): Promise<ProjectItem> {
   return api.post<ProjectItem>(`/projects/${id}/restore`, {})
 }
+
+export interface ProjectActivityItem {
+  id: string
+  decisionId: string
+  decisionTitle: string
+  action: string
+  performedBy: string | null
+  timestamp: string
+}
+
+export async function getProjectActivity(
+  projectId: string,
+  limit?: number
+): Promise<{ items: ProjectActivityItem[] }> {
+  const qs = limit ? `?limit=${limit}` : ''
+  return api.get<{ items: ProjectActivityItem[] }>(`/projects/${projectId}/activity${qs}`)
+}

@@ -16,6 +16,7 @@ import {
   Pencil,
   Archive,
   RotateCcw,
+  Activity,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,7 +36,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { getLibraryFiles } from '@/api/library'
-import { getProject, updateProject, deleteProject, restoreProject } from '@/api/projects'
+import { getProject, updateProject, deleteProject, restoreProject, getProjectActivity } from '@/api/projects'
 import { getDecisions, cloneDecision, archiveDecision } from '@/api/decisions'
 import { DecisionCard } from '@/components/decisions'
 import { setLastProject } from '@/components/layout/sidebar'
@@ -162,7 +163,14 @@ export function ProjectWorkspace() {
     enabled: !!projectId,
   })
 
+  const { data: activityData } = useQuery({
+    queryKey: ['project-activity', projectId],
+    queryFn: () => getProjectActivity(projectId!, 8),
+    enabled: !!projectId,
+  })
+
   const recentFiles = libraryFiles.slice(0, 4)
+  const activityItems = activityData?.items ?? []
 
   return (
     <div className="space-y-8 animate-in">
@@ -397,6 +405,53 @@ export function ProjectWorkspace() {
                     </Button>
                   </Link>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Activity className="h-4 w-4" />
+                Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activityItems.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-center">
+                  <p className="text-sm text-muted-foreground">No recent activity</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Create decisions and approvals will appear here
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-3" role="list" aria-label="Recent activity">
+                  {activityItems.map((item) => (
+                    <li key={item.id} className="flex gap-2 text-sm">
+                      <span
+                        className="h-2 w-2 shrink-0 mt-1.5 rounded-full bg-primary"
+                        aria-hidden
+                      />
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          to={`/dashboard/projects/${projectId}/decisions/${item.decisionId}`}
+                          className="font-medium hover:text-primary truncate block"
+                        >
+                          {item.decisionTitle}
+                        </Link>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {item.action.replace(/_/g, ' ')}
+                          {item.performedBy && ` · ${item.performedBy.slice(0, 8)}…`}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {new Date(item.timestamp).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </CardContent>
           </Card>
