@@ -130,6 +130,7 @@ function App() {
                   <Route path="projects/:projectId/decisions/:decisionId" element={<DecisionDetail />} />
                   <Route path="projects/:projectId/actions/:actionId/success" element={<ActionSuccessPage />} />
                   <Route path="projects/:projectId/library" element={<LibraryPage />} />
+                  <Route path="library" element={<Navigate to="/dashboard/projects" replace />} />
                   <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
                   <Route path="decisions" element={<DecisionsListPage />} />
                   <Route path="templates" element={<TemplatesPage />} />

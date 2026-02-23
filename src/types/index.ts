@@ -66,3 +66,38 @@ export interface Notification {
   createdAt: string
   link?: string
 }
+
+export interface LibraryFile {
+  id: string
+  projectId: string
+  filename: string
+  filepath: string
+  filetype: string
+  size: number
+  uploaderId?: string
+  uploadedAt: string
+  currentVersionId?: string
+  currentVersion: number
+  isArchived: boolean
+  thumbnailUrl?: string
+  downloadUrl?: string
+}
+
+export interface LibraryFileVersion {
+  id: string
+  fileId: string
+  versionNumber: number
+  filepath: string
+  size: number
+  uploadedAt: string
+  uploaderId?: string
+  notes?: string
+}
+
+export interface FileAttachment {
+  id: string
+  fileId: string
+  decisionId: string
+  notes?: string
+  attachedAt: string
+}

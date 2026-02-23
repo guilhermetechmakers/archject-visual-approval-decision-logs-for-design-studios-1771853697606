@@ -142,6 +142,22 @@ export async function apiFetch<T>(
   return handleResponse<T>(response)
 }
 
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`
+  const headers: HeadersInit = {}
+  const token = localStorage.getItem('auth_token')
+  if (token) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
+  }
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'include',
+  })
+  return handleResponse<T>(response)
+}
+
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path, { method: 'GET' }),
   post: <T>(path: string, body?: unknown) =>
@@ -151,4 +167,5 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     apiFetch<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
+  upload: <T>(path: string, formData: FormData) => apiUpload<T>(path, formData),
 }

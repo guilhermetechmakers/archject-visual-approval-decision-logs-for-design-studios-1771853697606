@@ -12,17 +12,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { api } from '@/lib/api'
+import { getDashboardProjects } from '@/api/dashboard'
 
 export interface UploadDrawingModalProps {
   open: boolean
   onClose: () => void
   onSuccess?: () => void
-}
-
-interface ProjectOption {
-  id: string
-  name: string
 }
 
 export function UploadDrawingModal({
@@ -36,8 +31,8 @@ export function UploadDrawingModal({
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-      const res = await api.get<{ projects: ProjectOption[] }>('/projects')
-      return res.projects ?? []
+      const res = await getDashboardProjects({ pageSize: 100 })
+      return res.items.map((p) => ({ id: p.id, name: p.name }))
     },
     enabled: open,
   })

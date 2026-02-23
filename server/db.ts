@@ -426,6 +426,29 @@ export function initDb() {
     }
     seedDecisionTemplates()
   }
+
+  // 020: Drawings & Specs Library (files, versions, attachments)
+  const libraryPath = path.join(process.cwd(), 'server', 'migrations', '020_library_files.sql')
+  if (fs.existsSync(libraryPath)) {
+    try {
+      const sql = fs.readFileSync(libraryPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+  }
 }
 
 function seedDecisionTemplates() {

@@ -26,6 +26,7 @@ import { leadsRouter } from './leads.js'
 import { brandingPreviewRouter } from './branding-preview.js'
 import { dashboardRouter } from './dashboard.js'
 import { decisionsRouter } from './decisions-router.js'
+import { libraryRouter } from './library.js'
 
 initDb()
 
@@ -56,6 +57,8 @@ app.use('/api', leadsRouter)
 app.use('/api', brandingPreviewRouter)
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api', decisionsRouter)
+app.use('/api', libraryRouter)
+app.use('/api', libraryRouter)
 app.use('/api', privacyRouter)
 app.use('/api/terms', termsRouter)
 app.use('/webhooks', webhooksRouter)

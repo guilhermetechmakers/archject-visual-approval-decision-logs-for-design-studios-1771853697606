@@ -7,42 +7,46 @@ import {
   FileStack,
   LayoutTemplate,
   BarChart3,
+  FileText,
+  Settings,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import type { Project, Decision } from '@/types'
-
-const mockProject: Project = {
-  id: '1',
-  name: 'Riverside Residence',
-  description: 'Residential project with material and layout approvals',
-  status: 'active',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-  pendingApprovalsCount: 3,
-}
-
-const mockDecisions: Decision[] = [
-  { id: '1', projectId: '1', title: 'Kitchen counter material', status: 'pending', options: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '2', projectId: '1', title: 'Flooring option', status: 'approved', approvedOptionId: 'opt1', options: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-]
+import { getLibraryFiles } from '@/api/library'
+import { getDashboardProjects } from '@/api/dashboard'
+import type { Decision } from '@/types'
 
 export function ProjectWorkspace() {
   const { projectId } = useParams<{ projectId: string }>()
-  const { data: project = mockProject, isLoading } = useQuery({
+  const { data: project, isLoading } = useQuery({
     queryKey: ['project', projectId],
-    queryFn: () => api.get<Project>(`/projects/${projectId}`).catch(() => mockProject),
+    queryFn: async () => {
+      const res = await getDashboardProjects({ pageSize: 100 })
+      const p = res.items.find((i) => i.id === projectId)
+      return p
+        ? { id: p.id, name: p.name, description: '', status: 'active' as const }
+        : { id: projectId!, name: 'Project', description: '', status: 'active' as const }
+    },
     enabled: !!projectId,
   })
 
-  const { data: decisions = mockDecisions } = useQuery({
+  const { data: decisions = [] } = useQuery({
     queryKey: ['decisions', projectId],
-    queryFn: () => api.get<Decision[]>(`/projects/${projectId}/decisions`).catch(() => mockDecisions),
+    queryFn: () => api.get<Decision[]>(`/projects/${projectId}/decisions`),
     enabled: !!projectId,
   })
+
+  const { data: libraryFiles = [] } = useQuery({
+    queryKey: ['library-files', projectId, 'workspace'],
+    queryFn: () => getLibraryFiles(projectId!, { includeArchived: false }),
+    enabled: !!projectId,
+  })
+
+  const recentFiles = libraryFiles.slice(0, 4)
 
   const statusVariant = (s: string) =>
     s === 'approved' ? 'success' : s === 'pending' ? 'warning' : 'secondary'
@@ -55,14 +59,14 @@ export function ProjectWorkspace() {
           <nav className="text-sm text-muted-foreground">
             <Link to="/dashboard" className="hover:text-foreground">Dashboard</Link>
             <span className="mx-2">/</span>
-            <span className="text-foreground">{project.name}</span>
+            <span className="text-foreground">{project?.name ?? 'Project'}</span>
           </nav>
           {isLoading ? (
             <Skeleton className="mt-2 h-8 w-64" />
           ) : (
-            <h1 className="mt-2 text-2xl font-bold">{project.name}</h1>
+            <h1 className="mt-2 text-2xl font-bold">{project?.name ?? 'Project'}</h1>
           )}
-          {project.description && (
+          {project?.description && (
             <p className="mt-1 text-muted-foreground">{project.description}</p>
           )}
         </div>
@@ -133,18 +137,60 @@ export function ProjectWorkspace() {
         {/* Sidebar: Library, Templates, Activity */}
         <div className="space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FileStack className="h-4 w-4" />
                 Drawings & Specs
               </CardTitle>
-            </CardHeader>
-            <CardContent>
               <Link to={`/dashboard/projects/${projectId}/library`}>
-                <Button variant="outline" size="sm" className="w-full">
-                  View library
+                <Button size="sm" variant="ghost" className="h-8 text-xs">
+                  View all
                 </Button>
               </Link>
+            </CardHeader>
+            <CardContent>
+              {recentFiles.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-center">
+                  <p className="text-sm text-muted-foreground">No files yet</p>
+                  <Link to={`/dashboard/projects/${projectId}/library`} className="mt-2 inline-block">
+                    <Button variant="outline" size="sm">
+                      Upload files
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {recentFiles.map((f) => (
+                      <Link
+                        key={f.id}
+                        to={`/dashboard/projects/${projectId}/library`}
+                        className="group flex flex-col overflow-hidden rounded-lg border border-border bg-muted/30 p-2 transition-all hover:border-primary/30 hover:shadow-sm"
+                      >
+                        <div className="aspect-square flex items-center justify-center rounded bg-muted">
+                          {f.thumbnailUrl ? (
+                            <img
+                              src={f.thumbnailUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <FileText className="h-8 w-8 text-muted-foreground" />
+                          )}
+                        </div>
+                        <p className="mt-1 truncate text-xs font-medium" title={f.filename}>
+                          {f.filename}
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+                  <Link to={`/dashboard/projects/${projectId}/library`}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      View library
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -173,6 +219,40 @@ export function ProjectWorkspace() {
               <Link to={`/dashboard/projects/${projectId}/analytics`}>
                 <Button variant="outline" size="sm" className="w-full">
                   View analytics
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Users className="h-4 w-4" />
+                Client sharing
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Share decision links with clients for approval. Each decision has its own secure link.
+              </p>
+              <Link to={`/dashboard/projects/${projectId}/decisions/new`}>
+                <Button variant="outline" size="sm" className="w-full">
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Create & share decision
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Settings className="h-4 w-4" />
+                Project settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Link to="/dashboard/settings">
+                <Button variant="outline" size="sm" className="w-full">
+                  Open settings
                 </Button>
               </Link>
             </CardContent>
