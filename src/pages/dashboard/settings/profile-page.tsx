@@ -112,7 +112,7 @@ export function ProfilePage() {
               </Button>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Use a strong password with at least 8 characters, uppercase, lowercase, number, and symbol.
+              Use a strong password with at least 12 characters, uppercase, lowercase, number, and symbol.
             </p>
           </div>
 

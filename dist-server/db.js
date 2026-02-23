@@ -377,6 +377,26 @@ export function initDb() {
             }
         }
     }
+    // 016: password reset audit columns
+    for (const col of [
+        'request_ip TEXT',
+        'request_user_agent TEXT',
+    ]) {
+        try {
+            db.exec(`ALTER TABLE password_reset_tokens ADD COLUMN ${col}`);
+        }
+        catch (e) {
+            if (!String(e).includes('duplicate column name'))
+                throw e;
+        }
+    }
+    try {
+        db.exec('ALTER TABLE users ADD COLUMN last_password_changed_at TEXT');
+    }
+    catch (e) {
+        if (!String(e).includes('duplicate column name'))
+            throw e;
+    }
 }
 function seedAnalyticsData() {
     try {

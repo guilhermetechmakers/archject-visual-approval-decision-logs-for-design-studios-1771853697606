@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Key } from 'lucide-react'
+import { toast } from 'sonner'
+import { Key, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,36 +16,27 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { changePassword } from '@/api/users'
+import { PasswordStrengthMeter, getPasswordStrength } from '@/components/auth/password-strength-meter'
 import { cn } from '@/lib/utils'
 
-const passwordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
-      'Password must include uppercase, lowercase, digit, and symbol'
-    ),
-  confirmPassword: z.string().min(1, 'Please confirm your password'),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-})
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z
+      .string()
+      .min(12, 'Password must be at least 12 characters')
+      .regex(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
+        'Password must include uppercase, lowercase, digit, and symbol'
+      ),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
 
 type PasswordFormData = z.infer<typeof passwordSchema>
-
-function getPasswordStrength(password: string): { score: number; label: string } {
-  if (!password) return { score: 0, label: '' }
-  let score = 0
-  if (password.length >= 8) score++
-  if (/[a-z]/.test(password)) score++
-  if (/[A-Z]/.test(password)) score++
-  if (/\d/.test(password)) score++
-  if (/[@$!%*?&]/.test(password)) score++
-  const labels = ['', 'Weak', 'Fair', 'Good', 'Strong', 'Very strong']
-  return { score, label: labels[score] }
-}
 
 interface PasswordChangeModalProps {
   open: boolean
@@ -52,6 +45,9 @@ interface PasswordChangeModalProps {
 }
 
 export function PasswordChangeModal({ open, onClose, onSuccess }: PasswordChangeModalProps) {
+  const [showPassword, setShowPassword] = useState(false)
+  const [successPill, setSuccessPill] = useState(false)
+
   const form = useForm<PasswordFormData>({
     resolver: zodResolver(passwordSchema),
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
@@ -66,9 +62,14 @@ export function PasswordChangeModal({ open, onClose, onSuccess }: PasswordChange
         currentPassword: data.currentPassword,
         newPassword: data.newPassword,
       })
+      setSuccessPill(true)
       form.reset()
       onSuccess?.()
-      onClose()
+      toast.success('Password updated successfully')
+      setTimeout(() => {
+        setSuccessPill(false)
+        onClose()
+      }, 1500)
     } catch (err) {
       form.setError('currentPassword', {
         message: err instanceof Error ? err.message : 'Failed to change password',
@@ -78,6 +79,7 @@ export function PasswordChangeModal({ open, onClose, onSuccess }: PasswordChange
 
   const handleClose = () => {
     form.reset()
+    setSuccessPill(false)
     onClose()
   }
 
@@ -90,9 +92,20 @@ export function PasswordChangeModal({ open, onClose, onSuccess }: PasswordChange
             Change password
           </DialogTitle>
           <DialogDescription>
-            Enter your current password and choose a new one. Use at least 8 characters with uppercase, lowercase, a number, and a symbol.
+            Enter your current password and choose a new one. Use at least 12 characters with uppercase, lowercase, a
+            number, and a symbol.
           </DialogDescription>
         </DialogHeader>
+
+        {successPill && (
+          <div
+            className="rounded-lg bg-success/10 px-4 py-2 text-sm font-medium text-success"
+            role="status"
+            aria-live="polite"
+          >
+            Password updated successfully
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -101,7 +114,7 @@ export function PasswordChangeModal({ open, onClose, onSuccess }: PasswordChange
               id="current-password"
               type="password"
               {...form.register('currentPassword')}
-              className={form.formState.errors.currentPassword ? 'border-destructive' : ''}
+              className={cn('border-[#D1D5DB]', form.formState.errors.currentPassword && 'border-destructive')}
               autoComplete="current-password"
             />
             {form.formState.errors.currentPassword && (
@@ -113,29 +126,27 @@ export function PasswordChangeModal({ open, onClose, onSuccess }: PasswordChange
 
           <div className="space-y-2">
             <Label htmlFor="new-password">New password</Label>
-            <Input
-              id="new-password"
-              type="password"
-              {...form.register('newPassword')}
-              className={form.formState.errors.newPassword ? 'border-destructive' : ''}
-              autoComplete="new-password"
-            />
-            {newPassword && (
-              <div className="space-y-1">
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        'h-1 flex-1 rounded-full transition-colors',
-                        i <= strength.score ? 'bg-primary' : 'bg-muted'
-                      )}
-                    />
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">{strength.label}</p>
-              </div>
-            )}
+            <div className="relative">
+              <Input
+                id="new-password"
+                type={showPassword ? 'text' : 'password'}
+                {...form.register('newPassword')}
+                className={cn(
+                  'border-[#D1D5DB] pr-10',
+                  form.formState.errors.newPassword && 'border-destructive'
+                )}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <PasswordStrengthMeter password={newPassword} />
             {form.formState.errors.newPassword && (
               <p className="text-sm text-destructive" role="alert">
                 {form.formState.errors.newPassword.message}
@@ -149,7 +160,7 @@ export function PasswordChangeModal({ open, onClose, onSuccess }: PasswordChange
               id="confirm-password"
               type="password"
               {...form.register('confirmPassword')}
-              className={form.formState.errors.confirmPassword ? 'border-destructive' : ''}
+              className={cn('border-[#D1D5DB]', form.formState.errors.confirmPassword && 'border-destructive')}
               autoComplete="new-password"
             />
             {form.formState.errors.confirmPassword && (
@@ -163,7 +174,11 @@ export function PasswordChangeModal({ open, onClose, onSuccess }: PasswordChange
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button
+              type="submit"
+              style={{ backgroundColor: '#0052CC' }}
+              disabled={strength.level === 'weak'}
+            >
               Update password
             </Button>
           </DialogFooter>

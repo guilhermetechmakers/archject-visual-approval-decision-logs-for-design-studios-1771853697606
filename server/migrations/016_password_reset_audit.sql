@@ -1,0 +1,3 @@
+-- Add request_ip and request_user_agent to password_reset_tokens for audit
+-- last_password_changed_at on users for tracking
+-- Run via db.ts initDb; duplicate column errors are ignored

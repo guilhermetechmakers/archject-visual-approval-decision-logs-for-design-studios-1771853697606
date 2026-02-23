@@ -29,7 +29,7 @@ const signupSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z
     .string()
-    .min(10, 'Password must be at least 10 characters')
+    .min(12, 'Password must be at least 12 characters')
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
       'Password must include uppercase, lowercase, digit, and special character'
@@ -558,7 +558,7 @@ export function AuthPage() {
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="Min 10 chars, include A-Z, a-z, 0-9, special"
+                      placeholder="Min 12 chars, include A-Z, a-z, 0-9, special"
                       {...signupForm.register('password')}
                       className={signupForm.formState.errors.password ? 'border-destructive' : ''}
                       aria-invalid={!!signupForm.formState.errors.password}

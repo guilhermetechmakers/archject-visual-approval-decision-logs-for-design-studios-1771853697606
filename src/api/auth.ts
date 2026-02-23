@@ -99,7 +99,18 @@ export async function logout(): Promise<void> {
 }
 
 export async function requestPasswordReset(email: string): Promise<{ message: string }> {
-  return api.post<{ message: string }>('/auth/password-reset/request', { email })
+  return api.post<{ message: string }>('/auth/password-reset-request', { email })
+}
+
+export async function validatePasswordResetToken(token: string): Promise<{ valid: boolean }> {
+  try {
+    const res = await api.get<{ valid: boolean }>(
+      `/auth/password-reset-validate?token=${encodeURIComponent(token)}`
+    )
+    return res
+  } catch {
+    return { valid: false }
+  }
 }
 
 export interface PasswordResetConfirmRequest {
@@ -115,7 +126,10 @@ export interface PasswordResetConfirmResponse {
 }
 
 export async function confirmPasswordReset(data: PasswordResetConfirmRequest): Promise<PasswordResetConfirmResponse> {
-  return api.post<PasswordResetConfirmResponse>('/auth/password-reset/confirm', data)
+  return api.post<PasswordResetConfirmResponse>('/auth/password-reset', {
+    token: data.token,
+    password: data.newPassword,
+  })
 }
 
 export function isAuthError(err: unknown): err is ApiError {

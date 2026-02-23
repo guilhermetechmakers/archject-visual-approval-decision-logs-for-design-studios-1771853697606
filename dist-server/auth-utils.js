@@ -66,6 +66,12 @@ export function revokeRefreshToken(token) {
     const tokenHash = hashToken(token);
     db.prepare(`UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE token_hash = ?`).run(tokenHash);
 }
+export function revokeAllRefreshTokensForUser(userId) {
+    db.prepare(`UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL`).run(userId);
+}
+export function revokeAllSessionsForUser(userId) {
+    db.prepare(`UPDATE sessions SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL`).run(userId);
+}
 export function createSession(userId, ip, userAgent) {
     const id = crypto.randomUUID();
     db.prepare(`INSERT INTO sessions (id, user_id, ip, user_agent) VALUES (?, ?, ?, ?)`).run(id, userId, ip ?? null, userAgent ?? null);

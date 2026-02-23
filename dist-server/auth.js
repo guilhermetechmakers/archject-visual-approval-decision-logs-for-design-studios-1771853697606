@@ -3,9 +3,9 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from './db.js';
-import { sendVerificationEmail, sendPasswordResetEmail } from './mailer.js';
-import { checkResendRateLimit, checkAuthRateLimit } from './rate-limit.js';
-import { hashToken, createAccessToken, createRefreshToken, setRefreshTokenCookie, clearRefreshTokenCookie, getRefreshTokenFromRequest, storeRefreshToken, validateRefreshToken, revokeRefreshToken, createSession, getUserIdFromAccessToken, } from './auth-utils.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendPasswordChangedEmail } from './mailer.js';
+import { checkResendRateLimit, checkAuthRateLimit, checkPasswordResetRequestLimit, checkPasswordResetSubmitLimit, } from './rate-limit.js';
+import { hashToken, createAccessToken, createRefreshToken, setRefreshTokenCookie, clearRefreshTokenCookie, getRefreshTokenFromRequest, storeRefreshToken, validateRefreshToken, revokeRefreshToken, revokeAllRefreshTokensForUser, revokeAllSessionsForUser, createSession, getUserIdFromAccessToken, } from './auth-utils.js';
 import { createSessionTempToken, validateSessionTempToken, consumeSessionTempToken, createDeviceToken, validateDeviceToken, get2faStatus, verify2faForUser, verifyRecoveryCode, maskPhone, sendSMSOTP, check2faVerifyLockout, record2faVerifyAttempt, clear2faVerifyAttempts, logAudit, setupTOTP, enableTOTP, enableSMS, disable2FA, normalizePhone, isValidPhone, } from './twofa.js';
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
 const DEVICE_TOKEN_COOKIE = 'archject_device';
@@ -51,11 +51,11 @@ authRouter.post('/signup', async (req, res) => {
         if (!emailRegex.test(email)) {
             return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid email address' });
         }
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{10,}$/;
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
         if (!passwordRegex.test(password)) {
             return res.status(400).json({
                 code: 'VALIDATION_ERROR',
-                message: 'Password must be at least 10 characters with uppercase, lowercase, digit, and special character',
+                message: 'Password must be at least 12 characters with uppercase, lowercase, digit, and special character',
             });
         }
         const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
@@ -634,98 +634,162 @@ authRouter.post('/logout', (req, res) => {
         return res.json({ message: 'Logged out' });
     }
 });
-authRouter.post('/password-reset/request', async (req, res) => {
+authRouter.post('/password-reset-request', async (req, res) => {
     try {
         const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-        const authLimit = checkAuthRateLimit(ip);
-        if (!authLimit.allowed) {
-            return res.status(429).json({
-                code: 'RATE_LIMIT_EXCEEDED',
-                message: 'Too many attempts. Please try again later.',
-            });
-        }
         const { email } = req.body;
         if (!email || typeof email !== 'string') {
             return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Email is required' });
         }
         const normalizedEmail = email.trim().toLowerCase();
+        const resetLimit = checkPasswordResetRequestLimit(ip, normalizedEmail);
+        if (!resetLimit.allowed) {
+            res.setHeader('Retry-After', String(resetLimit.retryAfter ?? 3600));
+            return res.status(429).json({
+                code: 'RATE_LIMIT_EXCEEDED',
+                message: 'Too many reset requests. Please try again later.',
+                retry_after: resetLimit.retryAfter,
+            });
+        }
         const user = db.prepare('SELECT id, first_name, email, password_hash FROM users WHERE email = ?').get(normalizedEmail);
         if (!user) {
-            return res.json({ message: 'If an account exists with this email, a reset link has been sent.' });
+            logAudit(null, 'PASSWORD_RESET_REQUEST', { email: normalizedEmail }, ip);
+            return res.json({ message: 'If an account exists for this email, we sent a link. Check your inbox.' });
         }
         if (!user.password_hash) {
-            return res.json({ message: 'If an account exists with this email, a reset link has been sent.' });
+            logAudit(null, 'PASSWORD_RESET_REQUEST', { email: normalizedEmail }, ip);
+            return res.json({ message: 'If an account exists for this email, we sent a link. Check your inbox.' });
         }
-        const token = crypto.randomBytes(48).toString('hex');
+        const token = crypto.randomBytes(32).toString('base64url');
         const tokenHash = hashToken(token);
         const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000);
-        db.prepare(`INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at)
-       VALUES (?, ?, ?, ?)`).run(crypto.randomUUID(), user.id, tokenHash, expiresAt.toISOString());
-        const resetUrl = `${VERIFY_BASE_URL}/password-reset/confirm?token=${token}`;
+        const userAgent = req.get('user-agent') ?? null;
+        db.prepare(`INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, request_ip, request_user_agent)
+       VALUES (?, ?, ?, ?, ?, ?)`).run(crypto.randomUUID(), user.id, tokenHash, expiresAt.toISOString(), ip, userAgent);
+        const resetUrl = `${VERIFY_BASE_URL}/password-reset?token=${encodeURIComponent(token)}`;
         const sent = await sendPasswordResetEmail({
             firstName: user.first_name,
             email: user.email,
             resetUrl,
             expiresAt,
         });
+        logAudit(user.id, 'PASSWORD_RESET_REQUEST', { email_sent: sent }, ip);
         if (!sent) {
             return res.status(503).json({
                 code: 'EMAIL_DELIVERY_FAILED',
                 message: 'We could not send the reset email. Please try again later.',
             });
         }
-        return res.json({ message: 'If an account exists with this email, a reset link has been sent.' });
+        return res.json({ message: 'If an account exists for this email, we sent a link. Check your inbox.' });
     }
     catch (err) {
         console.error('[Auth] Password reset request error:', err);
         return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
     }
 });
+authRouter.get('/password-reset-validate', (req, res) => {
+    try {
+        const token = req.query.token;
+        if (!token || typeof token !== 'string' || token.length < 16) {
+            return res.status(400).json({ valid: false, message: 'Invalid or expired link' });
+        }
+        const tokenHash = hashToken(token);
+        const row = db.prepare(`SELECT id FROM password_reset_tokens
+       WHERE token_hash = ? AND used_at IS NULL AND expires_at > datetime('now')`).get(tokenHash);
+        if (!row) {
+            return res.status(400).json({ valid: false, message: 'Invalid or expired link' });
+        }
+        return res.json({ valid: true });
+    }
+    catch (err) {
+        console.error('[Auth] Password reset validate error:', err);
+        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
+    }
+});
+const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
+async function handlePasswordReset(req, res, token, newPassword) {
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    if (!PASSWORD_POLICY_REGEX.test(newPassword)) {
+        res.status(400).json({
+            code: 'VALIDATION_ERROR',
+            message: 'Password must be at least 12 characters with uppercase, lowercase, digit, and special character',
+        });
+        return;
+    }
+    const tokenHash = hashToken(token);
+    const submitLimit = checkPasswordResetSubmitLimit(ip, tokenHash);
+    if (!submitLimit.allowed) {
+        res.setHeader('Retry-After', String(submitLimit.retryAfter ?? 3600));
+        res.status(429).json({
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Too many attempts. Please try again later.',
+            retry_after: submitLimit.retryAfter,
+        });
+        return;
+    }
+    const row = db.prepare(`SELECT id, user_id FROM password_reset_tokens
+     WHERE token_hash = ? AND used_at IS NULL AND expires_at > datetime('now')`).get(tokenHash);
+    if (!row) {
+        res.status(400).json({ code: 'TOKEN_INVALID', message: 'Invalid or expired token' });
+        return;
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    db.prepare("UPDATE password_reset_tokens SET used_at = datetime('now') WHERE id = ?").run(row.id);
+    db.prepare('UPDATE users SET password_hash = ?, updated_at = datetime("now"), last_password_changed_at = datetime("now") WHERE id = ?').run(passwordHash, row.user_id);
+    revokeAllRefreshTokensForUser(row.user_id);
+    revokeAllSessionsForUser(row.user_id);
+    const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(row.user_id);
+    logAudit(user.id, 'PASSWORD_RESET_COMPLETED', {}, ip);
+    await sendPasswordChangedEmail({ firstName: user.first_name, email: user.email });
+    const accessToken = createAccessToken(user.id, user.email);
+    const refreshToken = createRefreshToken();
+    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'));
+    createSession(user.id, ip, req.get('user-agent'));
+    setRefreshTokenCookie(res, refreshToken);
+    res.json({
+        message: 'Password reset successfully',
+        accessToken,
+        sessionToken: accessToken,
+        user: {
+            id: user.id,
+            email: user.email,
+            email_verified: true,
+            first_name: user.first_name,
+            last_name: user.last_name,
+        },
+    });
+}
+authRouter.post('/password-reset', async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        const newPassword = password ?? req.body.newPassword;
+        if (!token || !newPassword) {
+            return res.status(400).json({
+                code: 'VALIDATION_ERROR',
+                message: 'Token and password are required',
+            });
+        }
+        await handlePasswordReset(req, res, token, newPassword);
+    }
+    catch (err) {
+        console.error('[Auth] Password reset error:', err);
+        res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
+    }
+});
 authRouter.post('/password-reset/confirm', async (req, res) => {
     try {
         const { token, newPassword } = req.body;
         if (!token || !newPassword) {
-            return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Token and new password are required' });
-        }
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{10,}$/;
-        if (!passwordRegex.test(newPassword)) {
             return res.status(400).json({
                 code: 'VALIDATION_ERROR',
-                message: 'Password must be at least 10 characters with uppercase, lowercase, digit, and special character',
+                message: 'Token and new password are required',
             });
         }
-        const tokenHash = hashToken(token);
-        const row = db.prepare(`SELECT id, user_id FROM password_reset_tokens
-       WHERE token_hash = ? AND used_at IS NULL AND expires_at > datetime('now')`).get(tokenHash);
-        if (!row) {
-            return res.status(400).json({ code: 'TOKEN_INVALID', message: 'Invalid or expired reset link' });
-        }
-        const passwordHash = await bcrypt.hash(newPassword, 10);
-        db.prepare("UPDATE password_reset_tokens SET used_at = datetime('now') WHERE id = ?").run(row.id);
-        db.prepare('UPDATE users SET password_hash = ?, updated_at = datetime("now") WHERE id = ?').run(passwordHash, row.user_id);
-        const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(row.user_id);
-        const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-        const accessToken = createAccessToken(user.id, user.email);
-        const refreshToken = createRefreshToken();
-        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'));
-        createSession(user.id, ip, req.get('user-agent'));
-        setRefreshTokenCookie(res, refreshToken);
-        return res.json({
-            message: 'Password reset successfully',
-            accessToken,
-            sessionToken: accessToken,
-            user: {
-                id: user.id,
-                email: user.email,
-                email_verified: true,
-                first_name: user.first_name,
-                last_name: user.last_name,
-            },
-        });
+        await handlePasswordReset(req, res, token, newPassword);
     }
     catch (err) {
         console.error('[Auth] Password reset confirm error:', err);
-        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
+        res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
     }
 });
 // OAuth routes are handled by oauth.ts router at /api/auth/oauth

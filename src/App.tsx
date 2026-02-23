@@ -11,7 +11,7 @@ import { AuthPage } from '@/pages/auth'
 import { AuthOAuthCallbackPage } from '@/pages/auth-oauth-callback'
 import { VerifyEmailPage } from '@/pages/verify-email'
 import { PasswordResetPage } from '@/pages/password-reset'
-import { PasswordResetConfirmPage } from '@/pages/password-reset-confirm'
+import { PasswordResetRedirect } from '@/pages/password-reset-redirect'
 import { DashboardOverview } from '@/pages/dashboard/overview'
 import { ProjectsListPage } from '@/pages/projects-list'
 import { ProjectWorkspace } from '@/pages/dashboard/project-workspace'
@@ -76,7 +76,7 @@ function App() {
                 <Route path="/signup" element={<AuthPage />} />
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/password-reset" element={<PasswordResetPage />} />
-                <Route path="/password-reset/confirm" element={<PasswordResetConfirmPage />} />
+                <Route path="/password-reset/confirm" element={<PasswordResetRedirect />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/help" element={<HelpLayout />}>
                   <Route index element={<HelpPage />} />

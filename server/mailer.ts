@@ -91,13 +91,18 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams): 
 
   try {
     const html = `
-      <h1>Reset your password</h1>
-      <p>Hi ${firstName},</p>
-      <p>Click the link below to reset your Archject password:</p>
-      <p><a href="${resetUrl}">Reset password</a></p>
-      <p>This link expires in ${expiryMinutes} minutes.</p>
-      <p>If you didn't request a password reset, you can ignore this email.</p>
-      <p>— ${APP_NAME}</p>
+      <div style="font-family: Inter, system-ui, sans-serif; max-width: 480px; margin: 0 auto;">
+        <h1 style="font-size: 22px; font-weight: 600; color: #111827;">Reset your password</h1>
+        <p style="font-size: 15px; line-height: 1.6; color: #374151;">Hi ${firstName},</p>
+        <p style="font-size: 15px; line-height: 1.6; color: #374151;">We received a request to reset your Archject password. Click the button below to create a new password:</p>
+        <p style="margin: 24px 0;">
+          <a href="${resetUrl}" style="display: inline-block; background: #0052CC; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reset password</a>
+        </p>
+        <p style="font-size: 14px; color: #6B7280;">This link expires in ${expiryMinutes} minutes and can only be used once.</p>
+        <p style="font-size: 14px; color: #6B7280;">If you didn't request this, you can safely ignore this email. Your password will not be changed.</p>
+        <p style="font-size: 14px; color: #6B7280;">Need help? Contact <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>
+        <p style="font-size: 14px; color: #9CA3AF; margin-top: 32px;">— ${APP_NAME}</p>
+      </div>
     `
     await sgMail.send({
       to: params.email,
@@ -109,6 +114,43 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams): 
     return true
   } catch (err) {
     console.error('[Mailer] Password reset email error:', err)
+    return false
+  }
+}
+
+export interface PasswordChangedEmailParams {
+  firstName: string
+  email: string
+}
+
+export async function sendPasswordChangedEmail(params: PasswordChangedEmailParams): Promise<boolean> {
+  const { firstName, email } = params
+
+  if (!SENDGRID_API_KEY) {
+    console.warn('[Mailer] SENDGRID_API_KEY not set. Password changed email would be sent to:', email)
+    return true
+  }
+
+  try {
+    const html = `
+      <div style="font-family: Inter, system-ui, sans-serif; max-width: 480px; margin: 0 auto;">
+        <h1 style="font-size: 22px; font-weight: 600; color: #111827;">Your password was changed</h1>
+        <p style="font-size: 15px; line-height: 1.6; color: #374151;">Hi ${firstName},</p>
+        <p style="font-size: 15px; line-height: 1.6; color: #374151;">This is a confirmation that your Archject password was successfully changed.</p>
+        <p style="font-size: 14px; color: #6B7280;">If you did not make this change, please contact <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> immediately.</p>
+        <p style="font-size: 14px; color: #9CA3AF; margin-top: 32px;">— ${APP_NAME}</p>
+      </div>
+    `
+    await sgMail.send({
+      to: email,
+      from: { email: FROM_EMAIL, name: APP_NAME },
+      subject: 'Your Archject password was changed',
+      html,
+      categories: ['password-changed'],
+    })
+    return true
+  } catch (err) {
+    console.error('[Mailer] Password changed email error:', err)
     return false
   }
 }

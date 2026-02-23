@@ -102,6 +102,18 @@ export function revokeRefreshToken(token: string): void {
   ).run(tokenHash)
 }
 
+export function revokeAllRefreshTokensForUser(userId: string): void {
+  db.prepare(
+    `UPDATE refresh_tokens SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL`
+  ).run(userId)
+}
+
+export function revokeAllSessionsForUser(userId: string): void {
+  db.prepare(
+    `UPDATE sessions SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL`
+  ).run(userId)
+}
+
 export function createSession(userId: string, ip: string | undefined, userAgent: string | undefined): string {
   const id = crypto.randomUUID()
   db.prepare(

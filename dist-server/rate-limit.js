@@ -51,3 +51,53 @@ const AUTH_IP_WINDOW_MS = 15 * 60 * 1000;
 export function checkAuthRateLimit(ip) {
     return checkLimit(authPerIp, ip, AUTH_IP_LIMIT, AUTH_IP_WINDOW_MS);
 }
+/** Password reset request: 5 per hour per IP, 3 per hour per email */
+const passwordResetPerIp = new Map();
+const passwordResetPerEmail = new Map();
+const PASSWORD_RESET_IP_LIMIT = 5;
+const PASSWORD_RESET_EMAIL_LIMIT = 3;
+const PASSWORD_RESET_WINDOW_MS = 60 * 60 * 1000;
+export function checkPasswordResetRequestLimit(ip, email) {
+    const ipResult = checkLimit(passwordResetPerIp, ip, PASSWORD_RESET_IP_LIMIT, PASSWORD_RESET_WINDOW_MS);
+    if (!ipResult.allowed) {
+        return {
+            allowed: false,
+            nextAllowedAt: ipResult.nextAllowedAt,
+            retryAfter: ipResult.nextAllowedAt ? Math.ceil((ipResult.nextAllowedAt - Date.now()) / 1000) : 3600,
+        };
+    }
+    const emailKey = email.trim().toLowerCase();
+    const emailResult = checkLimit(passwordResetPerEmail, emailKey, PASSWORD_RESET_EMAIL_LIMIT, PASSWORD_RESET_WINDOW_MS);
+    if (!emailResult.allowed) {
+        return {
+            allowed: false,
+            nextAllowedAt: emailResult.nextAllowedAt,
+            retryAfter: emailResult.nextAllowedAt ? Math.ceil((emailResult.nextAllowedAt - Date.now()) / 1000) : 3600,
+        };
+    }
+    return { allowed: true };
+}
+/** Password reset submit: 10 attempts per hour per IP, 5 per token */
+const passwordResetSubmitPerIp = new Map();
+const passwordResetSubmitPerToken = new Map();
+const PASSWORD_RESET_SUBMIT_IP_LIMIT = 10;
+const PASSWORD_RESET_SUBMIT_TOKEN_LIMIT = 5;
+export function checkPasswordResetSubmitLimit(ip, tokenHash) {
+    const ipResult = checkLimit(passwordResetSubmitPerIp, ip, PASSWORD_RESET_SUBMIT_IP_LIMIT, PASSWORD_RESET_WINDOW_MS);
+    if (!ipResult.allowed) {
+        return {
+            allowed: false,
+            nextAllowedAt: ipResult.nextAllowedAt,
+            retryAfter: ipResult.nextAllowedAt ? Math.ceil((ipResult.nextAllowedAt - Date.now()) / 1000) : 3600,
+        };
+    }
+    const tokenResult = checkLimit(passwordResetSubmitPerToken, tokenHash, PASSWORD_RESET_SUBMIT_TOKEN_LIMIT, PASSWORD_RESET_WINDOW_MS);
+    if (!tokenResult.allowed) {
+        return {
+            allowed: false,
+            nextAllowedAt: tokenResult.nextAllowedAt,
+            retryAfter: tokenResult.nextAllowedAt ? Math.ceil((tokenResult.nextAllowedAt - Date.now()) / 1000) : 3600,
+        };
+    }
+    return { allowed: true };
+}

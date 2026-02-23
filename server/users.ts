@@ -2,7 +2,9 @@ import { Router, Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import { db } from './db.js'
-import { getUserIdFromAccessToken } from './auth-utils.js'
+import { getUserIdFromAccessToken, revokeAllRefreshTokensForUser, revokeAllSessionsForUser } from './auth-utils.js'
+import { sendPasswordChangedEmail } from './mailer.js'
+import { logAudit } from './twofa.js'
 import {
   get2faStatus,
   maskPhone,
@@ -187,6 +189,61 @@ usersRouter.patch('/me', requireAuth, async (req: Request, res: Response) => {
   }
 })
 
+const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/
+
+async function handleChangePassword(
+  req: Request,
+  res: Response,
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  if (!PASSWORD_POLICY_REGEX.test(newPassword)) {
+    res.status(400).json({
+      code: 'VALIDATION_ERROR',
+      message:
+        'New password must be at least 12 characters with uppercase, lowercase, digit, and special character',
+    })
+    return
+  }
+
+  const user = db.prepare(
+    'SELECT password_hash, first_name, email FROM users WHERE id = ?'
+  ).get(userId) as {
+    password_hash: string | null
+    first_name: string
+    email: string
+  } | undefined
+
+  if (!user || !user.password_hash) {
+    res.status(400).json({
+      code: 'NO_PASSWORD',
+      message: 'This account uses OAuth sign-in. Set a password first.',
+    })
+    return
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.password_hash)
+  if (!valid) {
+    res.status(401).json({ code: 'INVALID_PASSWORD', message: 'Current password is incorrect' })
+    return
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+  db.prepare(
+    'UPDATE users SET password_hash = ?, updated_at = datetime("now"), last_password_changed_at = datetime("now") WHERE id = ?'
+  ).run(passwordHash, userId)
+
+  revokeAllRefreshTokensForUser(userId)
+  revokeAllSessionsForUser(userId)
+
+  const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+  logAudit(userId, 'PASSWORD_CHANGED', {}, ip)
+  await sendPasswordChangedEmail({ firstName: user.first_name, email: user.email })
+
+  res.json({ message: 'Password updated successfully' })
+}
+
 usersRouter.post('/me/password', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId
@@ -199,41 +256,29 @@ usersRouter.post('/me/password', requireAuth, async (req: Request, res: Response
       })
     }
 
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{10,}$/
-    if (!passwordRegex.test(newPassword)) {
-      return res.status(400).json({
-        code: 'VALIDATION_ERROR',
-        message:
-          'New password must be at least 10 characters with uppercase, lowercase, digit, and special character',
-      })
-    }
-
-    const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId) as {
-      password_hash: string | null
-    } | undefined
-
-    if (!user || !user.password_hash) {
-      return res.status(400).json({
-        code: 'NO_PASSWORD',
-        message: 'This account uses OAuth sign-in. Set a password first.',
-      })
-    }
-
-    const valid = await bcrypt.compare(currentPassword, user.password_hash)
-    if (!valid) {
-      return res.status(401).json({ code: 'INVALID_PASSWORD', message: 'Current password is incorrect' })
-    }
-
-    const passwordHash = await bcrypt.hash(newPassword, 10)
-    db.prepare('UPDATE users SET password_hash = ?, updated_at = datetime("now") WHERE id = ?').run(
-      passwordHash,
-      userId
-    )
-
-    return res.json({ message: 'Password updated successfully' })
+    await handleChangePassword(req, res, userId, currentPassword, newPassword)
   } catch (err) {
     console.error('[Users] Password change error:', err)
-    return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+    res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+usersRouter.put('/me/password', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId
+    const { currentPassword, newPassword } = req.body
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'Current password and new password are required',
+      })
+    }
+
+    await handleChangePassword(req, res, userId, currentPassword, newPassword)
+  } catch (err) {
+    console.error('[Users] Password change error:', err)
+    res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
   }
 })
 
