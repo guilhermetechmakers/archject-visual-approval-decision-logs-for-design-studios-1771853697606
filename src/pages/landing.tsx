@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, FileCheck, Share2, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { ContactForm } from '@/components/help'
 
 export function LandingPage() {
+  const [demoOpen, setDemoOpen] = useState(false)
   return (
     <div className="min-h-screen bg-background">
       {/* Hero */}
@@ -13,11 +16,14 @@ export function LandingPage() {
         <nav className="relative flex items-center justify-between px-4 py-6 lg:px-8">
           <span className="text-xl font-bold text-primary">Archject</span>
           <div className="flex items-center gap-4">
+            <Link to="/help">
+              <Button variant="ghost">Help</Button>
+            </Link>
             <Link to="/login">
               <Button variant="ghost">Log in</Button>
             </Link>
             <Link to="/signup">
-              <Button>Get started</Button>
+              <Button>Sign up</Button>
             </Link>
           </div>
         </nav>
@@ -36,12 +42,20 @@ export function LandingPage() {
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link to="/signup">
                 <Button size="lg" className="w-full sm:w-auto">
-                  Start free trial
+                  Sign up
                 </Button>
               </Link>
-              <Link to="/about">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                  See how it works
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full sm:w-auto"
+                onClick={() => setDemoOpen(true)}
+              >
+                Request demo
+              </Button>
+              <Link to="/help">
+                <Button variant="ghost" size="lg" className="w-full sm:w-auto">
+                  Help & Docs
                 </Button>
               </Link>
             </div>
@@ -121,16 +135,39 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-24">
+      {/* Pricing CTA */}
+      <section className="border-t border-border py-24">
+        <div className="mx-auto max-w-3xl px-4 text-center">
+          <h2 className="text-3xl font-bold">Simple, transparent pricing</h2>
+          <p className="mt-4 text-muted-foreground">
+            Start free. Scale as you grow. Per-seat plans for teams of any size.
+          </p>
+          <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <Link to="/signup">
+              <Button size="lg">Get started free</Button>
+            </Link>
+            <Link to="/dashboard/billing">
+              <Button variant="outline" size="lg">Compare plans</Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing CTA */}
+      <section id="demo" className="border-t border-border py-24">
         <div className="mx-auto max-w-3xl px-4 text-center">
           <h2 className="text-3xl font-bold">Ready to accelerate approvals?</h2>
           <p className="mt-4 text-muted-foreground">
             Join design studios who ship faster with clear, auditable client decisions.
           </p>
-          <Link to="/signup" className="mt-8 inline-block">
-            <Button size="lg">Get started free</Button>
-          </Link>
+          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link to="/signup">
+              <Button size="lg">Get started free</Button>
+            </Link>
+            <Button variant="outline" size="lg" onClick={() => setDemoOpen(true)}>
+              Compare plans / Request demo
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -139,18 +176,23 @@ export function LandingPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 sm:flex-row">
           <span className="text-sm text-muted-foreground">© Archject. Visual approval for design studios.</span>
           <div className="flex gap-6">
+            <Link to="/help" className="text-sm text-muted-foreground hover:text-foreground">
+              Help
+            </Link>
+            <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground">
+              About
+            </Link>
             <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground">
               Privacy
             </Link>
             <Link to="/terms" className="text-sm text-muted-foreground hover:text-foreground">
               Terms
             </Link>
-            <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground">
-              About
-            </Link>
           </div>
         </div>
       </footer>
+
+      <ContactForm open={demoOpen} onOpenChange={setDemoOpen} source="demo" />
     </div>
   )
 }

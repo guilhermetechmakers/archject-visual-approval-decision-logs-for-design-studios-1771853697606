@@ -26,6 +26,9 @@ import { IntegrationsPage } from '@/pages/dashboard/settings/integrations-page'
 import { DecisionsListPage } from '@/pages/decisions-list'
 import { ClientPortal } from '@/pages/client-portal'
 import { AboutPage } from '@/pages/about'
+import { HelpPage } from '@/pages/help'
+import { HelpArticlePage } from '@/pages/help-article'
+import { HelpLayout } from '@/components/layout/help-layout'
 import { PrivacyPage } from '@/pages/privacy'
 import { TermsPage } from '@/pages/terms'
 import { NotFoundPage } from '@/pages/not-found'
@@ -58,6 +61,10 @@ function App() {
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/password-reset" element={<PasswordResetPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/help" element={<HelpLayout />}>
+            <Route index element={<HelpPage />} />
+            <Route path="article/:slug" element={<HelpArticlePage />} />
+          </Route>
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/client/:token" element={<ClientPortal />} />

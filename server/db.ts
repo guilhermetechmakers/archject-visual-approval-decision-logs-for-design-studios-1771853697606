@@ -86,6 +86,29 @@ export function initDb() {
     }
     seedAnalyticsData()
   }
+
+  const helpPath = path.join(process.cwd(), 'server', 'migrations', '006_help.sql')
+  if (fs.existsSync(helpPath)) {
+    try {
+      const sql = fs.readFileSync(helpPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+    seedKbArticles()
+  }
 }
 
 function seedAnalyticsData() {
@@ -125,4 +148,131 @@ function seedAdminUser() {
   db.prepare(
     "INSERT INTO admin_users (id, email, name, role, password_hash, is_active) VALUES (?, 'admin@archject.local', 'Admin', 'super-admin', ?, 1)"
   ).run(id, hash)
+}
+
+function seedKbArticles() {
+  try {
+    const hasArticles = db.prepare('SELECT 1 FROM kb_articles LIMIT 1').get()
+    if (hasArticles) return
+    const crypto = require('crypto')
+    const now = new Date().toISOString()
+    const articles = [
+      {
+        id: crypto.randomUUID(),
+        slug: 'getting-started',
+        title: 'Getting Started with Archject',
+        excerpt: 'Learn how to set up your first project and invite clients.',
+        body: `## Welcome to Archject
+
+Archject helps design studios manage visual approvals and decision logs. Follow these steps to get started.
+
+### 1. Create a Project
+Go to **Dashboard → Projects** and click **New Project**. Give it a name and optional description.
+
+### 2. Add Decision Options
+Inside your project, create a decision with options (e.g., material choices, layout variants). Upload images or attach drawings.
+
+### 3. Share the Client Link
+Generate a no-login share link and send it to your client. They can approve or decline directly from their device.
+
+### 4. Export the Decision Log
+Once approved, export a PDF or CSV Decision Log for your records and contracts.`,
+        tags: JSON.stringify(['Getting Started', 'Onboarding']),
+        featured: 1,
+        published: 1,
+      },
+      {
+        id: crypto.randomUUID(),
+        slug: 'client-link',
+        title: 'Client Link & No-Login Approval',
+        excerpt: 'How tokenized share links work and how clients approve without creating an account.',
+        body: `## Client Links
+
+Client links are tokenized URLs that let your clients view and approve decisions without signing up.
+
+### How It Works
+- Each decision can have a unique share link
+- The link contains a secure token—no password needed
+- Clients see side-by-side options and tap to approve
+- All actions are time-stamped for audit trails
+
+### Security
+- Links can be regenerated if compromised
+- Expiration dates are configurable
+- View-only links are available for review-only flows`,
+        tags: JSON.stringify(['Client Link', 'Security']),
+        featured: 1,
+        published: 1,
+      },
+      {
+        id: crypto.randomUUID(),
+        slug: 'decision-logs',
+        title: 'Decision Logs & Audit Trails',
+        excerpt: 'Understand how decisions are logged and exported for legal and compliance.',
+        body: `## Decision Logs
+
+Every approval is recorded with a timestamp, client action, and optional comment.
+
+### Export Formats
+- **PDF**: Branded, print-ready Decision Log with your studio logo
+- **CSV**: Structured data for spreadsheets and integrations
+
+### Use Cases
+- Contract documentation
+- Permit applications
+- Change order tracking
+- Client sign-off records`,
+        tags: JSON.stringify(['Decision Logs', 'Exports']),
+        featured: 0,
+        published: 1,
+      },
+      {
+        id: crypto.randomUUID(),
+        slug: 'exports',
+        title: 'Exporting Decision Logs',
+        excerpt: 'Generate PDF and CSV exports with your branding.',
+        body: `## Exports
+
+Navigate to **Exports** in the dashboard to generate Decision Logs.
+
+### PDF Export
+- Includes your studio branding
+- All decisions in the selected project/date range
+- Timestamps and client actions
+- Optional cover page
+
+### CSV Export
+- Structured columns for each field
+- Suitable for import into other tools
+- Filter by project and date range`,
+        tags: JSON.stringify(['Exports', 'Billing']),
+        featured: 0,
+        published: 1,
+      },
+      {
+        id: crypto.randomUUID(),
+        slug: 'security',
+        title: 'Security & Data Privacy',
+        excerpt: 'How we protect your data and client information.',
+        body: `## Security
+
+- All data is encrypted in transit (TLS)
+- Access is controlled via authentication and role-based permissions
+- Client links use secure, unguessable tokens
+- We do not share your data with third parties for marketing`,
+        tags: JSON.stringify(['Security']),
+        featured: 0,
+        published: 1,
+      },
+    ]
+    const insert = db.prepare(
+      `INSERT INTO kb_articles (id, slug, title, excerpt, body, tags, featured, published, author_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    for (const a of articles) {
+      insert.run(a.id, a.slug, a.title, a.excerpt, a.body, a.tags, a.featured, a.published, null, now, now)
+    }
+  } catch (e) {
+    if (!String(e).includes('UNIQUE')) console.error('[DB] seedKbArticles:', e)
+  }
 }

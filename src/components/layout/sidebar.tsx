@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -27,6 +28,7 @@ const navItems = [
 ]
 
 const bottomItems = [
+  { to: '/help', icon: HelpCircle, label: 'Help' },
   { to: '/dashboard/billing', icon: CreditCard, label: 'Billing' },
   { to: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ]
