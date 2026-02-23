@@ -1,9 +1,11 @@
-import { useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Check, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api'
+import { toast } from 'sonner'
 import type { Decision } from '@/types'
 
 const mockDecision: Decision = {
@@ -23,14 +25,33 @@ const mockDecision: Decision = {
 
 export function ClientPortal() {
   const { token } = useParams<{ token: string }>()
+  const navigate = useNavigate()
+  const [approving, setApproving] = useState(false)
   const { data: decision = mockDecision, isLoading } = useQuery({
     queryKey: ['client-decision', token],
-    queryFn: () => api.get<Decision>(`/client/${token}`).catch(() => mockDecision),
+    queryFn: () => api.get<Decision>(`/v1/client/${token}`).catch(() => mockDecision),
     enabled: !!token,
   })
 
-  const handleApprove = (_optionId: string) => {
-    // TODO: API call to record approval
+  const handleApprove = async (optionId: string) => {
+    if (!token || !decision) return
+    setApproving(true)
+    try {
+      await api.post<{ referenceId: string; timestamp: string; projectId: string }>(
+        `/v1/actions/${decision.id}/confirm`,
+        { source: 'client_token', token, exportOptions: { types: ['pdf'] } }
+      )
+      const selectedOpt = decision.options.find((o) => o.id === optionId)
+      navigate(`/client/${token}/confirmation`, {
+        replace: true,
+        state: { approvedOption: selectedOpt },
+      })
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? 'Approval failed'
+      toast.error(msg)
+    } finally {
+      setApproving(false)
+    }
   }
 
   return (
@@ -72,7 +93,8 @@ export function ClientPortal() {
                 <button
                   key={opt.id}
                   onClick={() => handleApprove(opt.id)}
-                  className={`flex flex-col rounded-xl border-2 p-6 text-left transition-all card-hover ${
+                  disabled={approving || opt.selected}
+                  className={`flex flex-col rounded-xl border-2 p-6 text-left transition-all card-hover min-h-[44px] ${
                     opt.selected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
                   }`}
                 >
@@ -93,7 +115,9 @@ export function ClientPortal() {
                     {opt.selected ? (
                       <Check className="h-6 w-6 text-primary" />
                     ) : (
-                      <Button size="sm">Select</Button>
+                      <Button size="sm" disabled={approving}>
+                        {approving ? 'Submitting…' : 'Select'}
+                      </Button>
                     )}
                   </div>
                 </button>

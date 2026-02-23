@@ -28,6 +28,8 @@ import { IntegrationsPage } from '@/pages/dashboard/settings/integrations-page'
 import { DataPage } from '@/pages/dashboard/settings/data-page'
 import { DecisionsListPage } from '@/pages/decisions-list'
 import { ClientPortal } from '@/pages/client-portal'
+import { ClientConfirmationPage } from '@/pages/client-confirmation'
+import { ActionSuccessPage } from '@/pages/dashboard/action-success'
 import { AboutPage } from '@/pages/about'
 import { HelpPage } from '@/pages/help'
 import { HelpArticlePage } from '@/pages/help-article'
@@ -78,6 +80,7 @@ function App() {
                 <Route path="/privacy" element={<PrivacyPage />} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/request-demo" element={<RequestDemoPage />} />
+                <Route path="/client/:token/confirmation" element={<ClientConfirmationPage />} />
                 <Route path="/client/:token" element={<ClientPortal />} />
 
                 <Route path="/admin/login" element={<AdminLoginPage />} />
@@ -113,6 +116,7 @@ function App() {
                   <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
                   <Route path="projects/:projectId/decisions/new" element={<CreateDecisionPage />} />
                   <Route path="projects/:projectId/decisions/:decisionId" element={<DecisionDetail />} />
+                  <Route path="projects/:projectId/actions/:actionId/success" element={<ActionSuccessPage />} />
                   <Route path="projects/:projectId/library" element={<LibraryPage />} />
                   <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
                   <Route path="decisions" element={<DecisionsListPage />} />
