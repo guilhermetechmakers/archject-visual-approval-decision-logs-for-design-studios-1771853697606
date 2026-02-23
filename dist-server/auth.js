@@ -267,10 +267,10 @@ authRouter.post('/2fa/verify', async (req, res) => {
 authRouter.post('/2fa/send-sms', async (req, res) => {
     try {
         const { session_temp_token, phone_number, purpose } = req.body;
-        if (!phone_number || !purpose) {
+        if (!purpose) {
             return res.status(400).json({
                 code: 'VALIDATION_ERROR',
-                message: 'phone_number and purpose are required',
+                message: 'purpose is required',
             });
         }
         let userId = null;
@@ -282,7 +282,18 @@ authRouter.post('/2fa/send-sms', async (req, res) => {
         if (!userId && purpose === 'enable') {
             userId = getUserIdFromAccessToken(req);
         }
-        const result = await sendSMSOTP(userId, phone_number, purpose);
+        let phone = phone_number;
+        if (!phone && purpose === 'login' && userId) {
+            const user = db.prepare('SELECT phone_number FROM users WHERE id = ?').get(userId);
+            phone = user?.phone_number ?? null;
+        }
+        if (!phone) {
+            return res.status(400).json({
+                code: 'VALIDATION_ERROR',
+                message: purpose === 'login' ? 'SMS 2FA is not configured for this account' : 'phone_number is required',
+            });
+        }
+        const result = await sendSMSOTP(userId, phone, purpose);
         if (!result.sent) {
             return res.status(429).json({
                 code: 'SMS_COOLDOWN',

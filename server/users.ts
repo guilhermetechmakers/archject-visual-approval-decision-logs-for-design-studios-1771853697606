@@ -23,11 +23,44 @@ function requireAuth(req: Request, res: Response, next: () => void) {
   next()
 }
 
+usersRouter.delete('/me/connections/:provider', requireAuth, (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId
+    const provider = req.params.provider?.toLowerCase()
+    if (!provider || !['google', 'apple', 'microsoft'].includes(provider)) {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid provider' })
+    }
+
+    const row = db.prepare(
+      'SELECT id FROM oauth_accounts WHERE user_id = ? AND provider = ?'
+    ).get(userId, provider) as { id: string } | undefined
+
+    if (!row) {
+      return res.status(404).json({ code: 'NOT_FOUND', message: 'Connection not found' })
+    }
+
+    const hasPassword = db.prepare('SELECT 1 FROM users WHERE id = ? AND password_hash IS NOT NULL').get(userId)
+    const oauthCount = db.prepare('SELECT COUNT(*) as c FROM oauth_accounts WHERE user_id = ?').get(userId) as { c: number }
+    if (!hasPassword && oauthCount.c <= 1) {
+      return res.status(400).json({
+        code: 'LAST_AUTH_METHOD',
+        message: 'Cannot disconnect. Add a password first to keep account access.',
+      })
+    }
+
+    db.prepare('DELETE FROM oauth_accounts WHERE user_id = ? AND provider = ?').run(userId, provider)
+    return res.status(204).send()
+  } catch (err) {
+    console.error('[Users] Disconnect OAuth error:', err)
+    return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
 usersRouter.get('/me', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId
     const user = db.prepare(
-      'SELECT id, first_name, last_name, email, email_verified, company, role, avatar_url, 2fa_enabled, 2fa_method, phone_number FROM users WHERE id = ?'
+      'SELECT id, first_name, last_name, email, email_verified, company, role, avatar_url, 2fa_enabled, 2fa_method, phone_number, timezone, locale, bio FROM users WHERE id = ?'
     ).get(userId) as {
       id: string
       first_name: string
@@ -37,7 +70,7 @@ usersRouter.get('/me', requireAuth, (req: Request, res: Response) => {
       company: string | null
       role: string | null
       avatar_url: string | null
-    } & { '2fa_enabled'?: number; '2fa_method'?: string | null; 'phone_number'?: string | null } | undefined
+    } & { '2fa_enabled'?: number; '2fa_method'?: string | null; 'phone_number'?: string | null; timezone?: string | null; locale?: string | null; bio?: string | null } | undefined
 
     if (!user) {
       return res.status(404).json({ code: 'USER_NOT_FOUND', message: 'User not found' })
@@ -56,15 +89,20 @@ usersRouter.get('/me', requireAuth, (req: Request, res: Response) => {
        FROM sessions WHERE user_id = ? AND revoked_at IS NULL ORDER BY last_active_at DESC`
     ).all(userId) as { id: string; ip: string | null; user_agent: string | null; last_active_at: string; created_at: string }[]
 
+    const name = `${user.first_name} ${user.last_name}`.trim()
     return res.json({
       id: user.id,
       first_name: user.first_name,
       last_name: user.last_name,
+      name,
       email: user.email,
       email_verified: Boolean(user.email_verified),
       company: user.company,
       role: user.role ?? 'owner',
       avatar_url: user.avatar_url,
+      timezone: user.timezone ?? 'UTC',
+      locale: user.locale ?? 'en',
+      bio: user.bio ?? null,
       connected_providers: oauthAccounts.map((o) => ({
         provider: o.provider,
         email: o.provider_email,
@@ -91,7 +129,7 @@ usersRouter.get('/me', requireAuth, (req: Request, res: Response) => {
 usersRouter.patch('/me', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId
-    const { first_name, last_name, company } = req.body
+    const { first_name, last_name, company, timezone, locale, bio } = req.body
 
     const updates: string[] = []
     const values: (string | null)[] = []
@@ -107,6 +145,18 @@ usersRouter.patch('/me', requireAuth, async (req: Request, res: Response) => {
     if (company !== undefined) {
       updates.push('company = ?')
       values.push(typeof company === 'string' ? company : null)
+    }
+    if (typeof timezone === 'string' && timezone.length <= 64) {
+      updates.push('timezone = ?')
+      values.push(timezone)
+    }
+    if (typeof locale === 'string' && locale.length <= 16) {
+      updates.push('locale = ?')
+      values.push(locale)
+    }
+    if (bio !== undefined) {
+      updates.push('bio = ?')
+      values.push(typeof bio === 'string' ? bio : null)
     }
 
     if (updates.length === 0) {

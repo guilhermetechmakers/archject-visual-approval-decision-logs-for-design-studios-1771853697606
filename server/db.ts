@@ -310,6 +310,35 @@ export function initDb() {
       }
     }
   }
+
+  const profileStudioPath = path.join(process.cwd(), 'server', 'migrations', '015_profile_studio.sql')
+  if (fs.existsSync(profileStudioPath)) {
+    try {
+      const sql = fs.readFileSync(profileStudioPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+    for (const col of ['timezone TEXT DEFAULT "UTC"', 'locale TEXT DEFAULT "en"', 'bio TEXT']) {
+      try {
+        db.exec(`ALTER TABLE users ADD COLUMN ${col}`)
+      } catch (e) {
+        if (!String(e).includes('duplicate column name')) throw e
+      }
+    }
+  }
 }
 
 function seedAnalyticsData() {
