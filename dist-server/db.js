@@ -61,6 +61,18 @@ export function initDb() {
         }
         seedAdminUser();
     }
+    const userMgmtPath = path.join(process.cwd(), 'server', 'migrations', '004_user_management.sql');
+    if (fs.existsSync(userMgmtPath)) {
+        try {
+            const sql = fs.readFileSync(userMgmtPath, 'utf-8');
+            db.exec(sql);
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+    }
 }
 function seedAdminUser() {
     const existing = db.prepare('SELECT id FROM admin_users LIMIT 1').get();

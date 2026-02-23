@@ -7,15 +7,16 @@ function getAdminToken(): string | null {
   return localStorage.getItem('admin_token')
 }
 
-async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function adminFetch<T>(path: string, options: RequestInit & { headers?: Record<string, string> } = {}): Promise<T> {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+  const isFormData = options.body instanceof FormData
+  const headers: Record<string, string> = {
+    ...(!isFormData && { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
   }
   const token = getAdminToken()
   if (token) {
-    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
+    headers['Authorization'] = `Bearer ${token}`
   }
   const response = await fetch(url, { ...options, headers })
   return handleResponse<T>(response)
@@ -45,11 +46,39 @@ export interface AdminUser {
   id: string
   email: string
   name: string
-  studioId: string | null
-  status: 'active' | 'suspended'
+  displayName?: string
+  studioId?: string | null
+  studios?: { id: string; name: string }[]
+  status: 'active' | 'suspended' | 'invited'
   role: string
   lastLoginAt: string | null
   createdAt: string
+}
+
+export interface AdminUserDetail extends AdminUser {
+  sessions?: { id: string; device: string; ip: string; lastActiveAt: string }[]
+  supportTickets?: { id: string; subject: string; status: string; priority: string; created_at: string }[]
+}
+
+export interface AdminActionEntry {
+  id: string
+  admin_id: string
+  admin_email: string
+  action_type: string
+  target_user_id: string | null
+  target_user_email: string | null
+  studio_id: string | null
+  timestamp: string
+  ip_address: string | null
+  reason: string | null
+  payload: string | null
+}
+
+export interface UserAnalyticsKPIs {
+  totalUsers: number
+  activeUsers: number
+  suspendedUsers: number
+  pendingInvites: number
 }
 
 export interface AdminSession {
@@ -111,26 +140,115 @@ export const adminApi = {
       { method: 'POST' }
     ),
 
-  getUsers: (params?: { q?: string; status?: string; page?: number; perPage?: number }) => {
+  getUsers: (params?: {
+    q?: string
+    status?: string
+    role?: string
+    studioId?: string
+    page?: number
+    perPage?: number
+    sortBy?: string
+    sortDir?: string
+    lastLoginFrom?: string
+    lastLoginTo?: string
+  }) => {
     const search = new URLSearchParams()
     if (params?.q) search.set('q', params.q)
     if (params?.status) search.set('status', params.status)
+    if (params?.role) search.set('role', params.role)
+    if (params?.studioId) search.set('studioId', params.studioId)
     if (params?.page) search.set('page', String(params.page))
     if (params?.perPage) search.set('perPage', String(params.perPage))
-    return adminFetch<{ users: AdminUser[]; total: number; page: number; perPage: number }>(
+    if (params?.sortBy) search.set('sortBy', params.sortBy)
+    if (params?.sortDir) search.set('sortDir', params.sortDir)
+    if (params?.lastLoginFrom) search.set('lastLoginFrom', params.lastLoginFrom)
+    if (params?.lastLoginTo) search.set('lastLoginTo', params.lastLoginTo)
+    return adminFetch<{ data: AdminUser[]; users: AdminUser[]; total: number; page: number; perPage: number }>(
       `${ADMIN_BASE}/users?${search}`
     )
   },
-  updateUser: (id: string, data: { status?: string; role?: string }) =>
-    adminFetch<{ id: string; status?: string; role?: string }>(`${ADMIN_BASE}/users/${id}`, {
+  getUser: (id: string) =>
+    adminFetch<AdminUserDetail>(`${ADMIN_BASE}/users/${id}`),
+  updateUser: (id: string, data: { status?: string; role?: string; displayName?: string; roleId?: string; reason?: string }) =>
+    adminFetch<{ id: string; status?: string; role?: string; displayName?: string }>(`${ADMIN_BASE}/users/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+  inviteUsers: (params: {
+    emails: string[]
+    roleId?: string
+    role?: string
+    studioId?: string
+    message?: string
+    expiresInDays?: number
+  }) =>
+    adminFetch<{ invitesCreated: { email: string; inviteId: string; status: string }[]; warnings: string[] }>(
+      `${ADMIN_BASE}/users/invite`,
+      { method: 'POST', body: JSON.stringify(params) }
+    ),
   inviteUser: (email: string, studioId?: string, role?: string) =>
     adminFetch<{ id: string; email: string; status: string }>(`${ADMIN_BASE}/users/invite`, {
       method: 'POST',
       body: JSON.stringify({ email, studioId, role: role || 'member' }),
     }),
+  uploadInviteCsv: (file: File, roleId?: string, studioId?: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (roleId) form.append('roleId', roleId)
+    if (studioId) form.append('studioId', studioId)
+    return adminFetch<{ jobId: string }>(`${ADMIN_BASE}/users/invite/upload`, {
+      method: 'POST',
+      body: form,
+    })
+  },
+  bulkAction: (params: {
+    action: 'suspend' | 'reactivate' | 'resend_invite' | 'change_role' | 'remove'
+    userIds: string[]
+    payload?: { roleId?: string }
+    reason: string
+  }) =>
+    adminFetch<{ jobId?: string; results: { userId: string; success: boolean; error?: string }[] }>(
+      `${ADMIN_BASE}/users/bulk`,
+      { method: 'POST', body: JSON.stringify(params) }
+    ),
+  impersonateUser: (id: string, ttlSeconds?: number) =>
+    adminFetch<{ token: string; expiresAt: string }>(`${ADMIN_BASE}/users/${id}/impersonate`, {
+      method: 'POST',
+      body: JSON.stringify({ ttlSeconds }),
+    }),
+  getSupportTickets: (userId: string) =>
+    adminFetch<{ tickets: { id: string; subject: string; status: string; priority: string; created_at: string }[] }>(
+      `${ADMIN_BASE}/users/${userId}/support-tickets`
+    ),
+  getAudit: (params?: {
+    page?: number
+    perPage?: number
+    adminId?: string
+    actionType?: string
+    targetUserId?: string
+    studioId?: string
+    from?: string
+    to?: string
+    export?: 'csv'
+  }) => {
+    const search = new URLSearchParams()
+    if (params?.page) search.set('page', String(params.page))
+    if (params?.perPage) search.set('perPage', String(params.perPage))
+    if (params?.adminId) search.set('adminId', params.adminId)
+    if (params?.actionType) search.set('actionType', params.actionType)
+    if (params?.targetUserId) search.set('targetUserId', params.targetUserId)
+    if (params?.studioId) search.set('studioId', params.studioId)
+    if (params?.from) search.set('from', params.from)
+    if (params?.to) search.set('to', params.to)
+    if (params?.export === 'csv') search.set('export', 'csv')
+    return adminFetch<{ data: AdminActionEntry[]; logs: AdminActionEntry[]; total: number; page: number; perPage: number }>(
+      `${ADMIN_BASE}/audit?${search}`
+    )
+  },
+  getAnalyticsUsers: (range?: '30d' | '90d' | '365d') =>
+    adminFetch<{ kpis: UserAnalyticsKPIs; series: { date: string; activeUsers: number; invitesSent: number }[] }>(
+      `${ADMIN_BASE}/analytics/users?range=${range || '30d'}`
+    ),
 
   getSessions: (params?: { userId?: string; page?: number }) => {
     const search = new URLSearchParams()
