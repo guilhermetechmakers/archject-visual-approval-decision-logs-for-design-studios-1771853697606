@@ -449,6 +449,92 @@ export function initDb() {
                 throw e;
         }
     }
+    // 019: extended decisions schema (options, templates, recipients, reminders, audit)
+    const decisionsExtPath = path.join(process.cwd(), 'server', 'migrations', '019_decisions_extended.sql');
+    if (fs.existsSync(decisionsExtPath)) {
+        try {
+            const sql = fs.readFileSync(decisionsExtPath, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+        seedDecisionTemplates();
+    }
+}
+function seedDecisionTemplates() {
+    try {
+        const hasTemplates = db.prepare('SELECT 1 FROM decision_templates LIMIT 1').get();
+        if (hasTemplates)
+            return;
+        const crypto = require('crypto');
+        const now = new Date().toISOString();
+        const templates = [
+            {
+                id: crypto.randomUUID(),
+                name: 'Material selection',
+                description: 'Compare material options for finishes, countertops, flooring',
+                default_options_json: JSON.stringify([
+                    { title: 'Option A', description: 'First material option', isDefault: false, isRecommended: true },
+                    { title: 'Option B', description: 'Second material option', isDefault: false, isRecommended: false },
+                    { title: 'Option C', description: 'Third material option', isDefault: false, isRecommended: false },
+                ]),
+            },
+            {
+                id: crypto.randomUUID(),
+                name: 'Layout options',
+                description: 'Floor plan variations and spatial arrangements',
+                default_options_json: JSON.stringify([
+                    { title: 'Layout A', description: 'First layout variant', isDefault: false, isRecommended: true },
+                    { title: 'Layout B', description: 'Second layout variant', isDefault: false, isRecommended: false },
+                ]),
+            },
+            {
+                id: crypto.randomUUID(),
+                name: 'Color palette',
+                description: 'Paint and finish color selections',
+                default_options_json: JSON.stringify([
+                    { title: 'Palette 1', description: 'Neutral tones', isDefault: false, isRecommended: true },
+                    { title: 'Palette 2', description: 'Warm tones', isDefault: false, isRecommended: false },
+                    { title: 'Palette 3', description: 'Cool tones', isDefault: false, isRecommended: false },
+                    { title: 'Palette 4', description: 'Bold accents', isDefault: false, isRecommended: false },
+                ]),
+            },
+            {
+                id: crypto.randomUUID(),
+                name: 'Change request',
+                description: 'Document change requests and approvals',
+                default_options_json: JSON.stringify([
+                    { title: 'Approve change', description: 'Approve the proposed change', isDefault: false, isRecommended: true },
+                    { title: 'Request revision', description: 'Request modifications before approval', isDefault: false, isRecommended: false },
+                    { title: 'Decline', description: 'Decline the change', isDefault: false, isRecommended: false },
+                ]),
+            },
+        ];
+        const insert = db.prepare('INSERT INTO decision_templates (id, name, description, default_options_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+        for (const t of templates) {
+            insert.run(t.id, t.name, t.description, t.default_options_json, now, now);
+        }
+    }
+    catch (e) {
+        if (!String(e).includes('UNIQUE'))
+            console.error('[DB] seedDecisionTemplates:', e);
+    }
 }
 function seedAnalyticsData() {
     try {
