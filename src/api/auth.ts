@@ -19,6 +19,7 @@ export interface SignupResponse {
 export interface LoginRequest {
   email: string
   password: string
+  rememberMe?: boolean
 }
 
 export interface AuthUser {
@@ -30,6 +31,7 @@ export interface AuthUser {
 }
 
 export interface LoginResponse {
+  accessToken?: string
   sessionToken: string
   user: AuthUser
 }
@@ -76,6 +78,30 @@ export async function resendVerification(
 
 export async function getVerificationStatus(email: string): Promise<VerificationStatusResponse> {
   return api.get<VerificationStatusResponse>(`/auth/verification-status?email=${encodeURIComponent(email)}`)
+}
+
+export async function logout(): Promise<void> {
+  await api.post('/auth/logout')
+}
+
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  return api.post<{ message: string }>('/auth/password-reset/request', { email })
+}
+
+export interface PasswordResetConfirmRequest {
+  token: string
+  newPassword: string
+}
+
+export interface PasswordResetConfirmResponse {
+  message: string
+  accessToken?: string
+  sessionToken?: string
+  user?: AuthUser
+}
+
+export async function confirmPasswordReset(data: PasswordResetConfirmRequest): Promise<PasswordResetConfirmResponse> {
+  return api.post<PasswordResetConfirmResponse>('/auth/password-reset/confirm', data)
 }
 
 export function isAuthError(err: unknown): err is ApiError {

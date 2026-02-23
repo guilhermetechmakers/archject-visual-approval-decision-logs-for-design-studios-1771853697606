@@ -5,6 +5,8 @@ import path from 'path'
 import { initDb } from './db.js'
 import { requestIdMiddleware, errorHandler } from './error-middleware.js'
 import { authRouter } from './auth.js'
+import { usersRouter } from './users.js'
+import { oauthRouter } from './oauth.js'
 import { webhooksRouter } from './webhooks.js'
 import { billingRouter } from './billing.js'
 import { adminRouter } from './admin.js'
@@ -29,7 +31,9 @@ app.use(cookieParser())
 app.use(express.json())
 app.use(requestIdMiddleware)
 
+app.use('/api/auth/oauth', oauthRouter)
 app.use('/api/auth', authRouter)
+app.use('/api/users', usersRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api', analyticsRouter)
 app.use('/api', billingRouter)

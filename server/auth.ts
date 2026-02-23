@@ -21,6 +21,7 @@ import {
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
 const TOKEN_EXPIRY_HOURS = 24
 const PASSWORD_RESET_EXPIRY_MINUTES = 60
+const VERIFY_BASE_URL = process.env.VERIFY_BASE_URL ?? 'http://localhost:5173'
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split('@')
@@ -33,6 +34,16 @@ export const authRouter = Router()
 
 authRouter.post('/signup', async (req: Request, res: Response) => {
   try {
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    const authLimit = checkAuthRateLimit(ip)
+    if (!authLimit.allowed) {
+      return res.status(429).json({
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'Too many attempts. Please try again later.',
+        next_allowed_attempt_at: authLimit.nextAllowedAt ? new Date(authLimit.nextAllowedAt).toISOString() : undefined,
+      })
+    }
+
     const { first_name, last_name, email, password, company, terms_accepted, terms_version_id } = req.body
 
     if (!first_name || !last_name || !email || !password) {
@@ -135,7 +146,17 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
 
 authRouter.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    const authLimit = checkAuthRateLimit(ip)
+    if (!authLimit.allowed) {
+      return res.status(429).json({
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'Too many attempts. Please try again later.',
+        next_allowed_attempt_at: authLimit.nextAllowedAt ? new Date(authLimit.nextAllowedAt).toISOString() : undefined,
+      })
+    }
+
+    const { email, password, rememberMe } = req.body
     if (!email || !password) {
       return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Email and password are required' })
     }
@@ -160,14 +181,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       })
     }
 
-    const token = jwt.sign(
-      { sub: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    )
+    const accessToken = createAccessToken(user.id, user.email)
+    const refreshToken = createRefreshToken()
+    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
+    createSession(user.id, ip, req.get('user-agent'))
+    setRefreshTokenCookie(res, refreshToken)
 
     return res.json({
-      sessionToken: token,
+      accessToken,
+      sessionToken: accessToken, // backward compat
       user: {
         id: user.id,
         email: user.email,
@@ -239,11 +261,12 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
       last_name: string
     }
 
-    const sessionToken = jwt.sign(
-      { sub: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    )
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    const accessToken = createAccessToken(user.id, user.email)
+    const refreshToken = createRefreshToken()
+    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
+    createSession(user.id, ip, req.get('user-agent'))
+    setRefreshTokenCookie(res, refreshToken)
 
     return res.json({
       status: 'verified',
@@ -254,7 +277,8 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
         first_name: user.first_name,
         last_name: user.last_name,
       },
-      sessionToken,
+      accessToken,
+      sessionToken: accessToken,
     })
   } catch (err) {
     console.error('[Auth] Verify email error:', err)
@@ -417,3 +441,169 @@ authRouter.get('/verification-status', (req: Request, res: Response) => {
     return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
   }
 })
+
+authRouter.post('/refresh', (req: Request, res: Response) => {
+  try {
+    const refreshToken = getRefreshTokenFromRequest(req)
+    if (!refreshToken) {
+      return res.status(401).json({ code: 'NO_REFRESH_TOKEN', message: 'Refresh token required' })
+    }
+    const result = validateRefreshToken(refreshToken)
+    if (!result) {
+      clearRefreshTokenCookie(res)
+      return res.status(401).json({ code: 'INVALID_REFRESH_TOKEN', message: 'Invalid or expired refresh token' })
+    }
+    const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(result.userId) as {
+      id: string
+      email: string
+      first_name: string
+      last_name: string
+    } | undefined
+    if (!user) {
+      clearRefreshTokenCookie(res)
+      return res.status(401).json({ code: 'USER_NOT_FOUND', message: 'User not found' })
+    }
+    revokeRefreshToken(refreshToken)
+    const newRefreshToken = createRefreshToken()
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    storeRefreshToken(user.id, newRefreshToken, ip, req.get('user-agent'))
+    setRefreshTokenCookie(res, newRefreshToken)
+    const accessToken = createAccessToken(user.id, user.email)
+    return res.json({
+      accessToken,
+      sessionToken: accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        email_verified: true,
+        first_name: user.first_name,
+        last_name: user.last_name,
+      },
+    })
+  } catch (err) {
+    console.error('[Auth] Refresh error:', err)
+    return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+authRouter.post('/logout', (req: Request, res: Response) => {
+  try {
+    const refreshToken = getRefreshTokenFromRequest(req)
+    if (refreshToken) {
+      revokeRefreshToken(refreshToken)
+    }
+    clearRefreshTokenCookie(res)
+    return res.json({ message: 'Logged out' })
+  } catch (err) {
+    console.error('[Auth] Logout error:', err)
+    clearRefreshTokenCookie(res)
+    return res.json({ message: 'Logged out' })
+  }
+})
+
+authRouter.post('/password-reset/request', async (req: Request, res: Response) => {
+  try {
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    const authLimit = checkAuthRateLimit(ip)
+    if (!authLimit.allowed) {
+      return res.status(429).json({
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'Too many attempts. Please try again later.',
+      })
+    }
+    const { email } = req.body
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Email is required' })
+    }
+    const normalizedEmail = email.trim().toLowerCase()
+    const user = db.prepare('SELECT id, first_name, email, password_hash FROM users WHERE email = ?').get(
+      normalizedEmail
+    ) as { id: string; first_name: string; email: string; password_hash: string | null } | undefined
+    if (!user) {
+      return res.json({ message: 'If an account exists with this email, a reset link has been sent.' })
+    }
+    if (!user.password_hash) {
+      return res.json({ message: 'If an account exists with this email, a reset link has been sent.' })
+    }
+    const token = crypto.randomBytes(48).toString('hex')
+    const tokenHash = hashToken(token)
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000)
+    db.prepare(
+      `INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at)
+       VALUES (?, ?, ?, ?)`
+    ).run(crypto.randomUUID(), user.id, tokenHash, expiresAt.toISOString())
+    const resetUrl = `${VERIFY_BASE_URL}/password-reset/confirm?token=${token}`
+    const sent = await sendPasswordResetEmail({
+      firstName: user.first_name,
+      email: user.email,
+      resetUrl,
+      expiresAt,
+    })
+    if (!sent) {
+      return res.status(503).json({
+        code: 'EMAIL_DELIVERY_FAILED',
+        message: 'We could not send the reset email. Please try again later.',
+      })
+    }
+    return res.json({ message: 'If an account exists with this email, a reset link has been sent.' })
+  } catch (err) {
+    console.error('[Auth] Password reset request error:', err)
+    return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+authRouter.post('/password-reset/confirm', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body
+    if (!token || !newPassword) {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Token and new password are required' })
+    }
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{10,}$/
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'Password must be at least 10 characters with uppercase, lowercase, digit, and special character',
+      })
+    }
+    const tokenHash = hashToken(token)
+    const row = db.prepare(
+      `SELECT id, user_id FROM password_reset_tokens
+       WHERE token_hash = ? AND used_at IS NULL AND expires_at > datetime('now')`
+    ).get(tokenHash) as { id: string; user_id: string } | undefined
+    if (!row) {
+      return res.status(400).json({ code: 'TOKEN_INVALID', message: 'Invalid or expired reset link' })
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 10)
+    db.prepare("UPDATE password_reset_tokens SET used_at = datetime('now') WHERE id = ?").run(row.id)
+    db.prepare('UPDATE users SET password_hash = ?, updated_at = datetime("now") WHERE id = ?').run(passwordHash, row.user_id)
+    const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(row.user_id) as {
+      id: string
+      email: string
+      first_name: string
+      last_name: string
+    }
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    const accessToken = createAccessToken(user.id, user.email)
+    const refreshToken = createRefreshToken()
+    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
+    createSession(user.id, ip, req.get('user-agent'))
+    setRefreshTokenCookie(res, refreshToken)
+    return res.json({
+      message: 'Password reset successfully',
+      accessToken,
+      sessionToken: accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        email_verified: true,
+        first_name: user.first_name,
+        last_name: user.last_name,
+      },
+    })
+  } catch (err) {
+    console.error('[Auth] Password reset confirm error:', err)
+    return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+// OAuth routes are handled by oauth.ts router at /api/auth/oauth

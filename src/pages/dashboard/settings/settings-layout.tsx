@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Palette, Users, CreditCard, Plug, Database } from 'lucide-react'
+import { Palette, Users, CreditCard, Plug, Database, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
+  { to: '/dashboard/settings/profile', end: false, icon: User, label: 'Profile' },
   { to: '/dashboard/settings', end: true, icon: Palette, label: 'Branding' },
   { to: '/dashboard/settings/team', end: false, icon: Users, label: 'Team & roles' },
   { to: '/dashboard/billing', end: false, icon: CreditCard, label: 'Billing' },

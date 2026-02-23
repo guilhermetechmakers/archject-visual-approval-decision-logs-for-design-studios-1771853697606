@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { AlertBanner } from '@/components/ui/alert-banner'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useSignup, useLogin, useResendVerification } from '@/hooks/use-auth'
 import { getAuthErrorMessage } from '@/api/auth'
 import { SignupConsent } from '@/components/terms'
@@ -19,6 +19,7 @@ import { useActiveTerms } from '@/hooks/use-terms'
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional(),
 })
 
 const signupSchema = z.object({
@@ -32,10 +33,14 @@ const signupSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
       'Password must include uppercase, lowercase, digit, and special character'
     ),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
   company: z.string().max(200).optional(),
   terms_accepted: z.boolean().refine((v) => v === true, {
     message: 'You must accept the Terms of Service',
   }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -71,7 +76,7 @@ export function AuthPage() {
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: '', password: '', rememberMe: false },
   })
 
   const signupForm = useForm<SignupFormData>({
@@ -81,6 +86,7 @@ export function AuthPage() {
       last_name: '',
       email: '',
       password: '',
+      confirmPassword: '',
       company: '',
       terms_accepted: false,
     },
@@ -90,8 +96,13 @@ export function AuthPage() {
 
   const onLogin = async (data: LoginFormData) => {
     try {
-      const res = await loginMutation.mutateAsync(data)
-      login(res.user, res.sessionToken)
+      const res = await loginMutation.mutateAsync({
+        email: data.email,
+        password: data.password,
+        rememberMe: data.rememberMe,
+      })
+      const token = res.accessToken ?? res.sessionToken
+      login(res.user, token)
       toast.success('Welcome back!')
       navigate(redirectTo)
     } catch (err) {
@@ -214,17 +225,58 @@ export function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={tab} onValueChange={setTab}>
-              <TabsList className="grid w-full grid-cols-3">
+            <div className="mb-6 flex flex-col gap-3">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 border-[#D1D5DB] bg-white hover:bg-muted/50"
+                onClick={() => {
+                  const redirect = encodeURIComponent(redirectTo)
+                  window.location.href = `/api/auth/oauth/google?redirect=${redirect}`
+                }}
+                aria-label="Continue with Google"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Continue with Google
+              </Button>
+              <Button variant="outline" className="w-full justify-start gap-3 border-[#D1D5DB] bg-white hover:bg-muted/50" disabled aria-label="Continue with Apple (coming soon)">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                </svg>
+                Continue with Apple (coming soon)
+              </Button>
+              <Button variant="outline" className="w-full justify-start gap-3 border-[#D1D5DB] bg-white hover:bg-muted/50" disabled aria-label="Continue with Microsoft (coming soon)">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
+                  <path fill="#f25022" d="M1 1h10v10H1z"/>
+                  <path fill="#00a4ef" d="M1 13h10v10H1z"/>
+                  <path fill="#7fba00" d="M13 1h10v10H13z"/>
+                  <path fill="#ffb900" d="M13 13h10v10H13z"/>
+                </svg>
+                Continue with Microsoft (coming soon)
+              </Button>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
+              </div>
+            </div>
+
+            <Tabs value={tab} onValueChange={setTab} className="mt-6">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Log in</TabsTrigger>
                 <TabsTrigger value="signup">Sign up</TabsTrigger>
-                <TabsTrigger value="sso" disabled>
-                  SSO (soon)
-                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="login">
-                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
+                <form onSubmit={loginForm.handleSubmit(onLogin)} className="mt-4 space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-email">Email</Label>
                     <Input
@@ -261,6 +313,16 @@ export function AuthPage() {
                       </p>
                     )}
                   </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="remember-me"
+                      checked={loginForm.watch('rememberMe')}
+                      onCheckedChange={(checked) => loginForm.setValue('rememberMe', !!checked)}
+                    />
+                    <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer">
+                      Remember me
+                    </Label>
+                  </div>
                   <Button type="submit" className="w-full" isLoading={loginMutation.isPending}>
                     Log in
                   </Button>
@@ -274,7 +336,7 @@ export function AuthPage() {
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={signupForm.handleSubmit(onSignup)} className="space-y-4">
+                <form onSubmit={signupForm.handleSubmit(onSignup)} className="mt-4 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="first_name">First name</Label>
@@ -324,7 +386,7 @@ export function AuthPage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="company">Company / Studio (optional)</Label>
+                    <Label htmlFor="company">Studio name (optional)</Label>
                     <Input
                       id="company"
                       placeholder="Acme Design Studio"
@@ -347,6 +409,22 @@ export function AuthPage() {
                       </p>
                     )}
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Confirm password</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      placeholder="Re-enter password"
+                      {...signupForm.register('confirmPassword')}
+                      className={signupForm.formState.errors.confirmPassword ? 'border-destructive' : ''}
+                      aria-invalid={!!signupForm.formState.errors.confirmPassword}
+                    />
+                    {signupForm.formState.errors.confirmPassword && (
+                      <p className="text-sm text-destructive" role="alert">
+                        {signupForm.formState.errors.confirmPassword.message}
+                      </p>
+                    )}
+                  </div>
                   <SignupConsent
                     checked={signupForm.watch('terms_accepted')}
                     onCheckedChange={(checked) => signupForm.setValue('terms_accepted', checked)}
@@ -363,43 +441,13 @@ export function AuthPage() {
                   </Button>
                 </form>
               </TabsContent>
-
-              <TabsContent value="sso">
-                <AlertBanner variant="default" title="Coming soon">
-                  OAuth and SSO providers (Google, Apple, Microsoft) will be available soon.
-                </AlertBanner>
-                <div className="mt-4 flex gap-2">
-                  <Button variant="outline" className="flex-1" disabled>
-                    Google
-                  </Button>
-                  <Button variant="outline" className="flex-1" disabled>
-                    Apple
-                  </Button>
-                  <Button variant="outline" className="flex-1" disabled>
-                    Microsoft
-                  </Button>
-                </div>
-              </TabsContent>
             </Tabs>
 
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-                </div>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <Button variant="outline" className="flex-1" disabled>
-                  Google (coming soon)
-                </Button>
-                <Button variant="outline" className="flex-1" disabled>
-                  Microsoft (coming soon)
-                </Button>
-              </div>
-            </div>
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              <Link to="/help" className="text-primary hover:underline">
+                Need help?
+              </Link>
+            </p>
           </CardContent>
         </Card>
         <p className="mt-6 text-center text-xs text-muted-foreground">

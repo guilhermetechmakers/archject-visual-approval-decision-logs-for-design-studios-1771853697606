@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import type { AuthUser } from '@/api/auth'
+import { logout as apiLogout, type AuthUser } from '@/api/auth'
 
 const AUTH_TOKEN_KEY = 'auth_token'
 const AUTH_USER_KEY = 'auth_user'
@@ -67,7 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(authUser)
   }, [])
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await apiLogout()
+    } catch {
+      // Ignore - we'll clear local state anyway
+    }
     localStorage.removeItem(AUTH_TOKEN_KEY)
     localStorage.removeItem(AUTH_USER_KEY)
     setUser(null)

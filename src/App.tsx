@@ -8,8 +8,10 @@ import { AdminLayout } from '@/components/layout/admin-layout'
 import { AdminRouteGuard } from '@/components/admin/admin-route-guard'
 import { LandingPage } from '@/pages/landing'
 import { AuthPage } from '@/pages/auth'
+import { AuthOAuthCallbackPage } from '@/pages/auth-oauth-callback'
 import { VerifyEmailPage } from '@/pages/verify-email'
 import { PasswordResetPage } from '@/pages/password-reset'
+import { PasswordResetConfirmPage } from '@/pages/password-reset-confirm'
 import { DashboardOverview } from '@/pages/dashboard/overview'
 import { ProjectsListPage } from '@/pages/projects-list'
 import { ProjectWorkspace } from '@/pages/dashboard/project-workspace'
@@ -23,6 +25,7 @@ import { NotificationsPage } from '@/pages/dashboard/notifications'
 import { BillingPage } from '@/pages/dashboard/billing'
 import { SettingsLayout } from '@/pages/dashboard/settings/settings-layout'
 import { SettingsIndex } from '@/pages/dashboard/settings/settings-index'
+import { ProfilePage } from '@/pages/dashboard/settings/profile-page'
 import { TeamPage } from '@/pages/dashboard/settings/team-page'
 import { IntegrationsPage } from '@/pages/dashboard/settings/integrations-page'
 import { DataPage } from '@/pages/dashboard/settings/data-page'
@@ -68,10 +71,12 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/request-demo" element={<LandingPage />} />
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/auth/oauth-callback" element={<AuthOAuthCallbackPage />} />
                 <Route path="/login" element={<AuthPage />} />
                 <Route path="/signup" element={<AuthPage />} />
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/password-reset" element={<PasswordResetPage />} />
+                <Route path="/password-reset/confirm" element={<PasswordResetConfirmPage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/help" element={<HelpLayout />}>
                   <Route index element={<HelpPage />} />
@@ -126,6 +131,7 @@ function App() {
                   <Route path="billing" element={<BillingPage />} />
                   <Route path="settings" element={<SettingsLayout />}>
                     <Route index element={<SettingsIndex />} />
+                    <Route path="profile" element={<ProfilePage />} />
                     <Route path="team" element={<TeamPage />} />
                     <Route path="integrations" element={<IntegrationsPage />} />
                     <Route path="data" element={<DataPage />} />

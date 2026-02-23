@@ -7,22 +7,30 @@ import {
   TrendingUp,
   Plus,
   ArrowRight,
+  UserPlus,
+  CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import type { Project, ActivityItem } from '@/types'
+import type { Project } from '@/types'
 
 const mockProjects: Project[] = [
   { id: '1', name: 'Riverside Residence', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), pendingApprovalsCount: 3 },
   { id: '2', name: 'Downtown Office', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), pendingApprovalsCount: 1 },
 ]
 
-const mockActivity: ActivityItem[] = [
-  { id: '1', type: 'decision_approved', message: 'Material selection approved for Riverside Residence', timestamp: new Date().toISOString(), userName: 'Client' },
-  { id: '2', type: 'decision_created', message: 'New layout options added', timestamp: new Date().toISOString(), userName: 'You' },
+const mockDecisions = [
+  { id: '1', title: 'Material selection', project: 'Riverside Residence', status: 'approved', date: new Date().toISOString() },
+  { id: '2', title: 'Layout options', project: 'Downtown Office', status: 'pending', date: new Date().toISOString() },
+  { id: '3', title: 'Finishes', project: 'Riverside Residence', status: 'in_review', date: new Date().toISOString() },
+]
+
+const mockPendingApprovals = [
+  { id: '1', title: 'Layout options', client: 'Client A', project: 'Downtown Office' },
+  { id: '2', title: 'Finishes', client: 'Client B', project: 'Riverside Residence' },
 ]
 
 export function DashboardOverview() {
@@ -31,10 +39,6 @@ export function DashboardOverview() {
     queryFn: () => api.get<Project[]>('/projects').catch(() => mockProjects),
   })
 
-  const { data: activity = mockActivity, isLoading: activityLoading } = useQuery({
-    queryKey: ['activity'],
-    queryFn: () => api.get<ActivityItem[]>('/activity').catch(() => mockActivity),
-  })
 
   const pendingCount = projects.reduce((sum, p) => sum + (p.pendingApprovalsCount ?? 0), 0)
 
@@ -43,6 +47,22 @@ export function DashboardOverview() {
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="mt-1 text-muted-foreground">Overview of your projects and approvals</p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="flex flex-wrap gap-3">
+        <Link to="/dashboard/projects">
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create Decision
+          </Button>
+        </Link>
+        <Link to="/dashboard/settings/team">
+          <Button variant="outline" className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Invite Client
+          </Button>
+        </Link>
       </div>
 
       {/* Metric cards */}
@@ -71,7 +91,7 @@ export function DashboardOverview() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Projects */}
+        {/* Projects Summary */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -131,38 +151,33 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
 
-        {/* Activity */}
+        {/* Pending Approvals */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent activity</CardTitle>
-            <CardDescription>Latest updates across projects</CardDescription>
+            <CardTitle>Pending Approvals</CardTitle>
+            <CardDescription>Awaiting client sign-off</CardDescription>
           </CardHeader>
           <CardContent>
-            {activityLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : activity.length === 0 ? (
+            {mockPendingApprovals.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FileCheck className="h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 font-medium">No activity yet</p>
+                <CheckCircle2 className="h-12 w-12 text-success/50" />
+                <p className="mt-4 font-medium">All caught up</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Activity will appear here as you work
+                  No pending approvals
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {activity.slice(0, 5).map((a) => (
-                  <div key={a.id} className="flex gap-3 border-b border-border pb-4 last:border-0 last:pb-0">
-                    <div className="h-2 w-2 shrink-0 rounded-full bg-primary mt-2" />
+              <div className="space-y-2">
+                {mockPendingApprovals.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between rounded-lg border border-border p-4"
+                  >
                     <div>
-                      <p className="text-sm">{a.message}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(a.timestamp).toLocaleDateString()} · {a.userName ?? 'System'}
-                      </p>
+                      <p className="font-medium">{a.title}</p>
+                      <p className="text-sm text-muted-foreground">{a.project} · {a.client}</p>
                     </div>
+                    <Badge variant="warning">Pending</Badge>
                   </div>
                 ))}
               </div>
@@ -170,6 +185,42 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent Decisions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Decisions</CardTitle>
+          <CardDescription>Latest updates across projects</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {mockDecisions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FileCheck className="h-12 w-12 text-muted-foreground" />
+              <p className="mt-4 font-medium">No decisions yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Create decisions and they will appear here
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {mockDecisions.map((d) => (
+                <div
+                  key={d.id}
+                  className="flex items-center justify-between rounded-lg border border-border p-4"
+                >
+                  <div>
+                    <p className="font-medium">{d.title}</p>
+                    <p className="text-sm text-muted-foreground">{d.project} · {new Date(d.date).toLocaleDateString()}</p>
+                  </div>
+                  <Badge variant={d.status === 'approved' ? 'default' : d.status === 'pending' ? 'warning' : 'secondary'}>
+                    {d.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

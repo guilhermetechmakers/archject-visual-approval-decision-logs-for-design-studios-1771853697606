@@ -37,14 +37,46 @@ export async function handleResponse<T>(response: Response): Promise<T> {
   return response.text() as unknown as T
 }
 
+let refreshPromise: Promise<boolean> | null = null
+
+async function tryRefreshToken(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) return false
+      const data = (await res.json()) as { accessToken?: string; sessionToken?: string; user?: unknown }
+      const token = data.accessToken ?? data.sessionToken
+      if (token) {
+        localStorage.setItem('auth_token', token)
+        if (data.user && typeof data.user === 'object' && 'id' in data.user) {
+          localStorage.setItem('auth_user', JSON.stringify(data.user))
+        }
+        return true
+      }
+      return false
+    } catch {
+      return false
+    } finally {
+      refreshPromise = null
+    }
+  })()
+  return refreshPromise
+}
+
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit & { _skipRefresh?: boolean } = {}
 ): Promise<T> {
+  const { _skipRefresh, ...fetchOptions } = options
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...fetchOptions.headers,
   }
 
   const token = localStorage.getItem('auth_token')
@@ -52,10 +84,26 @@ export async function apiFetch<T>(
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(url, {
-    ...options,
+  let response = await fetch(url, {
+    ...fetchOptions,
     headers,
+    credentials: 'include',
   })
+
+  if (response.status === 401 && !_skipRefresh && !path.includes('/auth/refresh')) {
+    const refreshed = await tryRefreshToken()
+    if (refreshed) {
+      const newToken = localStorage.getItem('auth_token')
+      if (newToken) {
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`
+      }
+      response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        credentials: 'include',
+      })
+    }
+  }
 
   if (!response.ok && response.status >= 500) {
     let data: unknown = {}
