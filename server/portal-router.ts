@@ -119,12 +119,16 @@ portalRouter.get('/portal/projects/:projectId/links', requireAuth, (req: Request
     ).all(projectId) as Row[]
   }
 
-  const stats = db.prepare(
-    `SELECT token_id, event_type, COUNT(*) as cnt FROM portal_analytics WHERE token_id IN (${rows.map(() => '?').join(',')}) GROUP BY token_id, event_type`
-  )
-  const allStats = rows.length > 0
-    ? (stats.all(...rows.map((r) => r.id)) as { token_id: string; event_type: string; cnt: number }[])
-    : []
+  let allStats: { token_id: string; event_type: string; cnt: number }[] = []
+  try {
+    if (rows.length > 0) {
+      allStats = db.prepare(
+        `SELECT token_id, event_type, COUNT(*) as cnt FROM portal_analytics WHERE token_id IN (${rows.map(() => '?').join(',')}) GROUP BY token_id, event_type`
+      ).all(...rows.map((r) => r.id)) as typeof allStats
+    }
+  } catch {
+    // portal_analytics may not exist yet
+  }
 
   const links = rows.map((r) => {
     let decisionIds: string[] = []
@@ -195,9 +199,18 @@ portalRouter.get('/portal/link/:tokenId', requireAuth, (req: Request, res: Respo
     // ignore
   }
 
-  const stats = db.prepare(
-    `SELECT event_type, COUNT(*) as cnt FROM portal_analytics WHERE token_id = ? GROUP BY event_type`
-  ).all(tokenId) as { event_type: string; cnt: number }[]
+  let stats: { event_type: string; cnt: number }[] = []
+  let lastEvent: { created_at: string } | undefined
+  try {
+    stats = db.prepare(
+      `SELECT event_type, COUNT(*) as cnt FROM portal_analytics WHERE token_id = ? GROUP BY event_type`
+    ).all(tokenId) as typeof stats
+    lastEvent = db.prepare(
+      `SELECT created_at FROM portal_analytics WHERE token_id = ? ORDER BY created_at DESC LIMIT 1`
+    ).get(tokenId) as typeof lastEvent
+  } catch {
+    // portal_analytics may not exist
+  }
 
   const usageStats = {
     views: stats.find((s) => s.event_type === 'view')?.cnt ?? 0,
@@ -205,10 +218,6 @@ portalRouter.get('/portal/link/:tokenId', requireAuth, (req: Request, res: Respo
     approvals: stats.find((s) => s.event_type === 'approve')?.cnt ?? 0,
     exports: stats.find((s) => s.event_type === 'export')?.cnt ?? 0,
   }
-
-  const lastEvent = db.prepare(
-    `SELECT created_at FROM portal_analytics WHERE token_id = ? ORDER BY created_at DESC LIMIT 1`
-  ).get(tokenId) as { created_at: string } | undefined
 
   res.json({
     token_id: row.id,
@@ -252,13 +261,18 @@ portalRouter.get('/portal/analytics/:tokenId', requireAuth, (req: Request, res: 
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Link not found' })
   }
 
-  const stats = db.prepare(
-    `SELECT event_type, COUNT(*) as cnt FROM portal_analytics WHERE token_id = ? GROUP BY event_type`
-  ).all(tokenId) as { event_type: string; cnt: number }[]
-
-  const lastEvent = db.prepare(
-    `SELECT created_at FROM portal_analytics WHERE token_id = ? ORDER BY created_at DESC LIMIT 1`
-  ).get(tokenId) as { created_at: string } | undefined
+  let stats: { event_type: string; cnt: number }[] = []
+  let lastEvent: { created_at: string } | undefined
+  try {
+    stats = db.prepare(
+      `SELECT event_type, COUNT(*) as cnt FROM portal_analytics WHERE token_id = ? GROUP BY event_type`
+    ).all(tokenId) as typeof stats
+    lastEvent = db.prepare(
+      `SELECT created_at FROM portal_analytics WHERE token_id = ? ORDER BY created_at DESC LIMIT 1`
+    ).get(tokenId) as typeof lastEvent
+  } catch {
+    // portal_analytics may not exist
+  }
 
   res.json({
     views: stats.find((s) => s.event_type === 'view')?.cnt ?? 0,

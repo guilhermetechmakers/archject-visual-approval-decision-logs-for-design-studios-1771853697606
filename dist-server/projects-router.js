@@ -186,6 +186,113 @@ projectsRouter.delete(`${PROJECTS_BASE}/:id`, requireAuth, (req, res) => {
     db.prepare('UPDATE projects SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now, now, id);
     res.json({ id, deletedAt: now });
 });
+// GET /api/projects/:id/client-links - list client share links for project
+projectsRouter.get(`${PROJECTS_BASE}/:id/client-links`, requireAuth, (req, res) => {
+    const { id: projectId } = req.params;
+    const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+    if (!project)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' });
+    let rows;
+    try {
+        rows = db.prepare(`SELECT id, project_id, decision_ids, scope, expires_at, revoked, last_used_at, created_at
+       FROM client_tokens WHERE project_id = ? ORDER BY created_at DESC`).all(projectId);
+    }
+    catch {
+        rows = db.prepare(`SELECT id, project_id, decision_ids, scope, expires_at, created_at
+       FROM client_tokens WHERE project_id = ? ORDER BY created_at DESC`).all(projectId);
+    }
+    const decisionIds = [...new Set(rows.flatMap((r) => {
+            try {
+                return JSON.parse(r.decision_ids);
+            }
+            catch {
+                return [];
+            }
+        }))];
+    const titles = {};
+    if (decisionIds.length > 0) {
+        const placeholders = decisionIds.map(() => '?').join(',');
+        const decRows = db.prepare(`SELECT id, title FROM decisions WHERE id IN (${placeholders})`).all(...decisionIds);
+        for (const d of decRows) {
+            titles[d.id] = d.title;
+        }
+    }
+    const links = rows.map((r) => {
+        let ids = [];
+        try {
+            ids = JSON.parse(r.decision_ids);
+        }
+        catch {
+            // ignore
+        }
+        return {
+            id: r.id,
+            projectId: r.project_id,
+            decisionIds: ids,
+            decisionTitles: ids.map((did) => titles[did] ?? 'Unknown'),
+            scope: r.scope,
+            expiresAt: r.expires_at,
+            revoked: !!r.revoked,
+            lastUsedAt: r.last_used_at ?? undefined,
+            createdAt: r.created_at,
+        };
+    });
+    res.json({ items: links });
+});
+// POST /api/projects/:id/client-links/:tokenId/revoke - revoke a client link
+projectsRouter.post(`${PROJECTS_BASE}/:id/client-links/:tokenId/revoke`, requireAuth, (req, res) => {
+    const { id: projectId, tokenId } = req.params;
+    const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+    if (!project)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' });
+    const token = db.prepare('SELECT id, project_id, revoked FROM client_tokens WHERE id = ? AND project_id = ?').get(tokenId, projectId);
+    if (!token) {
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Client link not found' });
+    }
+    try {
+        db.prepare('UPDATE client_tokens SET revoked = 1 WHERE id = ?').run(tokenId);
+    }
+    catch {
+        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Failed to revoke link' });
+    }
+    res.json({ revoked: true, tokenId });
+});
+// GET /api/projects/:id/client-links/:tokenId/analytics - analytics for a client link
+projectsRouter.get(`${PROJECTS_BASE}/:id/client-links/:tokenId/analytics`, requireAuth, (req, res) => {
+    const { id: projectId, tokenId } = req.params;
+    const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+    if (!project)
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' });
+    const token = db.prepare('SELECT id, project_id FROM client_tokens WHERE id = ? AND project_id = ?').get(tokenId, projectId);
+    if (!token) {
+        return res.status(404).json({ code: 'NOT_FOUND', message: 'Client link not found' });
+    }
+    let rows = [];
+    try {
+        rows = db.prepare(`SELECT event_type, decision_id, created_at FROM portal_analytics
+       WHERE token_id = ? ORDER BY created_at DESC LIMIT 500`).all(tokenId);
+    }
+    catch {
+        // portal_analytics may not exist
+    }
+    const views = rows.filter((r) => r.event_type === 'view').length;
+    const comments = rows.filter((r) => r.event_type === 'comment').length;
+    const approvals = rows.filter((r) => r.event_type === 'approve').length;
+    const exports = rows.filter((r) => r.event_type === 'export').length;
+    const lastSeenAt = rows[0]?.created_at ?? null;
+    res.json({
+        views,
+        comments,
+        approvals,
+        exports,
+        lastSeenAt,
+        events: rows.slice(0, 50).map((r) => ({
+            eventType: r.event_type,
+            decisionId: r.decision_id,
+            timestamp: r.created_at,
+        })),
+    });
+});
 // POST /api/projects/:id/restore - restore soft-deleted project
 projectsRouter.post(`${PROJECTS_BASE}/:id/restore`, requireAuth, (req, res) => {
     const { id } = req.params;

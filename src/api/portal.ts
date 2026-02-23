@@ -1,149 +1,96 @@
 /**
- * Portal API - token-authenticated endpoints for client portal (no login).
- * Uses token in URL/query; does not use auth_token from localStorage.
+ * Portal API - token generation, link management, analytics, revocation.
+ * Used by studio users to manage client share links.
  */
-import { handleResponse, type ApiError } from '@/lib/api'
-import type {
-  PortalDecision,
-  PortalComment,
-  PortalApproval,
-  PortalNotification,
-  PortalBranding,
-} from '@/types/portal'
+import { api } from '@/lib/api'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
-
-function portalFetch<T>(
-  path: string,
-  _token: string,
-  options: RequestInit & { body?: unknown } = {}
-): Promise<T> {
-  const url = path.startsWith('http') ? path : `${API_BASE}${path}`
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  }
-  return fetch(url, {
-    ...options,
-    headers,
-    credentials: 'include',
-  }).then(handleResponse<T>)
+export interface PortalTokenGenerateRequest {
+  project_id: string
+  decision_ids: string[]
+  allowed_actions?: string[]
+  expires_in_minutes?: number
+  client_identity_hint?: string
 }
 
-function portalPost<T>(path: string, token: string, body?: unknown): Promise<T> {
-  return portalFetch<T>(path, token, {
-    method: 'POST',
-    body: body ? JSON.stringify(body) : undefined,
-  })
+export interface PortalTokenGenerateResponse {
+  token_id: string
+  token: string
+  clientLink: string
+  expires_at: string
+  decision_ids: string[]
+  allowed_actions: string[]
 }
 
-/** GET /v1/client/:token - list decisions for token (single decision for legacy) */
-export async function getPortalDecisions(token: string): Promise<PortalDecision[]> {
-  const res = await portalFetch<PortalDecision | PortalDecision[]>(
-    `/v1/client/${encodeURIComponent(token)}`,
-    token
-  )
-  return Array.isArray(res) ? res : [res]
+export interface PortalLinkUsageStats {
+  views: number
+  comments: number
+  approvals: number
+  exports: number
 }
 
-/** GET /v1/client/:token/decision/:decisionId - detailed decision */
-export async function getPortalDecision(
-  token: string,
-  decisionId: string
-): Promise<PortalDecision> {
-  return portalFetch<PortalDecision>(
-    `/v1/client/${encodeURIComponent(token)}/decision/${encodeURIComponent(decisionId)}`,
-    token
-  )
+export interface PortalLink {
+  token_id: string
+  project_id: string
+  decision_ids: string[]
+  scope: string
+  expires_at: string
+  created_at: string
+  revoked: boolean
+  last_used_at: string | null
+  client_identity_hint: string | null
+  usage_stats: PortalLinkUsageStats
 }
 
-/** POST /v1/client/:token/decision/:decisionId/comment */
-export async function postPortalComment(
-  token: string,
-  decisionId: string,
-  body: { content: string; parentCommentId?: string; mentionIds?: string[] }
-): Promise<PortalComment> {
-  return portalPost<PortalComment>(
-    `/v1/client/${encodeURIComponent(token)}/decision/${encodeURIComponent(decisionId)}/comment`,
-    token,
-    body
-  )
+export interface PortalLinkDetail {
+  token_id: string
+  project_id: string
+  decision_ids: string[]
+  expires_at: string
+  revoked: boolean
+  last_used_at: string | null
+  client_identity_hint: string | null
+  usage_stats: PortalLinkUsageStats
 }
 
-/** POST /v1/client/:token/decision/:decisionId/approve */
-export async function postPortalApproval(
-  token: string,
-  decisionId: string,
-  body: { optionId: string; approverName?: string; note?: string }
-): Promise<PortalApproval> {
-  return portalPost<PortalApproval>(
-    `/v1/client/${encodeURIComponent(token)}/decision/${encodeURIComponent(decisionId)}/approve`,
-    token,
-    body
-  )
+export interface PortalAnalytics {
+  views: number
+  comments: number
+  approvals: number
+  exports: number
+  last_seen_at: string | null
 }
 
-/** POST /v1/client/:token/decision/:decisionId/export */
-export async function postPortalExport(
-  token: string,
-  decisionId: string,
-  body?: { format?: 'pdf' | 'csv' }
-): Promise<{ jobId?: string; url?: string }> {
-  return portalPost(
-    `/v1/client/${encodeURIComponent(token)}/decision/${encodeURIComponent(decisionId)}/export`,
-    token,
-    body ?? {}
-  )
+/** POST /api/portal/token/generate - create tokenized client link */
+export async function generatePortalToken(
+  body: PortalTokenGenerateRequest
+): Promise<PortalTokenGenerateResponse> {
+  return api.post<PortalTokenGenerateResponse>('/portal/token/generate', body)
 }
 
-/** POST /v1/client/:token/decision/:decisionId/followup */
-export async function postPortalFollowUp(
-  token: string,
-  decisionId: string,
-  body: { title: string; description?: string }
-): Promise<{ id: string }> {
-  return portalPost(
-    `/v1/client/${encodeURIComponent(token)}/decision/${encodeURIComponent(decisionId)}/followup`,
-    token,
-    body
-  )
+/** GET /api/portal/projects/:projectId/links - list client links for project */
+export async function getProjectClientLinks(
+  projectId: string
+): Promise<{ links: PortalLink[] }> {
+  return api.get<{ links: PortalLink[] }>(`/portal/projects/${projectId}/links`)
 }
 
-/** GET /v1/client/:token/notifications */
-export async function getPortalNotifications(token: string): Promise<PortalNotification[]> {
-  return portalFetch<PortalNotification[]>(
-    `/v1/client/${encodeURIComponent(token)}/notifications`,
-    token
-  )
+/** GET /api/portal/link/:tokenId - token metadata and usage */
+export async function getPortalLinkDetail(
+  tokenId: string
+): Promise<PortalLinkDetail> {
+  return api.get<PortalLinkDetail>(`/portal/link/${tokenId}`)
 }
 
-/** GET /v1/client/token/validate?token= - token status */
-export async function getPortalTokenStatus(token: string): Promise<{ valid: boolean; projectId: string; allowedDecisionIds: string[]; message?: string }> {
-  try {
-    const res = await portalFetch<{ valid: boolean; projectId: string; allowedDecisionIds: string[] }>(
-      `/v1/client/token/validate?token=${encodeURIComponent(token)}`,
-      token
-    )
-    return { ...res, valid: true }
-  } catch (err) {
-    const e = err as ApiError
-  return {
-    valid: false,
-    message: e.message ?? 'Invalid or expired token',
-    projectId: '',
-    allowedDecisionIds: [],
-  }
-}
+/** POST /api/portal/link/:tokenId/revoke */
+export async function revokePortalLink(
+  tokenId: string
+): Promise<{ revoked: boolean }> {
+  return api.post<{ revoked: boolean }>(`/portal/link/${tokenId}/revoke`, {})
 }
 
-/** GET /v1/client/:token/branding */
-export async function getPortalBranding(token: string): Promise<PortalBranding | null> {
-  try {
-    return await portalFetch<PortalBranding>(
-      `/v1/client/${encodeURIComponent(token)}/branding`,
-      token
-    )
-  } catch {
-    return null
-  }
+/** GET /api/portal/analytics/:tokenId */
+export async function getPortalLinkAnalytics(
+  tokenId: string
+): Promise<PortalAnalytics> {
+  return api.get<PortalAnalytics>(`/portal/analytics/${tokenId}`)
 }

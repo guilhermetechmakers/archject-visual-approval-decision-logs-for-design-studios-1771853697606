@@ -10,7 +10,6 @@ import {
   BarChart3,
   FileText,
   Settings,
-  Users,
   Search,
   MoreHorizontal,
   Pencil,
@@ -38,6 +37,7 @@ import {
 import { getLibraryFiles } from '@/api/library'
 import { getProject, updateProject, deleteProject, restoreProject, getProjectActivity } from '@/api/projects'
 import { getDecisions, cloneDecision, archiveDecision } from '@/api/decisions'
+import { ClientLinksCard } from '@/components/portal/client-links-card'
 import { DecisionCard } from '@/components/decisions'
 import { setLastProject } from '@/components/layout/sidebar'
 import { toast } from 'sonner'
@@ -235,10 +235,12 @@ export function ProjectWorkspace() {
               Analytics
             </Button>
           </Link>
-          <Button variant="outline" size="sm">
-            <Share2 className="mr-2 h-4 w-4" />
-            Share
-          </Button>
+          <Link to={`/dashboard/projects/${projectId}/client-links`}>
+            <Button variant="outline" size="sm">
+              <Share2 className="mr-2 h-4 w-4" />
+              Client links
+            </Button>
+          </Link>
           <Link to={`/dashboard/projects/${projectId}/decisions/new`}>
             <Button size="sm">
               <Plus className="mr-2 h-4 w-4" />
@@ -485,30 +487,10 @@ export function ProjectWorkspace() {
               </Link>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="h-4 w-4" />
-                Client sharing
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-3 text-sm text-muted-foreground">
-                Share decision links with clients for approval. Publish a decision to generate a secure, no-login client link.
-              </p>
-              <div className="flex flex-col gap-2">
-                <Link to={`/dashboard/projects/${projectId}/decisions/new`}>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Create & share decision
-                  </Button>
-                </Link>
-                <p className="text-xs text-muted-foreground">
-                  Client links are generated when you publish a decision. Each link is token-based and can be set to expire.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <ClientLinksCard
+            projectId={projectId!}
+            decisions={decisionsWithDaysOpen.map((d) => ({ id: d.id, title: d.title }))}
+          />
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">

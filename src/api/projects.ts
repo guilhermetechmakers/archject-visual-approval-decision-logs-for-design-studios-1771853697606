@@ -101,3 +101,36 @@ export async function getProjectActivity(
   const qs = limit ? `?limit=${limit}` : ''
   return api.get<{ items: ProjectActivityItem[] }>(`/projects/${projectId}/activity${qs}`)
 }
+
+export interface ClientLinkItem {
+  id: string
+  projectId: string
+  decisionIds: string[]
+  decisionTitles: string[]
+  scope: string
+  expiresAt: string
+  revoked: boolean
+  lastUsedAt?: string
+  createdAt: string
+}
+
+export async function getProjectClientLinks(projectId: string): Promise<{ items: ClientLinkItem[] }> {
+  return api.get<{ items: ClientLinkItem[] }>(`/projects/${projectId}/client-links`)
+}
+
+export async function revokeClientLink(projectId: string, tokenId: string): Promise<{ revoked: boolean; tokenId: string }> {
+  return api.post<{ revoked: boolean; tokenId: string }>(`/projects/${projectId}/client-links/${tokenId}/revoke`, {})
+}
+
+export interface ClientLinkAnalytics {
+  views: number
+  comments: number
+  approvals: number
+  exports: number
+  lastSeenAt: string | null
+  events: Array<{ eventType: string; decisionId: string | null; timestamp: string }>
+}
+
+export async function getClientLinkAnalytics(projectId: string, tokenId: string): Promise<ClientLinkAnalytics> {
+  return api.get<ClientLinkAnalytics>(`/projects/${projectId}/client-links/${tokenId}/analytics`)
+}

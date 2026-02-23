@@ -198,12 +198,14 @@ export function ClientPortalLayout() {
       >
         <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
           {tokenStatus?.valid && (
-            <TokenExpiryNotice
-              expiresAt={tokenStatus.expiresAt}
-              className="mb-4"
-            />
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <TokenExpiryNotice
+                expiresAt={tokenStatus.expiresAt}
+                className="flex-1"
+              />
+            </div>
           )}
-          <Outlet />
+          <Outlet context={{ tokenStatus }} />
         </div>
       </main>
     </div>

@@ -51,6 +51,16 @@ export function getClientDecisionDetail(
   )
 }
 
+/** GET /v1/client/:token/decision/:decisionId/history */
+export function getClientDecisionHistory(
+  token: string,
+  decisionId: string
+): Promise<{ items: Array<{ id: string; decisionId: string; action: string; actor?: string; timestamp: string; details?: Record<string, unknown> }> }> {
+  return portalFetch<{ items: Array<{ id: string; decisionId: string; action: string; actor?: string; timestamp: string; details?: Record<string, unknown> }> }>(
+    `/v1/client/${encodeURIComponent(token)}/decision/${encodeURIComponent(decisionId)}/history`
+  )
+}
+
 /** GET /v1/client/:token/decision/:decisionId/comments */
 export function getClientComments(
   token: string,

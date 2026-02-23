@@ -15,6 +15,7 @@ import {
 import {
   getClientDecisionDetail,
   getClientComments,
+  getClientDecisionHistory,
   postClientComment,
   postClientApprove,
   postClientExport,
@@ -22,8 +23,6 @@ import {
 } from '@/api/client-portal'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-
-const MOCK_AUDIT: { id: string; decisionId: string; action: string; actor?: string; timestamp: string }[] = []
 
 export function PortalDecisionDetailPage() {
   const { token, decisionId } = useParams<{ token: string; decisionId: string }>()
@@ -41,6 +40,20 @@ export function PortalDecisionDetailPage() {
     queryFn: () => getClientComments(token!, decisionId!),
     enabled: !!token && !!decisionId,
   })
+
+  const { data: historyData } = useQuery({
+    queryKey: ['client-decision-history', token, decisionId],
+    queryFn: () => getClientDecisionHistory(token!, decisionId!),
+    enabled: !!token && !!decisionId,
+  })
+  const auditEntries = (historyData?.items ?? []).map((item) => ({
+    id: item.id,
+    decisionId: item.decisionId,
+    action: item.action,
+    actor: item.actor,
+    timestamp: item.timestamp,
+    details: item.details,
+  }))
 
   const approveMutation = useMutation({
     mutationFn: (optionId: string) =>
@@ -252,16 +265,19 @@ export function PortalDecisionDetailPage() {
       </Card>
 
       {/* Activity timeline */}
-      {MOCK_AUDIT.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ActivityTimeline entries={MOCK_AUDIT} />
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Activity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ActivityTimeline
+            entries={auditEntries}
+            decisionCreatedAt={decision.createdAt}
+            decisionApprovedAt={lastConfirmedAt}
+            approvedByName={approvedByName}
+          />
+        </CardContent>
+      </Card>
 
       {decision.attachments && decision.attachments.length > 0 && (
         <Card>

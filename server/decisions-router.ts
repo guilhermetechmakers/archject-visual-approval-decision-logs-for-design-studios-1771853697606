@@ -506,12 +506,21 @@ decisionsRouter.post('/projects/:projectId/decisions/:decisionId/publish', requi
   const now = new Date().toISOString()
   db.prepare('UPDATE decisions SET status = ?, updated_at = ? WHERE id = ?').run('pending', now, decisionId)
 
+  const tokenId = crypto.randomUUID()
   const token = crypto.randomBytes(32).toString('hex')
   const tokenHash = crypto.createHmac('sha256', process.env.HMAC_SECRET ?? 'archject-client-token-secret').update(token).digest('hex')
   const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-  db.prepare(
-    'INSERT INTO client_tokens (id, project_id, decision_ids, scope, token_hash, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(crypto.randomUUID(), projectId, JSON.stringify([decisionId]), 'read_approve', tokenHash, expiresAt)
+  try {
+    db.prepare(
+      'INSERT INTO client_tokens (id, project_id, decision_ids, scope, token_hash, expires_at, revoked) VALUES (?, ?, ?, ?, ?, ?, 0)'
+    ).run(tokenId, projectId, JSON.stringify([decisionId]), 'read_approve', tokenHash, expiresAt)
+  } catch (e) {
+    if (String(e).includes('no such column')) {
+      db.prepare(
+        'INSERT INTO client_tokens (id, project_id, decision_ids, scope, token_hash, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(tokenId, projectId, JSON.stringify([decisionId]), 'read_approve', tokenHash, expiresAt)
+    } else throw e
+  }
 
   db.prepare(
     `INSERT INTO decision_audit_log (id, decision_id, action, performed_by, performed_at, details)
@@ -521,7 +530,7 @@ decisionsRouter.post('/projects/:projectId/decisions/:decisionId/publish', requi
   const baseUrl = (req.get('x-forwarded-proto') || req.protocol) + '://' + (req.get('x-forwarded-host') || req.get('host') || 'localhost:3001')
   const clientLink = `${baseUrl}/client/${token}`
 
-  res.json({ decisionId, status: 'published', clientLink })
+  res.json({ decisionId, status: 'published', clientLink, token_id: tokenId, expires_at: expiresAt })
 })
 
 // POST /api/decisions/:decisionId/clone - clone decision into new draft
@@ -634,17 +643,26 @@ decisionsRouter.post('/projects/:projectId/decisions/:decisionId/share', require
     db.prepare('UPDATE decisions SET status = ? WHERE id = ?').run('pending', decisionId)
   }
 
+  const tokenId = crypto.randomUUID()
   const tokenPlain = crypto.randomBytes(32).toString('hex')
   const tokenHash = crypto.createHmac('sha256', process.env.HMAC_SECRET ?? 'archject-client-token-secret').update(tokenPlain).digest('hex')
   const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-  db.prepare(
-    'INSERT INTO client_tokens (id, project_id, decision_ids, scope, token_hash, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(crypto.randomUUID(), projectId, JSON.stringify([decisionId]), 'read_approve', tokenHash, expiresAt)
+  try {
+    db.prepare(
+      'INSERT INTO client_tokens (id, project_id, decision_ids, scope, token_hash, expires_at, revoked) VALUES (?, ?, ?, ?, ?, ?, 0)'
+    ).run(tokenId, projectId, JSON.stringify([decisionId]), 'read_approve', tokenHash, expiresAt)
+  } catch (e) {
+    if (String(e).includes('no such column')) {
+      db.prepare(
+        'INSERT INTO client_tokens (id, project_id, decision_ids, scope, token_hash, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(tokenId, projectId, JSON.stringify([decisionId]), 'read_approve', tokenHash, expiresAt)
+    } else throw e
+  }
 
   const baseUrl = (req.get('x-forwarded-proto') || req.protocol) + '://' + (req.get('x-forwarded-host') || req.get('host') || 'localhost:3001')
   const clientLink = `${baseUrl}/client/${tokenPlain}`
 
-  res.json({ decisionId, clientLink })
+  res.json({ decisionId, clientLink, tokenId, expiresAt })
 })
 
 // GET /api/projects/:projectId/decisions/:decisionId/comments - internal comments

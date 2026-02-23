@@ -10,20 +10,42 @@ function hashToken(token: string): string {
   return crypto.createHmac('sha256', HMAC_SECRET).update(token).digest('hex')
 }
 
-function getTokenPayload(token: string): { projectId: string; decisionIds: string[]; exp?: number } | null {
+type TokenRow = {
+  id: string
+  project_id: string
+  decision_ids: string
+  expires_at: string
+  revoked?: number
+}
+
+function getTokenPayload(token: string): { projectId: string; decisionIds: string[]; tokenId?: string; exp?: number; expiresAt?: string } | null {
   const tokenHash = hashToken(token)
-  const tokenRow = db.prepare(
-    `SELECT project_id, decision_ids FROM client_tokens WHERE token_hash = ?`
-  ).get(tokenHash) as { project_id: string; decision_ids: string } | undefined
+  let tokenRow: TokenRow | undefined
+  try {
+    tokenRow = db.prepare(
+      `SELECT id, project_id, decision_ids, expires_at, revoked FROM client_tokens WHERE token_hash = ?`
+    ).get(tokenHash) as TokenRow | undefined
+  } catch {
+    tokenRow = db.prepare(
+      `SELECT id, project_id, decision_ids, expires_at FROM client_tokens WHERE token_hash = ?`
+    ).get(tokenHash) as TokenRow | undefined
+  }
 
   if (tokenRow) {
+    if (tokenRow.revoked) {
+      return null
+    }
+    const expiresAtMs = tokenRow.expires_at ? new Date(tokenRow.expires_at).getTime() : 0
+    if (expiresAtMs > 0 && expiresAtMs < Date.now()) {
+      return null
+    }
     let decisionIds: string[] = []
     try {
       decisionIds = JSON.parse(tokenRow.decision_ids)
     } catch {
       // ignore
     }
-    return { projectId: tokenRow.project_id, decisionIds }
+    return { projectId: tokenRow.project_id, decisionIds, tokenId: tokenRow.id, expiresAt: tokenRow.expires_at }
   }
 
   try {
@@ -35,6 +57,22 @@ function getTokenPayload(token: string): { projectId: string; decisionIds: strin
     }
   } catch {
     return null
+  }
+}
+
+function recordAnalytics(tokenId: string, eventType: 'view' | 'comment' | 'approve' | 'export', decisionId?: string, req?: Request): void {
+  try {
+    const id = crypto.randomUUID()
+    const ipHash = req?.ip ? crypto.createHash('sha256').update(req.ip).digest('hex').slice(0, 16) : null
+    const userAgent = (req?.get?.('user-agent') ?? '').slice(0, 500) || null
+    const locale = req?.get?.('accept-language')?.split(',')[0]?.trim()?.slice(0, 32) || null
+    db.prepare(
+      `INSERT INTO portal_analytics (id, token_id, event_type, decision_id, ip_hash, user_agent, locale)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, tokenId, eventType, decisionId ?? null, ipHash, userAgent, locale)
+    db.prepare('UPDATE client_tokens SET last_used_at = ? WHERE id = ?').run(new Date().toISOString(), tokenId)
+  } catch {
+    // analytics is non-critical
   }
 }
 
@@ -116,6 +154,9 @@ clientRouter.get('/client/:token/decisions', (req: Request, res: Response) => {
   if (!payload) {
     return res.status(404).json({ code: 'INVALID_TOKEN', message: 'Invalid or expired token' })
   }
+  if (payload.tokenId) {
+    recordAnalytics(payload.tokenId, 'view', undefined, req)
+  }
   const { projectId, decisionIds } = payload
   const idsToFetch = decisionIds.length > 0 ? decisionIds : null
   let rows: { id: string; project_id: string; title: string; status: string; created_at: string; updated_at: string; last_confirmed_at: string | null; last_confirmed_by: string | null; approved_option_id?: string | null }[]
@@ -159,6 +200,9 @@ clientRouter.get('/client/:token/decision/:decisionId', (req: Request, res: Resp
   if (payload.decisionIds.length > 0 && !payload.decisionIds.includes(decisionId)) {
     return res.status(403).json({ code: 'FORBIDDEN', message: 'Access denied to this decision' })
   }
+  if (payload.tokenId) {
+    recordAnalytics(payload.tokenId, 'view', decisionId, req)
+  }
   let row: { id: string; project_id: string; title: string; status: string; created_at: string; updated_at: string; last_confirmed_at: string | null; last_confirmed_by: string | null; approved_option_id?: string | null } | undefined
   try {
     row = db.prepare(
@@ -175,6 +219,50 @@ clientRouter.get('/client/:token/decision/:decisionId', (req: Request, res: Resp
     return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
   }
   return res.json(mapDecisionRow(row, decisionId))
+})
+
+// GET /client/:token/decision/:decisionId/history - audit log for client portal
+clientRouter.get('/client/:token/decision/:decisionId/history', (req: Request, res: Response) => {
+  const token = req.params.token
+  const decisionId = req.params.decisionId
+  const payload = getTokenPayload(token)
+  if (!payload) {
+    return res.status(404).json({ code: 'INVALID_TOKEN', message: 'Invalid or expired token' })
+  }
+  if (payload.decisionIds.length > 0 && !payload.decisionIds.includes(decisionId)) {
+    return res.status(403).json({ code: 'FORBIDDEN', message: 'Access denied to this decision' })
+  }
+  const decision = db.prepare('SELECT id FROM decisions WHERE id = ? AND project_id = ?').get(decisionId, payload.projectId)
+  if (!decision) {
+    return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' })
+  }
+  let rows: { id: string; action: string; performed_by: string | null; performed_at: string; details: string | null }[]
+  try {
+    rows = db.prepare(
+      'SELECT id, action, performed_by, performed_at, details FROM decision_audit_log WHERE decision_id = ? ORDER BY performed_at ASC'
+    ).all(decisionId) as typeof rows
+  } catch {
+    rows = []
+  }
+  const items = rows.map((r) => {
+    let details: Record<string, unknown> = {}
+    if (r.details) {
+      try {
+        details = JSON.parse(r.details)
+      } catch {
+        // ignore
+      }
+    }
+    return {
+      id: r.id,
+      decisionId,
+      action: r.action,
+      actor: r.performed_by ?? undefined,
+      timestamp: r.performed_at,
+      details,
+    }
+  })
+  return res.json({ items })
 })
 
 // GET /client/:token/decision/:decisionId/comments
@@ -239,6 +327,9 @@ clientRouter.post('/client/:token/decision/:decisionId/comment', (req: Request, 
   } catch (e) {
     return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Failed to save comment' })
   }
+  if (payload.tokenId) {
+    recordAnalytics(payload.tokenId, 'comment', decisionId, req)
+  }
   return res.status(201).json({
     id,
     decisionId,
@@ -261,6 +352,9 @@ clientRouter.post('/client/:token/decision/:decisionId/export', (req: Request, r
   }
   if (payload.decisionIds.length > 0 && !payload.decisionIds.includes(decisionId)) {
     return res.status(403).json({ code: 'FORBIDDEN', message: 'Access denied to this decision' })
+  }
+  if (payload.tokenId) {
+    recordAnalytics(payload.tokenId, 'export', decisionId, req)
   }
   const baseUrl = (req.get('x-forwarded-proto') || req.protocol) + '://' + (req.get('x-forwarded-host') || req.get('host') || 'localhost:3001')
   return res.json({
@@ -307,7 +401,7 @@ clientRouter.get('/client/:token/token/status', (req: Request, res: Response) =>
       allowedDecisionIds: [],
     })
   }
-  const expiresAt = payload.exp ? new Date(payload.exp * 1000).toISOString() : undefined
+  const expiresAt = payload.expiresAt ?? (payload.exp ? new Date(payload.exp * 1000).toISOString() : undefined)
   return res.json({
     valid: true,
     expiresAt,

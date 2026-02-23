@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { db } from './db.js';
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
 const CLIENT_TOKEN_SECRET = process.env.CLIENT_TOKEN_SECRET ?? JWT_SECRET;
+const HMAC_SECRET = process.env.HMAC_SECRET ?? 'archject-client-token-secret';
 function optionalAuth(req) {
     const auth = req.get('Authorization');
     if (!auth?.startsWith('Bearer '))
@@ -17,6 +18,23 @@ function optionalAuth(req) {
     }
 }
 function validateClientToken(token) {
+    const tokenHash = crypto.createHmac('sha256', HMAC_SECRET).update(token).digest('hex');
+    const tokenRow = db.prepare(`SELECT id, project_id, decision_ids, expires_at, revoked FROM client_tokens WHERE token_hash = ?`).get(tokenHash);
+    if (tokenRow) {
+        if (tokenRow.revoked)
+            return null;
+        const expiresAt = tokenRow.expires_at ? new Date(tokenRow.expires_at).getTime() : 0;
+        if (expiresAt > 0 && expiresAt < Date.now())
+            return null;
+        let decisionIds = [];
+        try {
+            decisionIds = JSON.parse(tokenRow.decision_ids);
+        }
+        catch {
+            // ignore
+        }
+        return { projectId: tokenRow.project_id, decisionIds, tokenId: tokenRow.id };
+    }
     try {
         const decoded = jwt.verify(token, CLIENT_TOKEN_SECRET);
         if (decoded.exp && decoded.exp * 1000 < Date.now())
@@ -28,6 +46,20 @@ function validateClientToken(token) {
     }
     catch {
         return null;
+    }
+}
+function recordApprovalAnalytics(tokenId, decisionId, req) {
+    try {
+        const id = crypto.randomUUID();
+        const ipHash = req?.ip ? crypto.createHash('sha256').update(req.ip).digest('hex').slice(0, 16) : null;
+        const userAgent = (req?.get?.('user-agent') ?? '').slice(0, 500) || null;
+        const locale = req?.get?.('accept-language')?.split(',')[0]?.trim()?.slice(0, 32) || null;
+        db.prepare(`INSERT INTO portal_analytics (id, token_id, event_type, decision_id, ip_hash, user_agent, locale)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(id, tokenId, 'approve', decisionId, ipHash, userAgent, locale);
+        db.prepare('UPDATE client_tokens SET last_used_at = ? WHERE id = ?').run(new Date().toISOString(), tokenId);
+    }
+    catch {
+        // analytics is non-critical
     }
 }
 export const actionsRouter = Router();
@@ -61,6 +93,9 @@ actionsRouter.post('/actions/:actionId/confirm', (req, res) => {
             clientName: approverName ?? null,
             optionId: optionId ?? null,
         });
+        if (validated.tokenId) {
+            recordApprovalAnalytics(validated.tokenId, actionId, req);
+        }
     }
     else {
         userId = optionalAuth(req);
