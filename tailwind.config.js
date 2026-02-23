@@ -74,6 +74,18 @@ export default {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(0)' },
         },
+        spin: {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
+        'progress-stripe': {
+          '0%': { backgroundPosition: '0 0' },
+          '100%': { backgroundPosition: '40px 0' },
+        },
+        'checkmark-fill': {
+          '0%': { strokeDashoffset: '24' },
+          '100%': { strokeDashoffset: '0' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out forwards',
@@ -81,6 +93,9 @@ export default {
         'scale-in': 'scale-in 0.2s ease-out forwards',
         'slide-in-right': 'slideInFromRight 0.3s ease-out forwards',
         'slide-in-left': 'slideInFromLeft 0.3s ease-out forwards',
+        spin: 'spin 1s linear infinite',
+        'progress-stripe': 'progress-stripe 1s linear infinite',
+        'checkmark-fill': 'checkmark-fill 0.4s ease-out forwards',
       },
     },
   },

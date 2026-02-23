@@ -15,6 +15,7 @@ import { logsRouter } from './logs.js'
 import { supportReportRouter } from './support-report.js'
 import { errorsRouter } from './errors.js'
 import { supportTicketRouter } from './support-ticket.js'
+import { jobsRouter } from './jobs.js'
 
 initDb()
 
@@ -34,6 +35,7 @@ app.use('/api', logsRouter)
 app.use('/api', supportReportRouter)
 app.use('/api', errorsRouter)
 app.use('/api', supportTicketRouter)
+app.use('/api', jobsRouter)
 app.use('/api', privacyRouter)
 app.use('/api/terms', termsRouter)
 app.use('/webhooks', webhooksRouter)

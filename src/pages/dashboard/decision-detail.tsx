@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Share2, Download, Check, MessageSquare } from 'lucide-react'
@@ -5,7 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LoadingOverlay } from '@/components/loading-overlay'
+import { createJob } from '@/api/jobs'
 import { api } from '@/lib/api'
+import { toast } from 'sonner'
 import type { Decision } from '@/types'
 
 const mockDecision: Decision = {
@@ -25,6 +29,30 @@ const mockDecision: Decision = {
 
 export function DecisionDetail() {
   const { projectId, decisionId } = useParams<{ projectId: string; decisionId: string }>()
+  const [exportJobId, setExportJobId] = useState<string | null>(null)
+  const [exportOverlayOpen, setExportOverlayOpen] = useState(false)
+
+  const handleExport = async () => {
+    if (!decisionId || !projectId) return
+    try {
+      const { jobId } = await createJob({
+        type: 'EXPORT_PDF',
+        projectId,
+        payload: { decisionIds: [decisionId], includeSigned: true },
+      })
+      setExportJobId(jobId)
+      setExportOverlayOpen(true)
+    } catch {
+      toast.error('Failed to start export')
+    }
+  }
+
+  const handleRetryExport = async () => {
+    setExportJobId(null)
+    setExportOverlayOpen(false)
+    await handleExport()
+  }
+
   const { data: decision = mockDecision, isLoading } = useQuery({
     queryKey: ['decision', decisionId],
     queryFn: () => api.get<Decision>(`/decisions/${decisionId}`).catch(() => mockDecision),
@@ -64,7 +92,7 @@ export function DecisionDetail() {
             <Share2 className="mr-2 h-4 w-4" />
             Share link
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
@@ -165,6 +193,28 @@ export function DecisionDetail() {
           </CardContent>
         </Card>
       </div>
+
+      <LoadingOverlay
+        jobId={exportJobId}
+        operationName="Generating approval pack"
+        subtitle={
+          decisionId
+            ? `Compiling Decision Log for Project — ${decision.title}`
+            : undefined
+        }
+        open={exportOverlayOpen}
+        onOpenChange={(open) => {
+          setExportOverlayOpen(open)
+          if (!open) setExportJobId(null)
+        }}
+        onRetry={handleRetryExport}
+        exportsPagePath="/dashboard/exports"
+        decisionDetailPath={
+          projectId && decisionId
+            ? `/dashboard/projects/${projectId}/decisions/${decisionId}`
+            : undefined
+        }
+      />
     </div>
   )
 }

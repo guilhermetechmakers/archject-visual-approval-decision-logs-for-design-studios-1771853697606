@@ -213,6 +213,31 @@ export function initDb() {
                 throw e;
         }
     }
+    const jobsPath = path.join(process.cwd(), 'server', 'migrations', '011_jobs.sql');
+    if (fs.existsSync(jobsPath)) {
+        try {
+            const sql = fs.readFileSync(jobsPath, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+    }
 }
 function seedAnalyticsData() {
     try {
