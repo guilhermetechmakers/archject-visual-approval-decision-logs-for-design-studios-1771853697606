@@ -303,6 +303,46 @@ export function initDb() {
                 throw e;
         }
     }
+    const twofaPath = path.join(process.cwd(), 'server', 'migrations', '014_twofa.sql');
+    if (fs.existsSync(twofaPath)) {
+        try {
+            const sql = fs.readFileSync(twofaPath, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+        // Add 2FA columns to users
+        for (const col of [
+            '2fa_enabled INTEGER DEFAULT 0',
+            '2fa_method TEXT',
+            'phone_number TEXT',
+            '2fa_recovery_generated_at TEXT',
+        ]) {
+            try {
+                db.exec(`ALTER TABLE users ADD COLUMN ${col}`);
+            }
+            catch (e) {
+                if (!String(e).includes('duplicate column name'))
+                    throw e;
+            }
+        }
+    }
 }
 function seedAnalyticsData() {
     try {

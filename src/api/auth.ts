@@ -36,6 +36,20 @@ export interface LoginResponse {
   user: AuthUser
 }
 
+export interface Login2FARequiredResponse {
+  code: '2FA_REQUIRED'
+  message: string
+  session_temp_token: string
+  twofa_methods: ('totp' | 'sms')[]
+  phone_masked: string | null
+}
+
+export type LoginResult = LoginResponse | Login2FARequiredResponse
+
+export function is2FARequired(res: LoginResult): res is Login2FARequiredResponse {
+  return 'session_temp_token' in res && !('accessToken' in res)
+}
+
 export interface VerifyEmailResponse {
   status: 'verified'
   user: AuthUser
@@ -58,8 +72,8 @@ export async function signup(data: SignupRequest): Promise<SignupResponse> {
   return api.post<SignupResponse>('/auth/signup', data)
 }
 
-export async function login(data: LoginRequest): Promise<LoginResponse> {
-  return api.post<LoginResponse>('/auth/login', data)
+export async function login(data: LoginRequest): Promise<LoginResult> {
+  return api.post<LoginResult>('/auth/login', data)
 }
 
 export async function verifyEmail(token: string): Promise<VerifyEmailResponse> {

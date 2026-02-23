@@ -1,0 +1,6 @@
+export { TOTPSetupModal } from './totp-setup-modal'
+export { SMSSetupModal } from './sms-setup-modal'
+export { RecoveryCodesModal } from './recovery-codes-modal'
+export { Disable2FAModal } from './disable-2fa-modal'
+export { EnableMethodModal } from './enable-method-modal'
+export { RegenerateRecoveryModal } from './regenerate-recovery-modal'

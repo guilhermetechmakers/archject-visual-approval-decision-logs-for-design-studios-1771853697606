@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSignup, useLogin, useResendVerification } from '@/hooks/use-auth'
-import { getAuthErrorMessage } from '@/api/auth'
+import { getAuthErrorMessage, is2FARequired } from '@/api/auth'
+import { verify2FA, sendSMSOTP } from '@/api/twofa'
 import { SignupConsent } from '@/components/terms'
 import { useActiveTerms } from '@/hooks/use-terms'
 
@@ -69,6 +70,16 @@ export function AuthPage() {
     }
   }, [authLoading, isAuthenticated, navigate, redirectTo])
   const [signupSuccess, setSignupSuccess] = useState<{ maskedEmail: string; email: string } | null>(null)
+  const [twofaStep, setTwofaStep] = useState<{
+    sessionTempToken: string
+    twofaMethods: ('totp' | 'sms')[]
+    phoneMasked: string | null
+  } | null>(null)
+  const [twofaUseRecovery, setTwofaUseRecovery] = useState(false)
+  const [twofaCode, setTwofaCode] = useState('')
+  const [twofaRememberDevice, setTwofaRememberDevice] = useState(false)
+  const [twofaError, setTwofaError] = useState<string | null>(null)
+  const [twofaSmsCooldown, setTwofaSmsCooldown] = useState(0)
 
   const signupMutation = useSignup()
   const loginMutation = useLogin()
@@ -94,6 +105,12 @@ export function AuthPage() {
 
   const { data: activeTerms } = useActiveTerms()
 
+  useEffect(() => {
+    if (twofaSmsCooldown <= 0) return
+    const t = setTimeout(() => setTwofaSmsCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [twofaSmsCooldown])
+
   const onLogin = async (data: LoginFormData) => {
     try {
       const res = await loginMutation.mutateAsync({
@@ -101,6 +118,16 @@ export function AuthPage() {
         password: data.password,
         rememberMe: data.rememberMe,
       })
+      if (is2FARequired(res)) {
+        setTwofaStep({
+          sessionTempToken: res.session_temp_token,
+          twofaMethods: res.twofa_methods,
+          phoneMasked: res.phone_masked,
+        })
+        setTwofaCode('')
+        setTwofaError(null)
+        return
+      }
       const token = res.accessToken ?? res.sessionToken
       login(res.user, token)
       toast.success('Welcome back!')
@@ -112,6 +139,47 @@ export function AuthPage() {
       if (code === 'EMAIL_NOT_VERIFIED') {
         navigate(`/verify-email?email=${encodeURIComponent(data.email)}`)
       }
+    }
+  }
+
+  const on2FAVerify = async () => {
+    if (!twofaStep || !twofaCode.trim()) return
+    setTwofaError(null)
+    try {
+      const method = twofaUseRecovery ? 'recovery' : (twofaStep.twofaMethods.includes('totp') ? 'totp' : 'sms')
+      const res = await verify2FA(
+        twofaStep.sessionTempToken,
+        twofaCode.trim(),
+        method,
+        twofaRememberDevice
+      )
+      const token = res.accessToken ?? res.sessionToken
+      login(res.user, token)
+      toast.success('Welcome back!')
+      setTwofaStep(null)
+      navigate(redirectTo)
+    } catch (err) {
+      setTwofaError(err instanceof Error ? err.message : 'Invalid code. Please try again.')
+      const data = err && typeof err === 'object' && 'data' in err ? (err as { data?: { code?: string } }).data : undefined
+      if (data?.code === '2FA_LOCKOUT') {
+        setTwofaError('Too many failed attempts. Please try again later.')
+      }
+    }
+  }
+
+  const on2FASendSms = async () => {
+    if (!twofaStep || twofaSmsCooldown > 0) return
+    try {
+      const res = await sendSMSOTP('', 'login', twofaStep.sessionTempToken)
+      if (res.sent) {
+        setTwofaSmsCooldown(res.cooldown_seconds ?? 60)
+        toast.success('Verification code sent')
+      } else {
+        setTwofaSmsCooldown(res.cooldown_seconds ?? 60)
+        toast.error('Please wait before requesting another code.')
+      }
+    } catch {
+      toast.error('Failed to send code')
     }
   }
 
@@ -204,6 +272,98 @@ export function AuthPage() {
                   Log in
                 </Link>
               </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  if (twofaStep) {
+    const methodLabel =
+      twofaStep.twofaMethods.length === 1 && twofaStep.twofaMethods[0] === 'totp'
+        ? 'Authenticator app'
+        : twofaStep.twofaMethods.length === 1 && twofaStep.twofaMethods[0] === 'sms'
+          ? `SMS to ${twofaStep.phoneMasked ?? '***'}`
+          : 'Authenticator app or SMS to ' + (twofaStep.phoneMasked ?? '***')
+
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4 py-12">
+        <div className="w-full max-w-md animate-in-up">
+          <Link to="/" className="mb-8 block text-center text-xl font-bold text-primary">
+            Archject
+          </Link>
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="text-center">Two-factor authentication</CardTitle>
+              <CardDescription className="text-center">
+                Enter the 6-digit code from your {methodLabel}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="2fa-code">Authentication code</Label>
+                <Input
+                  id="2fa-code"
+                  inputMode="numeric"
+                  maxLength={twofaUseRecovery ? 20 : 6}
+                  placeholder={twofaUseRecovery ? 'Recovery code' : '000000'}
+                  value={twofaCode}
+                  onChange={(e) => setTwofaCode(e.target.value)}
+                  className={twofaError ? 'border-destructive' : ''}
+                  aria-invalid={!!twofaError}
+                  aria-describedby={twofaError ? '2fa-error' : undefined}
+                />
+                {twofaError && (
+                  <p id="2fa-error" className="text-sm text-destructive" role="alert">
+                    {twofaError}
+                  </p>
+                )}
+              </div>
+              {twofaStep.twofaMethods.includes('sms') && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Didn't receive a code?</span>
+                  <button
+                    type="button"
+                    onClick={on2FASendSms}
+                    disabled={twofaSmsCooldown > 0}
+                    className="text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                  >
+                    {twofaSmsCooldown > 0 ? `Resend in ${twofaSmsCooldown}s` : 'Send code'}
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="2fa-remember"
+                  checked={twofaRememberDevice}
+                  onCheckedChange={(checked) => setTwofaRememberDevice(!!checked)}
+                />
+                <Label htmlFor="2fa-remember" className="text-sm font-normal cursor-pointer">
+                  Remember this device for 30 days
+                </Label>
+              </div>
+              <Button className="w-full" onClick={on2FAVerify}>
+                Verify
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTwofaUseRecovery(!twofaUseRecovery)
+                  setTwofaCode('')
+                  setTwofaError(null)
+                }}
+                className="w-full text-center text-sm text-primary hover:underline"
+              >
+                {twofaUseRecovery ? 'Use authentication code' : 'Use a recovery code'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTwofaStep(null)}
+                className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+              >
+                Back to login
+              </button>
             </CardContent>
           </Card>
         </div>

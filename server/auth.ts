@@ -16,9 +16,33 @@ import {
   validateRefreshToken,
   revokeRefreshToken,
   createSession,
+  getUserIdFromAccessToken,
 } from './auth-utils.js'
+import {
+  createSessionTempToken,
+  validateSessionTempToken,
+  consumeSessionTempToken,
+  createDeviceToken,
+  validateDeviceToken,
+  get2faStatus,
+  verify2faForUser,
+  verifyRecoveryCode,
+  maskPhone,
+  sendSMSOTP,
+  check2faVerifyLockout,
+  record2faVerifyAttempt,
+  clear2faVerifyAttempts,
+  logAudit,
+  setupTOTP,
+  enableTOTP,
+  enableSMS,
+  disable2FA,
+  normalizePhone,
+  isValidPhone,
+} from './twofa.js'
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
+const DEVICE_TOKEN_COOKIE = 'archject_device'
 const TOKEN_EXPIRY_HOURS = 24
 const PASSWORD_RESET_EXPIRY_MINUTES = 60
 const VERIFY_BASE_URL = process.env.VERIFY_BASE_URL ?? 'http://localhost:5173'
@@ -144,6 +168,18 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
   }
 })
 
+function setDeviceTokenCookie(res: Response, token: string) {
+  const maxAge = 30 * 24 * 60 * 60
+  const isProd = process.env.NODE_ENV === 'production'
+  res.cookie(DEVICE_TOKEN_COOKIE, token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'strict',
+    maxAge: maxAge * 1000,
+    path: '/',
+  })
+}
+
 authRouter.post('/login', async (req: Request, res: Response) => {
   try {
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
@@ -168,7 +204,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       password_hash: string
       first_name: string
       last_name: string
-    } | undefined
+    } & { '2fa_enabled'?: number; '2fa_method'?: string | null; 'phone_number'?: string | null } | undefined
 
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' })
@@ -178,6 +214,39 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       return res.status(403).json({
         code: 'EMAIL_NOT_VERIFIED',
         message: 'Please verify your email before logging in',
+      })
+    }
+
+    const twofaEnabled = user['2fa_enabled'] === 1
+    const twofaMethod = user['2fa_method'] as 'totp' | 'sms' | null
+
+    if (twofaEnabled) {
+      const deviceToken = req.cookies?.[DEVICE_TOKEN_COOKIE]
+      if (deviceToken && validateDeviceToken(user.id, deviceToken)) {
+        const accessToken = createAccessToken(user.id, user.email)
+        const refreshToken = createRefreshToken()
+        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
+        createSession(user.id, ip, req.get('user-agent'))
+        setRefreshTokenCookie(res, refreshToken)
+        return res.json({
+          accessToken,
+          sessionToken: accessToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            email_verified: Boolean(user.email_verified),
+            first_name: user.first_name,
+            last_name: user.last_name,
+          },
+        })
+      }
+      const sessionTempToken = createSessionTempToken(user.id)
+      return res.status(206).json({
+        code: '2FA_REQUIRED',
+        message: 'Two-factor authentication required',
+        session_temp_token: sessionTempToken,
+        twofa_methods: twofaMethod ? [twofaMethod] : ['totp', 'sms'],
+        phone_masked: user.phone_number ? maskPhone(user.phone_number) : null,
       })
     }
 
@@ -201,6 +270,246 @@ authRouter.post('/login', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('[Auth] Login error:', err)
     return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+authRouter.post('/2fa/verify', async (req: Request, res: Response) => {
+  try {
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    const { session_temp_token, code, method, remember_device } = req.body
+
+    if (!session_temp_token || !code || !method) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'session_temp_token, code, and method are required',
+      })
+    }
+
+    const session = validateSessionTempToken(session_temp_token)
+    if (!session) {
+      return res.status(401).json({
+        code: 'SESSION_EXPIRED',
+        message: 'Your session has expired. Please log in again.',
+      })
+    }
+
+    const lockout = check2faVerifyLockout(session.userId, ip)
+    if (!lockout.allowed) {
+      return res.status(429).json({
+        code: '2FA_LOCKOUT',
+        message: 'Too many failed attempts. Please try again later.',
+        next_allowed_at: lockout.nextAllowedAt?.toISOString(),
+      })
+    }
+
+    const validMethod = ['totp', 'sms', 'recovery'].includes(method)
+    if (!validMethod) {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid method' })
+    }
+
+    const verified =
+      (method === 'totp' && (await verify2faForUser(session.userId, code, 'totp'))) ||
+      (method === 'sms' && (await verify2faForUser(session.userId, code, 'sms'))) ||
+      (method === 'recovery' && (await verifyRecoveryCode(session.userId, code)))
+
+    if (!verified) {
+      record2faVerifyAttempt(session.userId, ip)
+      return res.status(401).json({
+        code: 'INVALID_2FA_CODE',
+        message: 'Invalid or expired code. Please try again.',
+      })
+    }
+
+    clear2faVerifyAttempts(session.userId, ip)
+    consumeSessionTempToken(session_temp_token)
+
+    const user = db.prepare(
+      'SELECT id, email, first_name, last_name FROM users WHERE id = ?'
+    ).get(session.userId) as { id: string; email: string; first_name: string; last_name: string }
+
+    const accessToken = createAccessToken(user.id, user.email)
+    const refreshToken = createRefreshToken()
+    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
+    createSession(user.id, ip, req.get('user-agent'))
+    setRefreshTokenCookie(res, refreshToken)
+
+    if (remember_device) {
+      const deviceFingerprint = `${ip}-${req.get('user-agent') ?? 'unknown'}`
+      const deviceToken = createDeviceToken(user.id, deviceFingerprint)
+      setDeviceTokenCookie(res, deviceToken)
+    }
+
+    logAudit(user.id, '2fa.verified', { method }, ip)
+
+    return res.json({
+      accessToken,
+      sessionToken: accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        email_verified: true,
+        first_name: user.first_name,
+        last_name: user.last_name,
+      },
+    })
+  } catch (err) {
+    console.error('[Auth] 2FA verify error:', err)
+    return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+authRouter.post('/2fa/send-sms', async (req: Request, res: Response) => {
+  try {
+    const { session_temp_token, phone_number, purpose } = req.body
+
+    if (!purpose) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'purpose is required',
+      })
+    }
+
+    let userId: string | null = null
+    if (session_temp_token) {
+      const session = validateSessionTempToken(session_temp_token)
+      if (session) userId = session.userId
+    }
+    if (!userId && purpose === 'enable') {
+      userId = getUserIdFromAccessToken(req)
+    }
+
+    let phone = phone_number
+    if (!phone && purpose === 'login' && userId) {
+      const user = db.prepare('SELECT phone_number FROM users WHERE id = ?').get(userId) as { phone_number: string | null } | undefined
+      phone = user?.phone_number ?? null
+    }
+    if (!phone) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: purpose === 'login' ? 'SMS 2FA is not configured for this account' : 'phone_number is required',
+      })
+    }
+
+    const result = await sendSMSOTP(userId, phone, purpose)
+    if (!result.sent) {
+      return res.status(429).json({
+        code: 'SMS_COOLDOWN',
+        message: 'Please wait before requesting another code.',
+        cooldown_seconds: result.cooldownSeconds,
+      })
+    }
+
+    return res.json({
+      sent: true,
+      cooldown_seconds: result.cooldownSeconds,
+    })
+  } catch (err) {
+    console.error('[Auth] 2FA send SMS error:', err)
+    const msg = err instanceof Error ? err.message : 'Invalid phone number'
+    return res.status(400).json({ code: 'VALIDATION_ERROR', message: msg })
+  }
+})
+
+function requireAuth(req: Request, res: Response, next: () => void) {
+  const userId = getUserIdFromAccessToken(req)
+  if (!userId) {
+    res.status(401).json({ code: 'UNAUTHORIZED', message: 'Authentication required' })
+    return
+  }
+  ;(req as Request & { userId: string }).userId = userId
+  next()
+}
+
+authRouter.post('/2fa/totp/setup', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId
+    const status = get2faStatus(userId)
+    if (status.enabled) {
+      return res.status(400).json({ code: '2FA_ALREADY_ENABLED', message: '2FA is already enabled' })
+    }
+    const user = db.prepare('SELECT email FROM users WHERE id = ?').get(userId) as { email: string }
+    const { secret, otpauthUri, qrDataUri } = await setupTOTP(userId, user.email)
+    return res.json({ otpauth_uri: otpauthUri, secret, qr_data_uri: qrDataUri })
+  } catch (err) {
+    console.error('[Auth] 2FA TOTP setup error:', err)
+    return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+authRouter.post('/2fa/enable', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    const { method, verification_code, phone_number, password } = req.body
+
+    if (!method || !verification_code || !password) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'method, verification_code, and password are required',
+      })
+    }
+
+    const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId) as {
+      password_hash: string | null
+    }
+    if (!user?.password_hash || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ code: 'INVALID_PASSWORD', message: 'Invalid password' })
+    }
+
+    if (method === 'totp') {
+      const { recoveryCodes } = await enableTOTP(userId, verification_code)
+      logAudit(userId, '2fa.enabled', { method: 'totp' }, ip)
+      return res.json({ enabled: true, recovery_codes: recoveryCodes })
+    }
+
+    if (method === 'sms') {
+      if (!phone_number) {
+        return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'phone_number required for SMS' })
+      }
+      if (!isValidPhone(phone_number)) {
+        return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid phone number' })
+      }
+      const normalized = normalizePhone(phone_number)
+      const { recoveryCodes } = await enableSMS(userId, normalized, verification_code)
+      logAudit(userId, '2fa.enabled', { method: 'sms' }, ip)
+      return res.json({ enabled: true, recovery_codes: recoveryCodes })
+    }
+
+    return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Invalid method' })
+  } catch (err) {
+    console.error('[Auth] 2FA enable error:', err)
+    const msg = err instanceof Error ? err.message : 'An error occurred'
+    return res.status(400).json({ code: 'VALIDATION_ERROR', message: msg })
+  }
+})
+
+authRouter.post('/2fa/disable', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
+    const { password, code } = req.body
+
+    if (!password || !code) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'password and code are required',
+      })
+    }
+
+    const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId) as {
+      password_hash: string | null
+    }
+    if (!user?.password_hash) {
+      return res.status(400).json({ code: 'NO_PASSWORD', message: 'Account has no password' })
+    }
+
+    await disable2FA(userId, password, code, user.password_hash)
+    logAudit(userId, '2fa.disabled', {}, ip)
+    return res.json({ disabled: true })
+  } catch (err) {
+    console.error('[Auth] 2FA disable error:', err)
+    const msg = err instanceof Error ? err.message : 'An error occurred'
+    return res.status(400).json({ code: 'VALIDATION_ERROR', message: msg })
   }
 })
 

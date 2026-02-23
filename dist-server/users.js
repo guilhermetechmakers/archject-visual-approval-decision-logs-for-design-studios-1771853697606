@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { db } from './db.js';
 import { getUserIdFromAccessToken } from './auth-utils.js';
+import { get2faStatus, maskPhone, regenerateRecoveryCodes, verify2faForUser, verifyRecoveryCode, } from './twofa.js';
 export const usersRouter = Router();
 function requireAuth(req, res, next) {
     const userId = getUserIdFromAccessToken(req);
@@ -16,12 +17,14 @@ function requireAuth(req, res, next) {
 usersRouter.get('/me', requireAuth, (req, res) => {
     try {
         const userId = req.userId;
-        const user = db.prepare('SELECT id, first_name, last_name, email, email_verified, company, role, avatar_url FROM users WHERE id = ?').get(userId);
+        const user = db.prepare('SELECT id, first_name, last_name, email, email_verified, company, role, avatar_url, 2fa_enabled, 2fa_method, phone_number FROM users WHERE id = ?').get(userId);
         if (!user) {
             return res.status(404).json({ code: 'USER_NOT_FOUND', message: 'User not found' });
         }
         const oauthAccounts = db.prepare('SELECT provider, provider_email, created_at, last_used_at FROM oauth_accounts WHERE user_id = ?').all(userId);
-        const totpEnabled = !!db.prepare('SELECT 1 FROM totp_secrets WHERE user_id = ? AND enabled_at IS NOT NULL').get(userId);
+        const twofaEnabled = user['2fa_enabled'] === 1;
+        const twofaMethod = user['2fa_method'] ?? null;
+        const phoneMasked = user.phone_number ? maskPhone(user.phone_number) : null;
         const sessions = db.prepare(`SELECT id, ip, user_agent, last_active_at, created_at
        FROM sessions WHERE user_id = ? AND revoked_at IS NULL ORDER BY last_active_at DESC`).all(userId);
         return res.json({
@@ -39,7 +42,9 @@ usersRouter.get('/me', requireAuth, (req, res) => {
                 connected_at: o.created_at,
                 last_used: o.last_used_at,
             })),
-            two_fa_enabled: totpEnabled,
+            two_fa_enabled: twofaEnabled,
+            two_fa_method: twofaMethod,
+            phone_masked: phoneMasked,
             sessions: sessions.map((s) => ({
                 id: s.id,
                 ip: s.ip,
@@ -164,6 +169,54 @@ usersRouter.post('/me/sessions/:id/revoke', requireAuth, (req, res) => {
     }
     catch (err) {
         console.error('[Users] Revoke session error:', err);
+        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
+    }
+});
+usersRouter.get('/me/2fa/status', requireAuth, (req, res) => {
+    try {
+        const userId = req.userId;
+        const status = get2faStatus(userId);
+        return res.json({
+            enabled: status.enabled,
+            method: status.method,
+            phone_masked: status.phoneMasked,
+            last_enforced_by_admin: status.lastEnforcedByAdmin,
+        });
+    }
+    catch (err) {
+        console.error('[Users] 2FA status error:', err);
+        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
+    }
+});
+usersRouter.post('/me/2fa/recovery/regenerate', requireAuth, async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { password, code } = req.body;
+        if (!password || !code) {
+            return res.status(400).json({
+                code: 'VALIDATION_ERROR',
+                message: 'password and code are required',
+            });
+        }
+        const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId);
+        if (!user?.password_hash) {
+            return res.status(400).json({ code: 'NO_PASSWORD', message: 'Account has no password' });
+        }
+        const valid = await bcrypt.compare(password, user.password_hash);
+        if (!valid) {
+            return res.status(401).json({ code: 'INVALID_PASSWORD', message: 'Invalid password' });
+        }
+        const verified = (await verify2faForUser(userId, code, 'totp')) ||
+            (await verify2faForUser(userId, code, 'sms')) ||
+            (await verifyRecoveryCode(userId, code));
+        if (!verified) {
+            return res.status(401).json({ code: 'INVALID_2FA_CODE', message: 'Invalid 2FA code' });
+        }
+        const recoveryCodes = await regenerateRecoveryCodes(userId);
+        return res.json({ recovery_codes: recoveryCodes });
+    }
+    catch (err) {
+        console.error('[Users] Regenerate recovery codes error:', err);
         return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
     }
 });

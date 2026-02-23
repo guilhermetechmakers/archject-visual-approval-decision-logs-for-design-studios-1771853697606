@@ -19,6 +19,8 @@ export interface UserProfile {
     last_used: string
   }[]
   two_fa_enabled: boolean
+  two_fa_method?: 'totp' | 'sms' | null
+  phone_masked?: string | null
   sessions: {
     id: string
     ip: string | null

@@ -14,6 +14,7 @@ import {
   Monitor,
   Unplug,
   Plug,
+  RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +28,14 @@ import {
   revokeSession,
   type UpdateProfileRequest,
 } from '@/api/users'
+import {
+  TOTPSetupModal,
+  SMSSetupModal,
+  RecoveryCodesModal,
+  Disable2FAModal,
+  EnableMethodModal,
+  RegenerateRecoveryModal,
+} from '@/components/twofa'
 
 const profileSchema = z.object({
   first_name: z.string().min(1, 'First name is required').max(100, 'Max 100 characters'),
@@ -70,6 +79,13 @@ function formatUserAgent(ua: string | null): string {
 export function ProfilePage() {
   const queryClient = useQueryClient()
   const [passwordFormOpen, setPasswordFormOpen] = useState(false)
+  const [enableMethodOpen, setEnableMethodOpen] = useState(false)
+  const [totpSetupOpen, setTotpSetupOpen] = useState(false)
+  const [smsSetupOpen, setSmsSetupOpen] = useState(false)
+  const [recoveryCodesOpen, setRecoveryCodesOpen] = useState(false)
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
+  const [disable2faOpen, setDisable2faOpen] = useState(false)
+  const [regenRecoveryOpen, setRegenRecoveryOpen] = useState(false)
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-profile'],
@@ -299,17 +315,92 @@ export function ProfilePage() {
           </div>
 
           <div>
-            <div className="flex items-center gap-2">
-              <Smartphone className="h-4 w-4" />
-              <span className="font-medium">Two-factor authentication</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4" />
+                <span className="font-medium">Two-factor authentication</span>
+              </div>
+              <div className="flex gap-2">
+                {profile.two_fa_enabled ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRegenRecoveryOpen(true)}
+                    >
+                      <RefreshCw className="mr-1 h-4 w-4" />
+                      Regenerate
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDisable2faOpen(true)}
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      Disable 2FA
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setEnableMethodOpen(true)}>
+                    Enable 2FA
+                  </Button>
+                )}
+              </div>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {profile.two_fa_enabled ? '2FA is enabled.' : 'Add an extra layer of security with TOTP (e.g., Google Authenticator).'}
+              {profile.two_fa_enabled
+                ? `2FA: Enabled (${profile.two_fa_method === 'sms' ? `SMS to ${profile.phone_masked ?? '***'}` : 'Authenticator app'})`
+                : 'Add an extra layer of security with an authenticator app or SMS.'}
             </p>
-            <Button variant="outline" size="sm" className="mt-2" disabled>
-              {profile.two_fa_enabled ? 'Disable 2FA' : 'Enable 2FA'} (coming soon)
-            </Button>
+            {profile.two_fa_enabled && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Store recovery codes safely. Each can be used once if you lose access to your 2FA device.
+              </p>
+            )}
           </div>
+
+          <EnableMethodModal
+            open={enableMethodOpen}
+            onClose={() => setEnableMethodOpen(false)}
+            onSelectTotp={() => setTotpSetupOpen(true)}
+            onSelectSms={() => setSmsSetupOpen(true)}
+          />
+          <TOTPSetupModal
+            open={totpSetupOpen}
+            onClose={() => setTotpSetupOpen(false)}
+            onSuccess={(codes) => {
+              setRecoveryCodes(codes)
+              setRecoveryCodesOpen(true)
+              queryClient.invalidateQueries({ queryKey: ['user-profile'] })
+            }}
+          />
+          <SMSSetupModal
+            open={smsSetupOpen}
+            onClose={() => setSmsSetupOpen(false)}
+            onSuccess={(codes) => {
+              setRecoveryCodes(codes)
+              setRecoveryCodesOpen(true)
+              queryClient.invalidateQueries({ queryKey: ['user-profile'] })
+            }}
+          />
+          <RecoveryCodesModal
+            open={recoveryCodesOpen}
+            codes={recoveryCodes}
+            onClose={() => {
+              setRecoveryCodesOpen(false)
+              setRecoveryCodes([])
+            }}
+          />
+          <Disable2FAModal
+            open={disable2faOpen}
+            onClose={() => setDisable2faOpen(false)}
+            onSuccess={() => queryClient.invalidateQueries({ queryKey: ['user-profile'] })}
+          />
+          <RegenerateRecoveryModal
+            open={regenRecoveryOpen}
+            onClose={() => setRegenRecoveryOpen(false)}
+            onSuccess={() => queryClient.invalidateQueries({ queryKey: ['user-profile'] })}
+          />
         </CardContent>
       </Card>
 
