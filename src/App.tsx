@@ -3,8 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { LandingPage } from '@/pages/landing'
-import { LoginPage } from '@/pages/login'
-import { SignupPage } from '@/pages/signup'
+import { AuthPage } from '@/pages/auth'
 import { VerifyEmailPage } from '@/pages/verify-email'
 import { PasswordResetPage } from '@/pages/password-reset'
 import { DashboardOverview } from '@/pages/dashboard/overview'
@@ -39,8 +38,9 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/signup" element={<AuthPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/password-reset" element={<PasswordResetPage />} />
           <Route path="/about" element={<AboutPage />} />

@@ -4,6 +4,8 @@ export interface ApiError {
   message: string
   code?: string
   status?: number
+  /** Response body for rate limit info etc. */
+  data?: Record<string, unknown>
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -15,7 +17,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
     try {
       const data = await response.json()
       error.message = data.message ?? data.error ?? response.statusText
-      error.code = data.code
+      error.code = data.code ?? data.error
+      error.data = data as Record<string, unknown>
     } catch {
       // Use statusText if JSON parse fails
     }
