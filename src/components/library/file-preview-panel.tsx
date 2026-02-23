@@ -41,11 +41,15 @@ export function FilePreviewPanel({
 
   useEffect(() => {
     if (isPdf && fileId && projectId && !previewUrl) {
+      let blobUrl: string | null = null
       getFilePreviewBlobUrl(projectId, fileId)
-        .then(setPdfBlobUrl)
+        .then((url) => {
+          blobUrl = url
+          setPdfBlobUrl(url)
+        })
         .catch(() => setPdfError(true))
       return () => {
-        if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl)
+        if (blobUrl) URL.revokeObjectURL(blobUrl)
       }
     }
   }, [isPdf, fileId, projectId, previewUrl])
