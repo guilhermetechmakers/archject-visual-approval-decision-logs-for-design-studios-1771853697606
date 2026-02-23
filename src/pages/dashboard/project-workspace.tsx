@@ -201,7 +201,7 @@ export function ProjectWorkspace() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Link to="/dashboard/templates">
+              <Link to={`/dashboard/projects/${projectId}/templates`}>
                 <Button variant="outline" size="sm" className="w-full">
                   Browse templates
                 </Button>

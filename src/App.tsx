@@ -20,7 +20,7 @@ import { ProjectWorkspace } from '@/pages/dashboard/project-workspace'
 import { ProjectAnalyticsPage } from '@/pages/dashboard/project-analytics'
 import { DecisionDetail } from '@/pages/dashboard/decision-detail'
 import { CreateDecisionPage } from '@/pages/dashboard/create-decision'
-import { TemplatesPage } from '@/pages/dashboard/templates'
+import { TemplatesLibraryPage } from '@/pages/dashboard/templates-library'
 import { LibraryPage } from '@/pages/dashboard/library'
 import { ExportsPage } from '@/pages/dashboard/exports'
 import { NotificationsPage } from '@/pages/dashboard/notifications'
@@ -133,7 +133,8 @@ function App() {
                   <Route path="library" element={<Navigate to="/dashboard/projects" replace />} />
                   <Route path="projects/:projectId/analytics" element={<ProjectAnalyticsPage />} />
                   <Route path="decisions" element={<DecisionsListPage />} />
-                  <Route path="templates" element={<TemplatesPage />} />
+                  <Route path="templates" element={<TemplatesLibraryPage />} />
+                  <Route path="projects/:projectId/templates" element={<TemplatesLibraryPage />} />
                   <Route path="exports" element={<ExportsPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="billing" element={<BillingPage />} />

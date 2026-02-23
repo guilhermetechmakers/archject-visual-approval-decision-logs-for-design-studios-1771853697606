@@ -49,6 +49,87 @@ export interface Template {
   usageCount: number
 }
 
+export type TemplateType = 'FINISHES' | 'LAYOUTS' | 'CHANGE_REQUESTS' | 'VARIATIONS' | 'PERMITS'
+
+export interface TemplateLibraryItem {
+  id: string
+  name: string
+  description?: string
+  type: TemplateType
+  content: { defaultOptions?: { title: string; description?: string; isDefault?: boolean; isRecommended?: boolean }[] }
+  tags: string[]
+  ownerId: string
+  projectId?: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+  isArchived: boolean
+  reminderSchedule?: string | null
+  usageCount: number
+  optionCount: number
+}
+
+export interface TemplateVersion {
+  id: string
+  versionNumber: number
+  createdAt: string
+  changesSummary: string
+  contentSnapshot: Record<string, unknown> | null
+}
+
+export interface TemplateDetail extends TemplateLibraryItem {
+  versions: TemplateVersion[]
+}
+
+export type TemplateLibraryType =
+  | 'FINISHES'
+  | 'LAYOUTS'
+  | 'CHANGE_REQUESTS'
+  | 'VARIATIONS'
+  | 'PERMITS'
+
+export interface TemplateLibraryContent {
+  defaultOptions?: { title: string; description?: string; isDefault?: boolean; isRecommended?: boolean }[]
+}
+
+export interface TemplateLibrary {
+  id: string
+  name: string
+  description?: string
+  type: TemplateLibraryType
+  content: TemplateLibraryContent
+  tags: string[]
+  ownerId: string
+  projectId?: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+  isArchived: boolean
+  isDeleted?: boolean
+  reminderSchedule?: string | null
+  usageCount?: number
+  optionCount?: number
+}
+
+export interface TemplateLibraryVersion {
+  id: string
+  templateId: string
+  versionNumber: number
+  createdAt: string
+  changesSummary?: string
+  contentSnapshot?: TemplateLibraryContent
+}
+
+export interface ProjectTemplateApplyLog {
+  id: string
+  projectId: string
+  templateId: string
+  appliedAt: string
+  appliedBy: string
+  scopeDetail?: Record<string, unknown>
+  result: string
+}
+
 export interface ActivityItem {
   id: string
   type: 'decision_created' | 'decision_approved' | 'comment_added' | 'file_uploaded'

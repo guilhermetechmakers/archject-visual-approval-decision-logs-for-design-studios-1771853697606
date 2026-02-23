@@ -449,6 +449,93 @@ export function initDb() {
       if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
     }
   }
+
+  // 021: Templates Library (versioning, apply logs)
+  const templatesLibPath = path.join(process.cwd(), 'server', 'migrations', '021_templates_library.sql')
+  if (fs.existsSync(templatesLibPath)) {
+    try {
+      const sql = fs.readFileSync(templatesLibPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+    seedTemplatesLibrary()
+  }
+}
+
+function seedTemplatesLibrary() {
+  try {
+    const hasTemplates = db.prepare('SELECT 1 FROM templates_library LIMIT 1').get()
+    if (hasTemplates) return
+    const crypto = require('crypto')
+    const now = new Date().toISOString()
+    const ownerId = db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string } | undefined
+    const userId = ownerId?.id ?? 'default'
+    const templates = [
+      {
+        id: crypto.randomUUID(),
+        name: 'Material selection',
+        description: 'Compare material options for finishes, countertops, flooring',
+        type: 'FINISHES',
+        content_json: JSON.stringify({
+          defaultOptions: [
+            { title: 'Option A', description: 'First material option', isDefault: false, isRecommended: true },
+            { title: 'Option B', description: 'Second material option', isDefault: false, isRecommended: false },
+            { title: 'Option C', description: 'Third material option', isDefault: false, isRecommended: false },
+          ],
+        }),
+        tags_json: JSON.stringify(['finishes', 'materials']),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Layout options',
+        description: 'Floor plan variations and spatial arrangements',
+        type: 'LAYOUTS',
+        content_json: JSON.stringify({
+          defaultOptions: [
+            { title: 'Layout A', description: 'First layout variant', isDefault: false, isRecommended: true },
+            { title: 'Layout B', description: 'Second layout variant', isDefault: false, isRecommended: false },
+          ],
+        }),
+        tags_json: JSON.stringify(['layouts', 'floor-plans']),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Change request',
+        description: 'Document change requests and approvals',
+        type: 'CHANGE_REQUESTS',
+        content_json: JSON.stringify({
+          defaultOptions: [
+            { title: 'Approve change', description: 'Approve the proposed change', isDefault: false, isRecommended: true },
+            { title: 'Request revision', description: 'Request modifications before approval', isDefault: false, isRecommended: false },
+            { title: 'Decline', description: 'Decline the change', isDefault: false, isRecommended: false },
+          ],
+        }),
+        tags_json: JSON.stringify(['change-request', 'approval']),
+      },
+    ]
+    const insert = db.prepare(
+      `INSERT INTO templates_library (id, name, description, type, content_json, tags_json, owner_id, version, created_at, updated_at, is_archived, is_deleted)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 0, 0)`
+    )
+    for (const t of templates) {
+      insert.run(t.id, t.name, t.description, t.type, t.content_json, t.tags_json, userId, now, now)
+    }
+  } catch (e) {
+    if (!String(e).includes('UNIQUE')) console.error('[DB] seedTemplatesLibrary:', e)
+  }
 }
 
 function seedDecisionTemplates() {
