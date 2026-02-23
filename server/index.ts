@@ -24,6 +24,7 @@ import { jobsRouter } from './jobs.js'
 import { v1Router } from './v1.js'
 import { leadsRouter } from './leads.js'
 import { brandingPreviewRouter } from './branding-preview.js'
+import { dashboardRouter } from './dashboard.js'
 
 initDb()
 
@@ -52,6 +53,7 @@ app.use('/api', jobsRouter)
 app.use('/api/v1', v1Router)
 app.use('/api', leadsRouter)
 app.use('/api', brandingPreviewRouter)
+app.use('/api/dashboard', dashboardRouter)
 app.use('/api', privacyRouter)
 app.use('/api/terms', termsRouter)
 app.use('/webhooks', webhooksRouter)

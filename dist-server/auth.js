@@ -80,7 +80,7 @@ authRouter.post('/signup', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?)`).run(verifyId, id, tokenHash, expiresAt.toISOString(), req.ip ?? null, req.get('user-agent') ?? null);
         db.prepare('UPDATE users SET verification_sent_at = ?, verification_attempts_count = 1 WHERE id = ?').run(new Date().toISOString(), id);
         const verifyBase = process.env.VERIFY_BASE_URL ?? 'http://localhost:5173';
-        const verificationUrl = `${verifyBase}/verify-email?token=${token}`;
+        const verificationUrl = `${verifyBase}/verify?token=${token}&uid=${id}`;
         const sent = await sendVerificationEmail({
             firstName: first_name,
             email,
@@ -423,30 +423,34 @@ authRouter.post('/2fa/disable', requireAuth, async (req, res) => {
 authRouter.post('/verify-email', async (req, res) => {
     try {
         const token = (req.body?.token ?? req.query?.token);
+        const uid = (req.body?.uid ?? req.query?.uid);
         if (!token || typeof token !== 'string' || token.length < 32) {
-            return res.status(400).json({ error: 'TOKEN_INVALID', message: 'Invalid or missing verification token' });
+            return res.status(400).json({ code: 'TOKEN_INVALID', message: 'Invalid or missing verification token' });
         }
         const tokenHash = hashToken(token);
         const row = db.prepare('SELECT ev.*, u.email_verified as user_verified FROM email_verifications ev JOIN users u ON ev.user_id = u.id WHERE ev.token_hash = ?').get(tokenHash);
         if (!row) {
-            return res.status(400).json({ error: 'TOKEN_INVALID', message: 'This verification link is invalid' });
+            return res.status(400).json({ code: 'TOKEN_INVALID', message: 'This verification link is invalid' });
+        }
+        if (uid && row.user_id !== uid) {
+            return res.status(400).json({ code: 'TOKEN_INVALID', message: 'This verification link is invalid' });
         }
         if (row.user_verified) {
-            return res.status(400).json({
-                error: 'ALREADY_VERIFIED',
+            return res.status(409).json({
+                code: 'ALREADY_VERIFIED',
                 message: 'This email has already been verified',
             });
         }
         if (row.used_at) {
             return res.status(400).json({
-                error: 'TOKEN_INVALID',
+                code: 'TOKEN_INVALID',
                 message: 'This verification link has already been used',
             });
         }
         const expiresAt = new Date(row.expires_at);
         if (expiresAt < new Date()) {
-            return res.status(400).json({
-                error: 'TOKEN_EXPIRED',
+            return res.status(410).json({
+                code: 'TOKEN_EXPIRED',
                 message: 'This verification link has expired',
             });
         }
@@ -474,6 +478,7 @@ authRouter.post('/verify-email', async (req, res) => {
             },
             accessToken,
             sessionToken: accessToken,
+            autoSignedIn: true,
         });
     }
     catch (err) {
@@ -484,6 +489,7 @@ authRouter.post('/verify-email', async (req, res) => {
 authRouter.post('/resend-verification', async (req, res) => {
     try {
         const email = req.body?.email;
+        const uid = req.body?.uid;
         const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
         let userId = null;
         let targetEmail = null;
@@ -500,6 +506,13 @@ authRouter.post('/resend-verification', async (req, res) => {
             }
             catch {
                 // Invalid token
+            }
+        }
+        if (!targetEmail && uid) {
+            const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(uid);
+            if (user) {
+                userId = user.id;
+                targetEmail = user.email;
             }
         }
         if (!targetEmail && email) {
@@ -546,7 +559,7 @@ authRouter.post('/resend-verification', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?)`).run(crypto.randomUUID(), user.id, tokenHash, expiresAt.toISOString(), ip, req.get('user-agent') ?? null);
         db.prepare('UPDATE users SET verification_sent_at = ?, verification_attempts_count = verification_attempts_count + 1 WHERE id = ?').run(new Date().toISOString(), user.id);
         const verifyBase = process.env.VERIFY_BASE_URL ?? 'http://localhost:5173';
-        const verificationUrl = `${verifyBase}/verify-email?token=${token}`;
+        const verificationUrl = `${verifyBase}/verify?token=${token}&uid=${user.id}`;
         const sent = await sendVerificationEmail({
             firstName: user.first_name,
             email: targetEmail,

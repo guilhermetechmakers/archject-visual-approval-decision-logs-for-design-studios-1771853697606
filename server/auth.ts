@@ -151,7 +151,7 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
     )
 
     const verifyBase = process.env.VERIFY_BASE_URL ?? 'http://localhost:5173'
-    const verificationUrl = `${verifyBase}/verify-email?token=${token}`
+    const verificationUrl = `${verifyBase}/verify?token=${token}&uid=${id}`
 
     const sent = await sendVerificationEmail({
       firstName: first_name,
@@ -541,8 +541,9 @@ authRouter.post('/2fa/disable', requireAuth, async (req: Request, res: Response)
 authRouter.post('/verify-email', async (req: Request, res: Response) => {
   try {
     const token = (req.body?.token ?? req.query?.token) as string | undefined
+    const uid = (req.body?.uid ?? req.query?.uid) as string | undefined
     if (!token || typeof token !== 'string' || token.length < 32) {
-      return res.status(400).json({ error: 'TOKEN_INVALID', message: 'Invalid or missing verification token' })
+      return res.status(400).json({ code: 'TOKEN_INVALID', message: 'Invalid or missing verification token' })
     }
 
     const tokenHash = hashToken(token)
@@ -557,27 +558,31 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
     } | undefined
 
     if (!row) {
-      return res.status(400).json({ error: 'TOKEN_INVALID', message: 'This verification link is invalid' })
+      return res.status(400).json({ code: 'TOKEN_INVALID', message: 'This verification link is invalid' })
+    }
+
+    if (uid && row.user_id !== uid) {
+      return res.status(400).json({ code: 'TOKEN_INVALID', message: 'This verification link is invalid' })
     }
 
     if (row.user_verified) {
-      return res.status(400).json({
-        error: 'ALREADY_VERIFIED',
+      return res.status(409).json({
+        code: 'ALREADY_VERIFIED',
         message: 'This email has already been verified',
       })
     }
 
     if (row.used_at) {
       return res.status(400).json({
-        error: 'TOKEN_INVALID',
+        code: 'TOKEN_INVALID',
         message: 'This verification link has already been used',
       })
     }
 
     const expiresAt = new Date(row.expires_at)
     if (expiresAt < new Date()) {
-      return res.status(400).json({
-        error: 'TOKEN_EXPIRED',
+      return res.status(410).json({
+        code: 'TOKEN_EXPIRED',
         message: 'This verification link has expired',
       })
     }
@@ -616,6 +621,7 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
       },
       accessToken,
       sessionToken: accessToken,
+      autoSignedIn: true,
     })
   } catch (err) {
     console.error('[Auth] Verify email error:', err)
@@ -626,6 +632,7 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
 authRouter.post('/resend-verification', async (req: Request, res: Response) => {
   try {
     const email = req.body?.email as string | undefined
+    const uid = req.body?.uid as string | undefined
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
 
     let userId: string | null = null
@@ -646,6 +653,17 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
         }
       } catch {
         // Invalid token
+      }
+    }
+
+    if (!targetEmail && uid) {
+      const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(uid) as {
+        id: string
+        email: string
+      } | undefined
+      if (user) {
+        userId = user.id
+        targetEmail = user.email
       }
     }
 
@@ -715,7 +733,7 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
     ).run(new Date().toISOString(), user.id)
 
     const verifyBase = process.env.VERIFY_BASE_URL ?? 'http://localhost:5173'
-    const verificationUrl = `${verifyBase}/verify-email?token=${token}`
+    const verificationUrl = `${verifyBase}/verify?token=${token}&uid=${user.id}`
 
     const sent = await sendVerificationEmail({
       firstName: user.first_name,

@@ -1,19 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/auth-context'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Mail, CheckCircle2, XCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { RateLimitNotice } from '@/components/ui/rate-limit-notice'
 import { useVerifyEmail, useResendVerification } from '@/hooks/use-auth'
 import type { ApiError } from '@/lib/api'
-import { resendVerificationSchema, type ResendVerificationFormData } from '@/auth/validation'
 import { AuthCardHeader } from '@/components/auth/unified-auth-card'
+import { VerificationCard, VerificationCardActions } from '@/components/auth/verification-card'
+import { ResendVerificationForm } from '@/components/auth/resend-verification-form'
+import type { ResendVerificationFormData } from '@/auth/validation'
 
 type VerifyState =
   | 'verifying'
@@ -22,25 +15,24 @@ type VerifyState =
   | 'expired'
   | 'invalid'
   | 'resend_success'
+  | 'resend_error'
   | 'rate_limited'
 
 export function VerifyEmailPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
+  const uidFromUrl = searchParams.get('uid')
   const emailFromUrl = searchParams.get('email')
+  const redirectParam = searchParams.get('redirect') ?? '/dashboard'
 
   const [state, setState] = useState<VerifyState>('verifying')
   const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null)
+  const [resendConfirmation, setResendConfirmation] = useState<string | null>(null)
 
   const { login } = useAuth()
   const verifyMutation = useVerifyEmail()
   const resendMutation = useResendVerification()
-
-  const resendForm = useForm<ResendVerificationFormData>({
-    resolver: zodResolver(resendVerificationSchema),
-    defaultValues: { email: emailFromUrl ?? '' },
-  })
 
   useEffect(() => {
     if (!tokenFromUrl) {
@@ -48,54 +40,72 @@ export function VerifyEmailPage() {
       return
     }
 
-    verifyMutation.mutate(tokenFromUrl, {
-      onSuccess: (data) => {
-        if (data.user.email_verified && data.sessionToken) {
-          setState('success')
-          login(data.user, data.sessionToken)
-          setTimeout(() => navigate('/dashboard'), 3000)
-        } else {
-          setState('success')
-        }
-      },
-      onError: (err) => {
-        const apiErr = err as ApiError
-        const code = apiErr?.code ?? apiErr?.data?.error
-        if (code === 'TOKEN_EXPIRED') setState('expired')
-        else if (code === 'ALREADY_VERIFIED') setState('already_verified')
-        else setState('invalid')
-      },
-    })
+    verifyMutation.mutate(
+      { token: tokenFromUrl, uid: uidFromUrl ?? undefined },
+      {
+        onSuccess: (data) => {
+          if (data.user.email_verified && data.sessionToken) {
+            setState('success')
+            login(data.user, data.sessionToken)
+            setTimeout(() => navigate(redirectParam), 3000)
+          } else {
+            setState('success')
+          }
+        },
+        onError: (err) => {
+          const apiErr = err as ApiError
+          const code = apiErr?.code ?? apiErr?.data?.error
+          if (code === 'TOKEN_EXPIRED') setState('expired')
+          else if (code === 'ALREADY_VERIFIED') setState('already_verified')
+          else setState('invalid')
+        },
+      }
+    )
   }, [tokenFromUrl])
 
-  useEffect(() => {
-    if (emailFromUrl) resendForm.setValue('email', emailFromUrl)
-  }, [emailFromUrl, resendForm])
-
   const handleResend = async (data: ResendVerificationFormData) => {
+    setResendConfirmation(null)
     try {
-      await resendMutation.mutateAsync({ email: data.email })
+      await resendMutation.mutateAsync({
+        email: data.email,
+        uid: uidFromUrl ?? undefined,
+      })
+      setResendConfirmation('New verification email sent.')
       setState('resend_success')
     } catch (err) {
       const apiErr = err as ApiError
       if (apiErr?.status === 429 && apiErr?.data?.next_allowed_attempt_at) {
-        setRateLimitUntil(Number(apiErr.data.next_allowed_attempt_at))
+        setRateLimitUntil(new Date(apiErr.data.next_allowed_attempt_at as string).getTime())
         setState('rate_limited')
+      } else {
+        setState('resend_error')
       }
     }
   }
+
+  const supportLink = (
+    <p className="text-center text-sm text-[#6B7280]">
+      Need help?{' '}
+      <a
+        href="mailto:support@archject.com"
+        className="text-[#0052CC] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+      >
+        Contact support
+      </a>
+    </p>
+  )
 
   if (state === 'verifying') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
         <div className="w-full max-w-[420px] animate-in-up">
           <AuthCardHeader />
-          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <p className="mt-4 text-muted-foreground">Verifying your email...</p>
-            </CardContent>
-          </Card>
+          <VerificationCard
+            variant="neutral"
+            title="Verifying your email..."
+            description="Please wait while we confirm your account."
+            statusMessage="Verification in progress"
+          />
         </div>
       </div>
     )
@@ -106,30 +116,25 @@ export function VerifyEmailPage() {
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
         <div className="w-full max-w-[420px] animate-in-up">
           <AuthCardHeader />
-          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
-            <CardHeader>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#10B981]/10">
-                <CheckCircle2 className="h-6 w-6 text-[#10B981]" aria-hidden />
-              </div>
-              <Badge variant="success" className="mx-auto w-fit">
-                Verified
-              </Badge>
-              <CardTitle className="text-center text-[22px]">Email verified — Welcome to Archject</CardTitle>
-              <CardDescription className="text-center text-[15px]">
-                Your account is now active. You can start using Archject to manage your design decisions and approvals.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button className="w-full bg-[#0052CC] hover:bg-[#0052CC]/90" onClick={() => navigate('/dashboard')}>
-                Go to Dashboard
-              </Button>
-              <Link to="/auth?tab=login" className="block">
-                <Button variant="outline" className="w-full text-muted-foreground">
-                  Log in as another user
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <VerificationCard
+            variant="success"
+            title="Email Verified"
+            description="Your account is now active. You can start using Archject to manage your design decisions and approvals."
+            badge="Verified"
+            statusMessage="Your account has been verified successfully."
+          >
+            <VerificationCardActions
+              primary={{
+                label: 'Go to Dashboard',
+                onClick: () => navigate(redirectParam),
+                autoFocus: true,
+              }}
+              secondary={{
+                label: 'Log in as another user',
+                href: '/auth?tab=login',
+              }}
+            />
+          </VerificationCard>
         </div>
       </div>
     )
@@ -140,22 +145,19 @@ export function VerifyEmailPage() {
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
         <div className="w-full max-w-[420px] animate-in-up">
           <AuthCardHeader />
-          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
-            <CardHeader>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
-                <CheckCircle2 className="h-6 w-6 text-success" aria-hidden />
-              </div>
-              <CardTitle className="text-center">Already verified</CardTitle>
-              <CardDescription className="text-center">
-                This email has already been verified. You can log in to continue.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link to="/auth?tab=login" className="block">
-                <Button className="w-full">Log in</Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <VerificationCard
+            variant="success"
+            title="Already verified"
+            description="This email has already been verified. You can log in to continue."
+            statusMessage="Account already verified"
+          >
+            <VerificationCardActions
+              primary={{
+                label: 'Sign in',
+                href: '/auth?tab=login',
+              }}
+            />
+          </VerificationCard>
         </div>
       </div>
     )
@@ -166,30 +168,27 @@ export function VerifyEmailPage() {
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
         <div className="w-full max-w-[420px] animate-in-up">
           <AuthCardHeader />
-          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
-            <CardHeader>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
-                <Mail className="h-6 w-6 text-success" aria-hidden />
-              </div>
-              <CardTitle className="text-center">Check your email</CardTitle>
-              <CardDescription className="text-center">
-                We sent a new verification link. Click the link to verify your account.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setState('expired')}
-                disabled={resendMutation.isPending}
-              >
-                Request another link
-              </Button>
-              <Link to="/auth?tab=login" className="block">
-                <Button className="w-full">Log in</Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <VerificationCard
+            variant="success"
+            title="Check your email"
+            description="We sent a new verification link. Click the link to verify your account."
+            statusMessage="New verification email sent"
+          >
+            <ResendVerificationForm
+              defaultEmail={emailFromUrl ?? ''}
+              hideEmailWhenKnown={!!emailFromUrl}
+              onSubmit={handleResend}
+              isLoading={resendMutation.isPending}
+              confirmationMessage={resendConfirmation}
+            />
+            <VerificationCardActions
+              secondary={{
+                label: 'Log in',
+                href: '/auth?tab=login',
+              }}
+            />
+          </VerificationCard>
+          {supportLink}
         </div>
       </div>
     )
@@ -200,95 +199,67 @@ export function VerifyEmailPage() {
       <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
         <div className="w-full max-w-[420px] animate-in-up">
           <AuthCardHeader />
-          <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
-            <CardHeader>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-                <XCircle className="h-6 w-6 text-destructive" aria-hidden />
-              </div>
-              <Badge variant="destructive" className="mx-auto w-fit">
-                Rate limited
-              </Badge>
-              <CardTitle className="text-center">Too many requests</CardTitle>
-              <CardDescription className="text-center">
-                Please wait before requesting another verification email.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RateLimitNotice
-                nextAllowedAt={rateLimitUntil ? new Date(rateLimitUntil).getTime() : undefined}
-              >
-                You&apos;ve reached the limit for verification emails.
-              </RateLimitNotice>
-              <Link to="/login" className="mt-4 block">
-                <Button variant="outline" className="w-full">Back to login</Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <VerificationCard
+            variant="error"
+            title="Too many requests"
+            description="Please wait before requesting another verification email."
+            badge="Rate limited"
+            statusMessage="Rate limit exceeded. Please wait before trying again."
+          >
+            <ResendVerificationForm
+              defaultEmail={emailFromUrl ?? ''}
+              onSubmit={handleResend}
+              isLoading={resendMutation.isPending}
+              rateLimitUntil={rateLimitUntil}
+            />
+            <VerificationCardActions
+              secondary={{
+                label: 'Back to login',
+                href: '/auth?tab=login',
+              }}
+            />
+          </VerificationCard>
+          {supportLink}
         </div>
       </div>
     )
   }
 
-  const headline = state === 'expired'
-    ? 'This verification link has expired.'
-    : 'This verification link is invalid.'
-  const body =
-    state === 'expired'
-      ? "Request a new link and we'll email it to you."
-      : 'Request a new link or copy/paste the URL from your email.'
+  const isExpired = state === 'expired'
+  const headline = isExpired
+    ? 'Verification Link Expired'
+    : 'Invalid Verification Link'
+  const body = isExpired
+    ? "This link has expired. Request a new one and we'll email it to you."
+    : 'This link is invalid or has already been used. Request a new verification link.'
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F7F7F9] px-4">
       <div className="w-full max-w-[420px] animate-in-up">
         <AuthCardHeader />
-        <Card className="shadow-[0_2px_8px_rgba(0,0,0,0.05)] rounded-xl border border-[#E5E7EB]">
-          <CardHeader>
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-              <XCircle className="h-6 w-6 text-destructive" aria-hidden />
-            </div>
-            <Badge variant="destructive" className="mx-auto w-fit">
-              {state === 'expired' ? 'Expired' : 'Invalid'}
-            </Badge>
-            <CardTitle className="text-center">Link expired or invalid</CardTitle>
-            <CardDescription className="text-center">
-              {headline} {body}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={resendForm.handleSubmit(handleResend)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="resend-email">Email</Label>
-                <Input
-                  id="resend-email"
-                  type="email"
-                  placeholder="you@studio.com"
-                  {...resendForm.register('email')}
-                  className={resendForm.formState.errors.email ? 'border-destructive' : ''}
-                  aria-invalid={!!resendForm.formState.errors.email}
-                />
-                {resendForm.formState.errors.email && (
-                  <p className="text-sm text-destructive" role="alert">
-                    {resendForm.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" className="w-full" isLoading={resendMutation.isPending}>
-                Resend verification email
-              </Button>
-            </form>
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              Need help?{' '}
-              <a href="mailto:support@archject.com" className="text-primary hover:underline">
-                Contact support
-              </a>
-            </p>
-            <Link to="/login" className="mt-4 block">
-              <Button variant="outline" className="w-full text-muted-foreground">
-                Back to login
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <VerificationCard
+          variant="error"
+          title={headline}
+          description={body}
+          badge={isExpired ? 'Expired' : 'Invalid'}
+          statusMessage={isExpired ? 'Verification link has expired' : 'Verification link is invalid'}
+        >
+          <ResendVerificationForm
+            defaultEmail={emailFromUrl ?? ''}
+            hideEmailWhenKnown={!!emailFromUrl}
+            onSubmit={handleResend}
+            isLoading={resendMutation.isPending}
+            rateLimitUntil={rateLimitUntil}
+            confirmationMessage={resendConfirmation}
+          />
+          <VerificationCardActions
+            secondary={{
+              label: 'Return to Login',
+              href: '/auth?tab=login',
+            }}
+          />
+        </VerificationCard>
+        {supportLink}
       </div>
     </div>
   )

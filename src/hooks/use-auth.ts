@@ -44,7 +44,8 @@ export function useLogin() {
 
 export function useVerifyEmail() {
   return useMutation({
-    mutationFn: (token: string) => verifyEmail(token),
+    mutationFn: (data: { token: string; uid?: string } | string) =>
+      verifyEmail(typeof data === 'string' ? data : data),
     onSuccess: (data) => {
       if (data.sessionToken) {
         localStorage.setItem('auth_token', data.sessionToken)

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { api } from '@/lib/api'
+import { getDashboardSummary } from '@/api/dashboard'
 import type { Project } from '@/types'
 
 const mockProjects: Project[] = [
@@ -34,10 +34,16 @@ const mockPendingApprovals = [
 ]
 
 export function DashboardOverview() {
-  const { data: projects = mockProjects, isLoading: projectsLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => api.get<Project[]>('/projects').catch(() => mockProjects),
+  const { data: summary, isLoading: summaryLoading } = useQuery({
+    queryKey: ['dashboard-summary'],
+    queryFn: getDashboardSummary,
+    retry: 1,
   })
+
+  const projects: Project[] = summary?.projects ?? mockProjects
+  const projectsLoading = summaryLoading
+  const recentDecisions = summary?.recentDecisions ?? mockDecisions
+  const pendingApprovals = summary?.pendingApprovals ?? mockPendingApprovals
 
 
   const pendingCount = projects.reduce((sum, p) => sum + (p.pendingApprovalsCount ?? 0), 0)
@@ -158,7 +164,7 @@ export function DashboardOverview() {
             <CardDescription>Awaiting client sign-off</CardDescription>
           </CardHeader>
           <CardContent>
-            {mockPendingApprovals.length === 0 ? (
+            {pendingApprovals.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <CheckCircle2 className="h-12 w-12 text-success/50" />
                 <p className="mt-4 font-medium">All caught up</p>
@@ -168,7 +174,7 @@ export function DashboardOverview() {
               </div>
             ) : (
               <div className="space-y-2">
-                {mockPendingApprovals.map((a) => (
+                {pendingApprovals.map((a) => (
                   <div
                     key={a.id}
                     className="flex items-center justify-between rounded-lg border border-border p-4"
@@ -193,7 +199,7 @@ export function DashboardOverview() {
           <CardDescription>Latest updates across projects</CardDescription>
         </CardHeader>
         <CardContent>
-          {mockDecisions.length === 0 ? (
+          {recentDecisions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FileCheck className="h-12 w-12 text-muted-foreground" />
               <p className="mt-4 font-medium">No decisions yet</p>
@@ -203,7 +209,7 @@ export function DashboardOverview() {
             </div>
           ) : (
             <div className="space-y-2">
-              {mockDecisions.map((d) => (
+              {recentDecisions.map((d) => (
                 <div
                   key={d.id}
                   className="flex items-center justify-between rounded-lg border border-border p-4"

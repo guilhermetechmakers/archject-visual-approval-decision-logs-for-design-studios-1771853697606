@@ -54,6 +54,8 @@ export interface VerifyEmailResponse {
   status: 'verified'
   user: AuthUser
   sessionToken: string
+  accessToken?: string
+  autoSignedIn?: boolean
 }
 
 export interface ResendVerificationResponse {
@@ -76,12 +78,24 @@ export async function login(data: LoginRequest): Promise<LoginResult> {
   return api.post<LoginResult>('/auth/login', data)
 }
 
-export async function verifyEmail(token: string): Promise<VerifyEmailResponse> {
-  return api.post<VerifyEmailResponse>('/auth/verify-email', { token })
+export interface VerifyEmailRequest {
+  token: string
+  uid?: string
+}
+
+export async function verifyEmail(
+  data: VerifyEmailRequest | string
+): Promise<VerifyEmailResponse> {
+  const body =
+    typeof data === 'string'
+      ? { token: data }
+      : { token: data.token, uid: data.uid }
+  return api.post<VerifyEmailResponse>('/auth/verify-email', body)
 }
 
 export interface ResendVerificationRequest {
   email?: string
+  uid?: string
 }
 
 export async function resendVerification(

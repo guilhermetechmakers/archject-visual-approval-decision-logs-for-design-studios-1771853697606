@@ -1,4 +1,6 @@
 export { DashboardRouteGuard } from './dashboard-route-guard'
+export { VerificationCard, VerificationCardActions } from './verification-card'
+export { ResendVerificationForm } from './resend-verification-form'
 export { UserMenu } from './user-menu'
 export { SSOButtons } from './sso-buttons'
 export { UnifiedAuthCard, AuthCardHeader, AuthCardFooter } from './unified-auth-card'

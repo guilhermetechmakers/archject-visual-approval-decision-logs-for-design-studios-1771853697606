@@ -74,6 +74,7 @@ function App() {
                 <Route path="/auth/oauth-callback" element={<AuthOAuthCallbackPage />} />
                 <Route path="/login" element={<AuthPage />} />
                 <Route path="/signup" element={<AuthPage />} />
+                <Route path="/verify" element={<VerifyEmailPage />} />
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/password-reset" element={<PasswordResetPage />} />
                 <Route path="/password-reset/confirm" element={<PasswordResetRedirect />} />
