@@ -24,7 +24,7 @@ const navItems = [
   { to: '/dashboard/library', icon: FileStack, label: 'Drawings & Specs' },
   { to: '/dashboard/templates', icon: LayoutTemplate, label: 'Templates' },
   { to: '/dashboard/exports', icon: Download, label: 'Exports' },
-  { to: '/dashboard/notifications', icon: Bell, label: 'Notifications' },
+  { to: '/dashboard/notifications', icon: Bell, label: 'Notifications Center' },
 ]
 
 const bottomItems = [

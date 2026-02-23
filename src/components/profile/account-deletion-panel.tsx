@@ -45,7 +45,10 @@ export function AccountDeletionPanel({ email }: AccountDeletionPanelProps) {
 
   return (
     <>
-      <Card className="card-hover border-destructive/30">
+      <Card
+        id="delete"
+        className="card-hover scroll-mt-8 border-destructive/30 transition-all duration-200"
+      >
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">
             <Trash2 className="h-5 w-5" />

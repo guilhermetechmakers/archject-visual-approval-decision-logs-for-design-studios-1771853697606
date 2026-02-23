@@ -79,13 +79,28 @@ export function ProfileCard({ profile, onUpdate }: ProfileCardProps) {
 
   return (
     <>
-      <Card className="card-hover transition-all duration-200">
+      <Card
+        className="card-hover scroll-mt-8 transition-all duration-200"
+      >
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Profile
-          </CardTitle>
-          <CardDescription>Your account details and preferences</CardDescription>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Profile
+              </CardTitle>
+              <CardDescription>Your account details and preferences</CardDescription>
+            </div>
+            {profile.two_fa_enabled && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-medium text-success"
+                title="Two-factor authentication is enabled"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
+                2FA enabled
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start">

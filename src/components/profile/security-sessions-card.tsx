@@ -208,7 +208,10 @@ export function SecuritySessionsCard() {
 
   return (
     <>
-      <Card className="card-hover">
+      <Card
+        id="sessions"
+        className="card-hover scroll-mt-8 transition-all duration-200"
+      >
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
@@ -366,14 +369,22 @@ export function SecuritySessionsCard() {
             )}
           </div>
 
-          <div className="rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-sm font-medium text-muted-foreground">Two-factor authentication</p>
+          <div
+            id="2fa"
+            className="scroll-mt-8 rounded-lg border border-border bg-muted/30 p-4"
+          >
+            <p className="text-sm font-medium text-muted-foreground">
+              Two-factor authentication
+            </p>
             <p className="mt-1 text-sm">
               {profile.two_fa_enabled
                 ? `2FA: Enabled (${profile.two_fa_method === 'sms' ? `SMS to ${profile.phone_masked ?? '***'}` : 'Authenticator app'})`
                 : 'Add an extra layer of security with an authenticator app or SMS.'}
             </p>
-            <a href="/dashboard/settings/profile#2fa" className="mt-2 inline-block text-sm text-[rgb(0,82,204)] hover:underline">
+            <a
+              href="/dashboard/settings/profile#2fa"
+              className="mt-2 inline-block text-sm text-primary hover:underline"
+            >
               Manage 2FA →
             </a>
           </div>
