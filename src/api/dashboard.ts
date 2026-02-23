@@ -3,7 +3,7 @@ import { api } from '@/lib/api'
 export interface DashboardProject {
   id: string
   name: string
-  status: string
+  status: 'active' | 'archived' | 'draft'
   createdAt: string
   updatedAt: string
   pendingApprovalsCount: number
