@@ -38,7 +38,7 @@ export const actionsRouter = Router()
 
 actionsRouter.post('/actions/:actionId/confirm', (req: Request, res: Response) => {
   const { actionId } = req.params
-  const { source = 'internal', token, exportOptions } = req.body as {
+  const { source = 'internal', token, exportOptions, approverName, optionId } = req.body as {
     source?: 'internal' | 'client_token'
     token?: string
     exportOptions?: {
@@ -46,6 +46,8 @@ actionsRouter.post('/actions/:actionId/confirm', (req: Request, res: Response) =
       includeAssets?: boolean
       branding?: string
     }
+    approverName?: string
+    optionId?: string
   }
 
   const decision = db.prepare(
@@ -75,7 +77,11 @@ actionsRouter.post('/actions/:actionId/confirm', (req: Request, res: Response) =
       return res.status(403).json({ code: 'FORBIDDEN', message: 'Token not allowed for this decision' })
     }
     confirmedContext = 'client_token'
-    lastConfirmedBy = JSON.stringify({ clientTokenId: token.slice(0, 12) + '...', clientName: null })
+    lastConfirmedBy = JSON.stringify({
+      clientTokenId: token.slice(0, 12) + '...',
+      clientName: approverName ?? null,
+      optionId: optionId ?? null,
+    })
   } else {
     userId = optionalAuth(req)
     if (!userId) {
@@ -110,7 +116,7 @@ actionsRouter.post('/actions/:actionId/confirm', (req: Request, res: Response) =
     userId ?? null,
     confirmedContext === 'client_token' ? token?.slice(0, 20) : null,
     referenceId,
-    JSON.stringify({ decisionId: actionId })
+    JSON.stringify({ decisionId: actionId, optionId: optionId ?? null })
   )
 
   let exportJobId: string | undefined

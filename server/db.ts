@@ -521,6 +521,29 @@ export function initDb() {
       if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
     }
   }
+
+  // 024: Portal comments for client-facing decision discussions
+  const portalCommentsPath = path.join(process.cwd(), 'server', 'migrations', '024_portal_comments.sql')
+  if (fs.existsSync(portalCommentsPath)) {
+    try {
+      const sql = fs.readFileSync(portalCommentsPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+  }
 }
 
 function seedNotifications() {

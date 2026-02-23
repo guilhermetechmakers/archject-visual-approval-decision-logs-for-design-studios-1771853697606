@@ -35,7 +35,9 @@ import { SubscriptionsPage } from '@/pages/dashboard/settings/subscriptions-page
 import { ProjectDefaultsPage } from '@/pages/dashboard/settings/project-defaults-page'
 import { BackupsPage } from '@/pages/dashboard/settings/backups-page'
 import { DecisionsListPage } from '@/pages/decisions-list'
-import { ClientPortal } from '@/pages/client-portal'
+import { ClientPortalLayout } from '@/components/client-portal'
+import { PortalDecisionsPage } from '@/pages/client-portal/portal-decisions-page'
+import { PortalDecisionDetailPage } from '@/pages/client-portal/portal-decision-detail-page'
 import { ClientConfirmationPage } from '@/pages/client-confirmation'
 import { ActionSuccessPage } from '@/pages/dashboard/action-success'
 import { AboutPage } from '@/pages/about'
@@ -96,7 +98,10 @@ function App() {
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/request-demo" element={<RequestDemoPage />} />
                 <Route path="/client/:token/confirmation" element={<ClientConfirmationPage />} />
-                <Route path="/client/:token" element={<ClientPortal />} />
+                <Route path="/client/:token" element={<ClientPortalLayout />}>
+                  <Route index element={<PortalDecisionsPage />} />
+                  <Route path="decision/:decisionId" element={<PortalDecisionDetailPage />} />
+                </Route>
 
                 <Route path="/admin/login" element={<AdminLoginPage />} />
                 <Route
