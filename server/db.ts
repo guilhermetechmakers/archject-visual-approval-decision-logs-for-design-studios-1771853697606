@@ -698,6 +698,38 @@ export function initDb() {
       }
     }
   }
+
+  // 031: client_tokens extended (revoked, allowed_actions, last_used_at, client_identity_hint)
+  for (const col of [
+    'revoked INTEGER NOT NULL DEFAULT 0',
+    'allowed_actions TEXT DEFAULT \'["view","comment","approve","export"]\'',
+    'last_used_at TEXT',
+    'client_identity_hint TEXT',
+    'created_by TEXT',
+  ]) {
+    try {
+      db.exec(`ALTER TABLE client_tokens ADD COLUMN ${col}`)
+    } catch (e) {
+      if (!String(e).includes('duplicate column name')) throw e
+    }
+  }
+
+  // 032: portal_analytics table
+  const migration032Path = path.join(process.cwd(), 'server', 'migrations', '032_portal_analytics.sql')
+  if (fs.existsSync(migration032Path)) {
+    const sql = fs.readFileSync(migration032Path, 'utf-8')
+    const statements = sql
+      .split(';')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    for (const stmt of statements) {
+      try {
+        db.exec(stmt + ';')
+      } catch (e) {
+        if (!String(e).includes('duplicate column name') && !String(e).includes('already exists')) throw e
+      }
+    }
+  }
 }
 
 function backfillSearchIndex() {
