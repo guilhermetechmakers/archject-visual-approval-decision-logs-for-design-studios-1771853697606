@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken'
 import { db } from './db.js'
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
-const ADMIN_JWT_EXPIRY = '15m'
+const ADMIN_JWT_EXPIRY = '8h'
 
 type AdminRole = 'super-admin' | 'admin' | 'support' | 'read-only'
 
@@ -71,6 +71,12 @@ function seedAdminIfEmpty() {
 }
 
 export const adminRouter = Router()
+
+adminRouter.get('/me', requireAdmin(), (req: Request, res: Response) => {
+  const admin = (req as Request & { admin: AdminJwtPayload }).admin
+  const row = db.prepare('SELECT id, email, name, role FROM admin_users WHERE id = ?').get(admin.sub) as { id: string; email: string; name: string; role: string }
+  res.json(row || admin)
+})
 
 adminRouter.post('/login', async (req: Request, res: Response) => {
   try {
@@ -148,25 +154,33 @@ adminRouter.post('/health/check', requireAdmin(), (req: Request, res: Response) 
 
 adminRouter.get('/users', requireAdmin(), (req: Request, res: Response) => {
   const q = (req.query.q as string) || ''
+  const status = req.query.status as string | undefined
   const page = Math.max(1, parseInt((req.query.page as string) || '1', 10))
   const perPage = Math.min(100, Math.max(1, parseInt((req.query.perPage as string) || '20', 10)))
   let where = '1=1'
   const params: unknown[] = []
   if (q) {
-    where += ' AND (email LIKE ? OR first_name LIKE ? OR last_name LIKE ?)'
+    where += ' AND (u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)'
     const like = `%${q}%`
     params.push(like, like, like)
   }
-  const countRow = db.prepare(`SELECT COUNT(*) as c FROM users WHERE ${where}`).get(...params) as { c: number }
+  if (status === 'suspended') {
+    where += ' AND u.id IN (SELECT user_id FROM user_suspensions)'
+  } else if (status === 'active') {
+    where += ' AND u.id NOT IN (SELECT user_id FROM user_suspensions)'
+  }
+  const countRow = db.prepare(`SELECT COUNT(*) as c FROM users u WHERE ${where}`).get(...params) as { c: number }
   const rows = db.prepare(
-    `SELECT id, first_name, last_name, email, company, created_at FROM users WHERE ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
-  ).all(...params, perPage, (page - 1) * perPage) as { id: string; first_name: string; last_name: string; email: string; company: string | null; created_at: string }[]
+    `SELECT u.id, u.first_name, u.last_name, u.email, u.company, u.created_at,
+            (SELECT 1 FROM user_suspensions s WHERE s.user_id = u.id) as is_suspended
+     FROM users u WHERE ${where} ORDER BY u.created_at DESC LIMIT ? OFFSET ?`
+  ).all(...params, perPage, (page - 1) * perPage) as { id: string; first_name: string; last_name: string; email: string; company: string | null; created_at: string; is_suspended: number | null }[]
   const users = rows.map((r) => ({
     id: r.id,
     email: r.email,
     name: `${r.first_name} ${r.last_name}`,
     studioId: r.company || null,
-    status: 'active' as const,
+    status: (r.is_suspended ? 'suspended' : 'active') as 'active' | 'suspended',
     role: 'member' as const,
     lastLoginAt: null,
     createdAt: r.created_at,
@@ -176,15 +190,22 @@ adminRouter.get('/users', requireAdmin(), (req: Request, res: Response) => {
 
 adminRouter.patch('/users/:id', requireAdmin(['super-admin', 'admin']), (req: Request, res: Response) => {
   const { id } = req.params
-  const { status, role } = req.body
+  const { status } = req.body
   const admin = (req as Request & { admin: AdminJwtPayload }).admin
-  const before = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as Record<string, unknown> | undefined
-  if (!before) return res.status(404).json({ code: 'NOT_FOUND', message: 'User not found' })
-  if (status) {
-    db.prepare('UPDATE users SET updated_at = ? WHERE id = ?').run(new Date().toISOString(), id)
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(id) as { id: string } | undefined
+  if (!user) return res.status(404).json({ code: 'NOT_FOUND', message: 'User not found' })
+  const wasSuspended = db.prepare('SELECT 1 FROM user_suspensions WHERE user_id = ?').get(id)
+  const before = { status: wasSuspended ? 'suspended' : 'active' }
+  if (status === 'suspended') {
+    db.prepare('INSERT OR REPLACE INTO user_suspensions (user_id) VALUES (?)').run(id)
+  } else if (status === 'active') {
+    db.prepare('DELETE FROM user_suspensions WHERE user_id = ?').run(id)
+  } else {
+    return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'status must be suspended or active' })
   }
-  auditLog(admin.sub, 'user_update', 'user', id, JSON.stringify(before), JSON.stringify({ status, role }), req.ip)
-  res.json({ id, status: status || 'active', role: role || 'member' })
+  const after = { status: status || 'active' }
+  auditLog(admin.sub, 'user_update', 'user', id, JSON.stringify(before), JSON.stringify(after), req.ip ?? null)
+  res.json({ id, status: status || 'active' })
 })
 
 adminRouter.post('/users/invite', requireAdmin(['super-admin', 'admin']), (req: Request, res: Response) => {
@@ -196,7 +217,7 @@ adminRouter.post('/users/invite', requireAdmin(['super-admin', 'admin']), (req: 
   db.prepare(
     `INSERT INTO user_invites (id, email, studio_id, role, status, invited_by, expires_at) VALUES (?, ?, ?, ?, 'pending', ?, ?)`
   ).run(inviteId, email, studioId || null, role || 'member', admin.sub, expiresAt.toISOString())
-  auditLog(admin.sub, 'user_invite', 'invite', inviteId, null, JSON.stringify({ email, studioId, role }), req.ip)
+  auditLog(admin.sub, 'user_invite', 'invite', inviteId, null, JSON.stringify({ email, studioId, role }), req.ip ?? null)
   res.status(201).json({ id: inviteId, email, status: 'pending' })
 })
 
@@ -308,7 +329,7 @@ adminRouter.patch('/tickets/:id', requireAdmin(), (req: Request, res: Response) 
   updates.push('updated_at = ?')
   params.push(new Date().toISOString(), id)
   db.prepare(`UPDATE support_tickets SET ${updates.join(', ')} WHERE id = ?`).run(...params)
-  auditLog(admin.sub, 'ticket_update', 'ticket', id, null, JSON.stringify({ assign, status }), req.ip)
+  auditLog(admin.sub, 'ticket_update', 'ticket', id, null, JSON.stringify({ assign, status }), req.ip ?? null)
   res.json({ id, assign, status })
 })
 

@@ -8,7 +8,7 @@ export interface ApiError {
   data?: Record<string, unknown>
 }
 
-async function handleResponse<T>(response: Response): Promise<T> {
+export async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const error: ApiError = {
       message: response.statusText,

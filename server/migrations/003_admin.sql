@@ -93,6 +93,10 @@ CREATE TABLE IF NOT EXISTS user_suspensions (
   reason TEXT
 );
 
+CREATE TABLE IF NOT EXISTS user_suspensions (
+  user_id TEXT PRIMARY KEY REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS user_invites (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL,

@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import { AdminLayout } from '@/components/layout/admin-layout'
+import { AdminRouteGuard } from '@/components/admin/admin-route-guard'
 import { LandingPage } from '@/pages/landing'
 import { AuthPage } from '@/pages/auth'
 import { VerifyEmailPage } from '@/pages/verify-email'
@@ -26,6 +28,13 @@ import { AboutPage } from '@/pages/about'
 import { PrivacyPage } from '@/pages/privacy'
 import { TermsPage } from '@/pages/terms'
 import { NotFoundPage } from '@/pages/not-found'
+import { AdminLoginPage } from '@/pages/admin/admin-login'
+import { AdminDashboardPage } from '@/pages/admin/admin-dashboard'
+import { AdminAnalyticsPage } from '@/pages/admin/admin-analytics'
+import { AdminUsersPage } from '@/pages/admin/admin-users'
+import { AdminSessionsPage } from '@/pages/admin/admin-sessions'
+import { AdminTicketsPage } from '@/pages/admin/admin-tickets'
+import { AdminSettingsPage } from '@/pages/admin/admin-settings'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +60,24 @@ function App() {
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/client/:token" element={<ClientPortal />} />
+
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminRouteGuard>
+                <AdminLayout />
+              </AdminRouteGuard>
+            }
+          >
+            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboardPage />} />
+            <Route path="analytics" element={<AdminAnalyticsPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="sessions" element={<AdminSessionsPage />} />
+            <Route path="tickets" element={<AdminTicketsPage />} />
+            <Route path="settings" element={<AdminSettingsPage />} />
+          </Route>
 
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Navigate to="/dashboard/overview" replace />} />
