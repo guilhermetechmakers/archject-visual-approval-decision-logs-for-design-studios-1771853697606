@@ -148,6 +148,65 @@ export interface Notification {
   link?: string
 }
 
+export type NotificationType = 'reminder' | 'approval' | 'comment' | 'export'
+export type NotificationFrequency = 'immediate' | 'daily_digest' | 'weekly_digest'
+
+export interface NotificationItem {
+  id: string
+  userId: string
+  type: NotificationType
+  title: string
+  message: string
+  relatedDecisionId: string | null
+  relatedProjectId: string | null
+  readAt: string | null
+  createdAt: string
+  source: string
+  attachments: string[]
+}
+
+export interface PerProjectSetting {
+  projectId: string
+  projectName?: string
+  inAppEnabled: boolean
+  emailEnabled: boolean
+  frequency: string
+}
+
+export interface NotificationSettings {
+  id: string | null
+  userId: string
+  inAppEnabled: boolean
+  emailEnabled: boolean
+  defaultFrequency: NotificationFrequency
+  perProjectSettings: PerProjectSetting[]
+  lastUpdated: string | null
+}
+
+export interface ReminderTemplate {
+  id: string
+  name: string
+  subject: string
+  bodyHtml: string
+  bodyText: string
+  placeholders: string[]
+  updatedAt: string
+}
+
+export interface NotificationCenterItem {
+  id: string
+  userId: string
+  type: NotificationType
+  title: string
+  message: string
+  relatedDecisionId?: string | null
+  relatedProjectId?: string | null
+  readAt: string | null
+  createdAt: string
+  source: string
+  attachments?: string[]
+}
+
 export interface LibraryFile {
   id: string
   projectId: string

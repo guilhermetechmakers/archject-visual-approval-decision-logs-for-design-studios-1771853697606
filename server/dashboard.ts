@@ -146,11 +146,18 @@ dashboardRouter.get('/activities', requireAuth, (_req: Request, res: Response) =
  * GET /api/dashboard/notifications/summary
  * Returns unread notifications count for header bell.
  */
-dashboardRouter.get('/notifications/summary', requireAuth, (_req: Request, res: Response) => {
-  const pendingCount = db.prepare(
-    "SELECT COUNT(*) as count FROM decisions WHERE status IN ('pending', 'in_review')"
-  ).get() as { count: number }
-  res.json({ unreadCount: pendingCount?.count ?? 0 })
+dashboardRouter.get('/notifications/summary', requireAuth, (req: Request, res: Response) => {
+  const userId = (req as Request & { userId: string }).userId
+  let unreadCount = 0
+  try {
+    const row = db.prepare(
+      'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read_at IS NULL'
+    ).get(userId) as { count: number }
+    unreadCount = row?.count ?? 0
+  } catch {
+    // notifications table may not exist yet
+  }
+  res.json({ unreadCount })
 })
 
 /**

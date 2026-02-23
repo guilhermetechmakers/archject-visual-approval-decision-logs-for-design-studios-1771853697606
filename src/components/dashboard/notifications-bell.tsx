@@ -8,7 +8,7 @@ export function NotificationsBell() {
   const { data } = useQuery({
     queryKey: ['dashboard-notifications-summary'],
     queryFn: () =>
-      api.get<{ unreadCount: number }>('/dashboard/notifications/summary'),
+      api.get<{ unreadCount: number }>('/notifications/summary').catch(() => ({ unreadCount: 0 })),
     staleTime: 30 * 1000,
   })
 

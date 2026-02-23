@@ -476,6 +476,197 @@ export function initDb() {
         }
         seedDecisionTemplates();
     }
+    // 020: Drawings & Specs Library (files, versions, attachments)
+    const libraryPath = path.join(process.cwd(), 'server', 'migrations', '020_library_files.sql');
+    if (fs.existsSync(libraryPath)) {
+        try {
+            const sql = fs.readFileSync(libraryPath, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+    }
+    // 021: Templates Library (versioning, apply logs)
+    const templatesLibPath = path.join(process.cwd(), 'server', 'migrations', '021_templates_library.sql');
+    if (fs.existsSync(templatesLibPath)) {
+        try {
+            const sql = fs.readFileSync(templatesLibPath, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+        seedTemplatesLibrary();
+    }
+    // 022: Notifications Center (notifications, settings, mutes, reminder templates)
+    const notificationsPath = path.join(process.cwd(), 'server', 'migrations', '022_notifications_center.sql');
+    if (fs.existsSync(notificationsPath)) {
+        try {
+            const sql = fs.readFileSync(notificationsPath, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+        seedReminderTemplates();
+        seedNotifications();
+    }
+}
+function seedNotifications() {
+    try {
+        const hasNotifications = db.prepare('SELECT 1 FROM notifications LIMIT 1').get();
+        if (hasNotifications)
+            return;
+        const crypto = require('crypto');
+        const userId = db.prepare('SELECT id FROM users LIMIT 1').get();
+        if (!userId)
+            return;
+        const projectId = db.prepare('SELECT id FROM projects LIMIT 1').get();
+        const decisionId = db.prepare('SELECT id FROM decisions LIMIT 1').get();
+        const projId = projectId?.id ?? crypto.randomUUID();
+        const decId = decisionId?.id ?? crypto.randomUUID();
+        const samples = [
+            { type: 'approval', title: 'Approval received', message: 'Material selection approved for Riverside Residence', read_at: null },
+            { type: 'reminder', title: 'Reminder sent', message: 'Reminder sent to client for layout options', read_at: new Date().toISOString() },
+            { type: 'comment', title: 'New comment', message: 'Sarah commented on "Floor plan variations"', read_at: null },
+            { type: 'export', title: 'Export completed', message: 'Decision log exported successfully', read_at: new Date().toISOString() },
+        ];
+        for (const s of samples) {
+            db.prepare('INSERT INTO notifications (id, user_id, type, title, message, related_decision_id, related_project_id, read_at, created_at, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(crypto.randomUUID(), userId.id, s.type, s.title, s.message, decId, projId, s.read_at, new Date().toISOString(), 'in_app');
+        }
+    }
+    catch (e) {
+        if (!String(e).includes('UNIQUE'))
+            console.error('[DB] seedNotifications:', e);
+    }
+}
+function seedReminderTemplates() {
+    try {
+        const hasTemplates = db.prepare('SELECT 1 FROM reminder_templates LIMIT 1').get();
+        if (hasTemplates)
+            return;
+        const crypto = require('crypto');
+        const now = new Date().toISOString();
+        const id = crypto.randomUUID();
+        const placeholders = JSON.stringify(['decision_title', 'deadline', 'client_name']);
+        const subject = 'Reminder: Decision pending for {decision_title}';
+        const bodyHtml = '<p>Hi {client_name},</p><p>This is a reminder that a decision is pending for <strong>{decision_title}</strong>.</p><p>Deadline: {deadline}</p>';
+        const bodyText = 'Hi {client_name}, This is a reminder that a decision is pending for {decision_title}. Deadline: {deadline}';
+        db.prepare("INSERT INTO reminder_templates (id, name, subject, body_html, body_text, placeholders_json, updated_at) VALUES (?, 'Default Reminder', ?, ?, ?, ?, ?)").run(id, subject, bodyHtml, bodyText, placeholders, now);
+    }
+    catch (e) {
+        if (!String(e).includes('UNIQUE'))
+            console.error('[DB] seedReminderTemplates:', e);
+    }
+}
+function seedTemplatesLibrary() {
+    try {
+        const hasTemplates = db.prepare('SELECT 1 FROM templates_library LIMIT 1').get();
+        if (hasTemplates)
+            return;
+        const crypto = require('crypto');
+        const now = new Date().toISOString();
+        const ownerId = db.prepare('SELECT id FROM users LIMIT 1').get();
+        const userId = ownerId?.id ?? 'default';
+        const templates = [
+            {
+                id: crypto.randomUUID(),
+                name: 'Material selection',
+                description: 'Compare material options for finishes, countertops, flooring',
+                type: 'FINISHES',
+                content_json: JSON.stringify({
+                    defaultOptions: [
+                        { title: 'Option A', description: 'First material option', isDefault: false, isRecommended: true },
+                        { title: 'Option B', description: 'Second material option', isDefault: false, isRecommended: false },
+                        { title: 'Option C', description: 'Third material option', isDefault: false, isRecommended: false },
+                    ],
+                }),
+                tags_json: JSON.stringify(['finishes', 'materials']),
+            },
+            {
+                id: crypto.randomUUID(),
+                name: 'Layout options',
+                description: 'Floor plan variations and spatial arrangements',
+                type: 'LAYOUTS',
+                content_json: JSON.stringify({
+                    defaultOptions: [
+                        { title: 'Layout A', description: 'First layout variant', isDefault: false, isRecommended: true },
+                        { title: 'Layout B', description: 'Second layout variant', isDefault: false, isRecommended: false },
+                    ],
+                }),
+                tags_json: JSON.stringify(['layouts', 'floor-plans']),
+            },
+            {
+                id: crypto.randomUUID(),
+                name: 'Change request',
+                description: 'Document change requests and approvals',
+                type: 'CHANGE_REQUESTS',
+                content_json: JSON.stringify({
+                    defaultOptions: [
+                        { title: 'Approve change', description: 'Approve the proposed change', isDefault: false, isRecommended: true },
+                        { title: 'Request revision', description: 'Request modifications before approval', isDefault: false, isRecommended: false },
+                        { title: 'Decline', description: 'Decline the change', isDefault: false, isRecommended: false },
+                    ],
+                }),
+                tags_json: JSON.stringify(['change-request', 'approval']),
+            },
+        ];
+        const insert = db.prepare(`INSERT INTO templates_library (id, name, description, type, content_json, tags_json, owner_id, version, created_at, updated_at, is_archived, is_deleted)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 0, 0)`);
+        for (const t of templates) {
+            insert.run(t.id, t.name, t.description, t.type, t.content_json, t.tags_json, userId, now, now);
+        }
+    }
+    catch (e) {
+        if (!String(e).includes('UNIQUE'))
+            console.error('[DB] seedTemplatesLibrary:', e);
+    }
 }
 function seedDecisionTemplates() {
     try {

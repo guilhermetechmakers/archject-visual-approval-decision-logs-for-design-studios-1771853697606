@@ -473,6 +473,77 @@ export function initDb() {
     }
     seedTemplatesLibrary()
   }
+
+  // 022: Notifications Center (notifications, settings, mutes, reminder templates)
+  const notificationsPath = path.join(process.cwd(), 'server', 'migrations', '022_notifications_center.sql')
+  if (fs.existsSync(notificationsPath)) {
+    try {
+      const sql = fs.readFileSync(notificationsPath, 'utf-8')
+      const statements = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      for (const stmt of statements) {
+        try {
+          db.exec(stmt + ';')
+        } catch (e) {
+          const msg = String(e)
+          if (!msg.includes('already exists') && !msg.includes('duplicate column name')) throw e
+        }
+      }
+    } catch (e) {
+      const msg = String(e)
+      if (!msg.includes('already exists') && !msg.includes('duplicate column')) throw e
+    }
+    seedReminderTemplates()
+    seedNotifications()
+  }
+}
+
+function seedNotifications() {
+  try {
+    const hasNotifications = db.prepare('SELECT 1 FROM notifications LIMIT 1').get()
+    if (hasNotifications) return
+    const crypto = require('crypto')
+    const userId = db.prepare('SELECT id FROM users LIMIT 1').get() as { id: string } | undefined
+    if (!userId) return
+    const projectId = db.prepare('SELECT id FROM projects LIMIT 1').get() as { id: string } | undefined
+    const decisionId = db.prepare('SELECT id FROM decisions LIMIT 1').get() as { id: string } | undefined
+    const projId = projectId?.id ?? crypto.randomUUID()
+    const decId = decisionId?.id ?? crypto.randomUUID()
+    const samples = [
+      { type: 'approval', title: 'Approval received', message: 'Material selection approved for Riverside Residence', read_at: null },
+      { type: 'reminder', title: 'Reminder sent', message: 'Reminder sent to client for layout options', read_at: new Date().toISOString() },
+      { type: 'comment', title: 'New comment', message: 'Sarah commented on "Floor plan variations"', read_at: null },
+      { type: 'export', title: 'Export completed', message: 'Decision log exported successfully', read_at: new Date().toISOString() },
+    ]
+    for (const s of samples) {
+      db.prepare(
+        'INSERT INTO notifications (id, user_id, type, title, message, related_decision_id, related_project_id, read_at, created_at, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(crypto.randomUUID(), userId.id, s.type, s.title, s.message, decId, projId, s.read_at, new Date().toISOString(), 'in_app')
+    }
+  } catch (e) {
+    if (!String(e).includes('UNIQUE')) console.error('[DB] seedNotifications:', e)
+  }
+}
+
+function seedReminderTemplates() {
+  try {
+    const hasTemplates = db.prepare('SELECT 1 FROM reminder_templates LIMIT 1').get()
+    if (hasTemplates) return
+    const crypto = require('crypto')
+    const now = new Date().toISOString()
+    const id = crypto.randomUUID()
+    const placeholders = JSON.stringify(['decision_title', 'deadline', 'client_name'])
+    const subject = 'Reminder: Decision pending for {decision_title}'
+    const bodyHtml = '<p>Hi {client_name},</p><p>This is a reminder that a decision is pending for <strong>{decision_title}</strong>.</p><p>Deadline: {deadline}</p>'
+    const bodyText = 'Hi {client_name}, This is a reminder that a decision is pending for {decision_title}. Deadline: {deadline}'
+    db.prepare(
+      "INSERT INTO reminder_templates (id, name, subject, body_html, body_text, placeholders_json, updated_at) VALUES (?, 'Default Reminder', ?, ?, ?, ?, ?)"
+    ).run(id, subject, bodyHtml, bodyText, placeholders, now)
+  } catch (e) {
+    if (!String(e).includes('UNIQUE')) console.error('[DB] seedReminderTemplates:', e)
+  }
 }
 
 function seedTemplatesLibrary() {

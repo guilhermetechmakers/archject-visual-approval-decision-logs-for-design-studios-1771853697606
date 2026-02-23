@@ -28,6 +28,7 @@ import { dashboardRouter } from './dashboard.js'
 import { decisionsRouter } from './decisions-router.js'
 import { libraryRouter } from './library.js'
 import { templatesRouter } from './templates.js'
+import { notificationsFeedRouter, notificationSettingsRouter, reminderTemplatesRouter } from './notifications.js'
 
 initDb()
 
@@ -60,6 +61,9 @@ app.use('/api/dashboard', dashboardRouter)
 app.use('/api', decisionsRouter)
 app.use('/api', libraryRouter)
 app.use('/api', templatesRouter)
+app.use('/api/notifications', notificationsFeedRouter)
+app.use('/api/notification-settings', notificationSettingsRouter)
+app.use('/api/reminder-templates', reminderTemplatesRouter)
 app.use('/api', privacyRouter)
 app.use('/api/terms', termsRouter)
 app.use('/webhooks', webhooksRouter)

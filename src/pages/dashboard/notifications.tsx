@@ -1,67 +1,193 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState, useCallback } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Bell } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { api } from '@/lib/api'
-import type { Notification } from '@/types'
-
-const mockNotifications: Notification[] = [
-  { id: '1', title: 'Approval received', message: 'Material selection approved for Riverside Residence', read: false, createdAt: new Date().toISOString(), link: '/dashboard/projects/1/decisions/1' },
-  { id: '2', title: 'Reminder sent', message: 'Reminder sent to client for layout options', read: true, createdAt: new Date().toISOString() },
-]
+import {
+  getNotifications,
+  getNotificationSettings,
+  getReminderTemplates,
+  markNotificationsRead,
+  markNotificationsUnread,
+  updateNotificationSettings,
+  type NotificationType,
+  type NotificationFrequency,
+} from '@/api/notifications'
+import {
+  FiltersBar,
+  BulkActionsBar,
+  FeedList,
+  SettingsPanel,
+  QuickActionsDock,
+} from '@/components/notifications-center'
+import type { NotificationSettings } from '@/types'
 
 export function NotificationsPage() {
-  const { data: notifications = mockNotifications } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: () => api.get<Notification[]>('/notifications').catch(() => mockNotifications),
+  const queryClient = useQueryClient()
+  const [typeFilter, setTypeFilter] = useState<'' | NotificationType>('')
+  const [readStatusFilter, setReadStatusFilter] = useState<'all' | 'read' | 'unread'>('all')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [settingsPatch, setSettingsPatch] = useState<Partial<NotificationSettings>>({})
+  const [activeTab, setActiveTab] = useState<'in-app' | 'email' | 'templates'>('in-app')
+
+  const filters = {
+    type: typeFilter || undefined,
+    readStatus: readStatusFilter !== 'all' ? readStatusFilter : undefined,
+    page: 1,
+    limit: 50,
+  }
+
+  const { data: notificationsData, isLoading } = useQuery({
+    queryKey: ['notifications', filters],
+    queryFn: () => getNotifications(filters),
   })
 
+  const { data: settings, isLoading: settingsLoading } = useQuery({
+    queryKey: ['notification-settings'],
+    queryFn: getNotificationSettings,
+  })
+
+  useQuery({
+    queryKey: ['reminder-templates'],
+    queryFn: getReminderTemplates,
+  })
+
+  const markReadMutation = useMutation({
+    mutationFn: (ids?: string[]) => markNotificationsRead(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-notifications-summary'] })
+      setSelectedIds([])
+      toast.success('Notifications marked as read')
+    },
+    onError: () => toast.error('Failed to mark as read'),
+  })
+
+  const markUnreadMutation = useMutation({
+    mutationFn: (ids: string[]) => markNotificationsUnread(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-notifications-summary'] })
+      setSelectedIds([])
+      toast.success('Notifications marked as unread')
+    },
+    onError: () => toast.error('Failed to mark as unread'),
+  })
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: updateNotificationSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-settings'] })
+      setSettingsPatch({})
+      toast.success('Notification settings saved')
+    },
+    onError: () => toast.error('Failed to save settings'),
+  })
+
+  const handleMarkRead = useCallback(
+    (id?: string) => {
+      const ids = id ? [id] : selectedIds.length ? selectedIds : undefined
+      markReadMutation.mutate(ids)
+      if (!id) setSelectedIds([])
+    },
+    [selectedIds, markReadMutation]
+  )
+
+  const handleMarkUnread = useCallback(
+    (id?: string) => {
+      const ids = id ? [id] : selectedIds
+      if (ids.length) markUnreadMutation.mutate(ids)
+    },
+    [selectedIds, markUnreadMutation]
+  )
+
+  const handleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }, [])
+
+  const handleClearFilters = useCallback(() => {
+    setTypeFilter('')
+    setReadStatusFilter('all')
+  }, [])
+
+  const mergedSettings: NotificationSettings | null = settings
+    ? {
+        ...settings,
+        ...settingsPatch,
+        defaultFrequency: (settingsPatch.defaultFrequency ?? settings.defaultFrequency) as NotificationFrequency,
+      }
+    : null
+
+  const handleSaveSettings = useCallback(() => {
+    if (!mergedSettings) return
+    saveSettingsMutation.mutate({
+      inAppEnabled: mergedSettings.inAppEnabled,
+      emailEnabled: mergedSettings.emailEnabled,
+      defaultFrequency: mergedSettings.defaultFrequency,
+      perProjectSettings: mergedSettings.perProjectSettings,
+    })
+  }, [mergedSettings, saveSettingsMutation])
+
+  const notifications = notificationsData?.items ?? []
+  const hasActiveFilters = !!typeFilter || readStatusFilter !== 'all'
+
   return (
-    <div className="space-y-8 animate-in">
+    <div className="animate-in space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Notifications</h1>
-        <p className="mt-1 text-muted-foreground">View and manage your notifications</p>
+        <h1 className="text-[28px] font-semibold tracking-tight flex items-center gap-2">
+          <Bell className="h-7 w-7 text-primary" />
+          Notifications Center
+        </h1>
+        <p className="mt-1 text-muted-foreground">
+          Manage your notification feed, settings, and reminder templates
+        </p>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Feed
-          </CardTitle>
-          <Button variant="outline" size="sm">Mark all read</Button>
-        </CardHeader>
-        <CardContent>
-          {notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Bell className="h-12 w-12 text-muted-foreground" />
-              <p className="mt-4 font-medium">No notifications</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Notifications will appear here
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={`flex items-start justify-between rounded-lg border p-4 ${
-                    n.read ? 'border-border bg-muted/30' : 'border-primary/20 bg-primary/5'
-                  }`}
-                >
-                  <div>
-                    <p className="font-medium">{n.title}</p>
-                    <p className="text-sm text-muted-foreground">{n.message}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {new Date(n.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <aside className="lg:col-span-4 xl:col-span-3 space-y-6 order-2 lg:order-1">
+          <SettingsPanel
+            settings={mergedSettings}
+            isLoading={settingsLoading}
+            isSaving={saveSettingsMutation.isPending}
+            onUpdate={(patch) => setSettingsPatch((prev) => ({ ...prev, ...patch }))}
+            onSave={handleSaveSettings}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+          <QuickActionsDock />
+        </aside>
+
+        <main className="lg:col-span-8 xl:col-span-9 space-y-6 order-1 lg:order-2">
+          <FiltersBar
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
+            readStatusFilter={readStatusFilter}
+            onReadStatusFilterChange={setReadStatusFilter}
+            hasFilters={hasActiveFilters}
+            onClearFilters={handleClearFilters}
+          />
+
+          <BulkActionsBar
+            selectedIds={selectedIds}
+            onMarkRead={() => handleMarkRead()}
+            onMarkUnread={() => handleMarkUnread()}
+            onClearFilters={handleClearFilters}
+            hasActiveFilters={hasActiveFilters}
+            isLoading={markReadMutation.isPending || markUnreadMutation.isPending}
+          />
+
+          <FeedList
+            notifications={notifications}
+            isLoading={isLoading}
+            selectedIds={selectedIds}
+            onSelect={handleSelect}
+            onMarkRead={handleMarkRead}
+            onMarkUnread={handleMarkUnread}
+            showCheckbox
+          />
+        </main>
+      </div>
     </div>
   )
 }
