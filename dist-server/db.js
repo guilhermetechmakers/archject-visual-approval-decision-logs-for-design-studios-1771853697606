@@ -112,6 +112,31 @@ export function initDb() {
         }
         seedKbArticles();
     }
+    const privacyPath = path.join(process.cwd(), 'server', 'migrations', '007_privacy.sql');
+    if (fs.existsSync(privacyPath)) {
+        try {
+            const sql = fs.readFileSync(privacyPath, 'utf-8');
+            const statements = sql
+                .split(';')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            for (const stmt of statements) {
+                try {
+                    db.exec(stmt + ';');
+                }
+                catch (e) {
+                    const msg = String(e);
+                    if (!msg.includes('already exists') && !msg.includes('duplicate column name'))
+                        throw e;
+                }
+            }
+        }
+        catch (e) {
+            const msg = String(e);
+            if (!msg.includes('already exists') && !msg.includes('duplicate column'))
+                throw e;
+        }
+    }
 }
 function seedAnalyticsData() {
     try {

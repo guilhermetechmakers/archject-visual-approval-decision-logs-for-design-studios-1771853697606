@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Menu, HelpCircle, BookOpen } from 'lucide-react'
+import { Menu, HelpCircle, BookOpen, Shield, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { SearchBar } from '@/components/help'
@@ -8,6 +8,8 @@ import { SearchBar } from '@/components/help'
 const helpNavItems = [
   { to: '/help', label: 'Help Center', icon: HelpCircle },
   { to: '/about', label: 'About', icon: BookOpen },
+  { to: '/privacy', label: 'Privacy', icon: Shield },
+  { to: '/terms', label: 'Terms', icon: FileText },
 ]
 
 export function HelpLayout() {

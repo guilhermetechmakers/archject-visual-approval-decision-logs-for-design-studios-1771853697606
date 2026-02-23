@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Palette, Users, CreditCard, Plug } from 'lucide-react'
+import { Palette, Users, CreditCard, Plug, Database } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -7,6 +7,7 @@ const navItems = [
   { to: '/dashboard/settings/team', end: false, icon: Users, label: 'Team & roles' },
   { to: '/dashboard/billing', end: false, icon: CreditCard, label: 'Billing' },
   { to: '/dashboard/settings/integrations', end: false, icon: Plug, label: 'Integrations' },
+  { to: '/dashboard/settings/data', end: false, icon: Database, label: 'Data & Privacy' },
 ]
 
 export function SettingsLayout() {

@@ -23,6 +23,7 @@ import { SettingsLayout } from '@/pages/dashboard/settings/settings-layout'
 import { SettingsIndex } from '@/pages/dashboard/settings/settings-index'
 import { TeamPage } from '@/pages/dashboard/settings/team-page'
 import { IntegrationsPage } from '@/pages/dashboard/settings/integrations-page'
+import { DataPage } from '@/pages/dashboard/settings/data-page'
 import { DecisionsListPage } from '@/pages/decisions-list'
 import { ClientPortal } from '@/pages/client-portal'
 import { AboutPage } from '@/pages/about'
@@ -106,6 +107,7 @@ function App() {
               <Route index element={<SettingsIndex />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="integrations" element={<IntegrationsPage />} />
+              <Route path="data" element={<DataPage />} />
             </Route>
           </Route>
 
