@@ -35,12 +35,13 @@ function getTokenPayload(token) {
 function mapDecisionRow(row, decisionId) {
     let opts;
     try {
-        const options = db.prepare(`SELECT id, title, description FROM decision_options WHERE decision_id = ? ORDER BY sort_order`).all(decisionId);
+        const options = db.prepare(`SELECT id, title, description, image_url FROM decision_options WHERE decision_id = ? ORDER BY sort_order`).all(decisionId);
         opts = options.length > 0
             ? options.map((o) => ({
                 id: o.id,
                 label: o.title,
                 description: o.description ?? undefined,
+                imageUrl: o.image_url ?? undefined,
                 selected: false,
             }))
             : [
@@ -49,18 +50,36 @@ function mapDecisionRow(row, decisionId) {
             ];
     }
     catch {
-        opts = [
-            { id: 'opt1', label: 'Option A', description: 'First option', selected: false },
-            { id: 'opt2', label: 'Option B', description: 'Second option', selected: false },
-        ];
+        try {
+            const options = db.prepare(`SELECT id, title, description FROM decision_options WHERE decision_id = ? ORDER BY sort_order`).all(decisionId);
+            opts = options.length > 0
+                ? options.map((o) => ({
+                    id: o.id,
+                    label: o.title,
+                    description: o.description ?? undefined,
+                    selected: false,
+                }))
+                : [
+                    { id: 'opt1', label: 'Option A', description: 'First option', selected: false },
+                    { id: 'opt2', label: 'Option B', description: 'Second option', selected: false },
+                ];
+        }
+        catch {
+            opts = [
+                { id: 'opt1', label: 'Option A', description: 'First option', selected: false },
+                { id: 'opt2', label: 'Option B', description: 'Second option', selected: false },
+            ];
+        }
     }
-    let approvedOptionId;
-    try {
-        const parsed = row.last_confirmed_by ? JSON.parse(row.last_confirmed_by) : null;
-        approvedOptionId = parsed?.optionId ?? undefined;
-    }
-    catch {
-        // ignore
+    let approvedOptionId = row.approved_option_id ?? undefined;
+    if (!approvedOptionId) {
+        try {
+            const parsed = row.last_confirmed_by ? JSON.parse(row.last_confirmed_by) : null;
+            approvedOptionId = parsed?.optionId ?? undefined;
+        }
+        catch {
+            // ignore
+        }
     }
     return {
         id: row.id,
@@ -86,13 +105,25 @@ clientRouter.get('/client/:token/decisions', (req, res) => {
     }
     const { projectId, decisionIds } = payload;
     const idsToFetch = decisionIds.length > 0 ? decisionIds : null;
-    const rows = idsToFetch
-        ? db.prepare(`SELECT d.id, d.project_id, d.title, d.status, d.created_at, d.updated_at, d.last_confirmed_at, d.last_confirmed_by
-         FROM decisions d WHERE d.project_id = ? AND d.id IN (${idsToFetch.map(() => '?').join(',')})
-         ORDER BY d.created_at DESC`).all(projectId, ...idsToFetch)
-        : db.prepare(`SELECT d.id, d.project_id, d.title, d.status, d.created_at, d.updated_at, d.last_confirmed_at, d.last_confirmed_by
-         FROM decisions d WHERE d.project_id = ?
-         ORDER BY d.created_at DESC`).all(projectId);
+    let rows;
+    try {
+        rows = idsToFetch
+            ? db.prepare(`SELECT d.id, d.project_id, d.title, d.status, d.created_at, d.updated_at, d.last_confirmed_at, d.last_confirmed_by, d.approved_option_id
+           FROM decisions d WHERE d.project_id = ? AND d.id IN (${idsToFetch.map(() => '?').join(',')})
+           ORDER BY d.created_at DESC`).all(projectId, ...idsToFetch)
+            : db.prepare(`SELECT d.id, d.project_id, d.title, d.status, d.created_at, d.updated_at, d.last_confirmed_at, d.last_confirmed_by, d.approved_option_id
+           FROM decisions d WHERE d.project_id = ?
+           ORDER BY d.created_at DESC`).all(projectId);
+    }
+    catch {
+        rows = idsToFetch
+            ? db.prepare(`SELECT d.id, d.project_id, d.title, d.status, d.created_at, d.updated_at, d.last_confirmed_at, d.last_confirmed_by
+           FROM decisions d WHERE d.project_id = ? AND d.id IN (${idsToFetch.map(() => '?').join(',')})
+           ORDER BY d.created_at DESC`).all(projectId, ...idsToFetch)
+            : db.prepare(`SELECT d.id, d.project_id, d.title, d.status, d.created_at, d.updated_at, d.last_confirmed_at, d.last_confirmed_by
+           FROM decisions d WHERE d.project_id = ?
+           ORDER BY d.created_at DESC`).all(projectId);
+    }
     const decisions = rows.map((r) => mapDecisionRow(r, r.id));
     return res.json(decisions);
 });
@@ -107,8 +138,15 @@ clientRouter.get('/client/:token/decision/:decisionId', (req, res) => {
     if (payload.decisionIds.length > 0 && !payload.decisionIds.includes(decisionId)) {
         return res.status(403).json({ code: 'FORBIDDEN', message: 'Access denied to this decision' });
     }
-    const row = db.prepare(`SELECT d.id, d.project_id, d.title, d.status, d.created_at, d.updated_at, d.last_confirmed_at, d.last_confirmed_by
-     FROM decisions d WHERE d.id = ? AND d.project_id = ?`).get(decisionId, payload.projectId);
+    let row;
+    try {
+        row = db.prepare(`SELECT d.id, d.project_id, d.title, d.status, d.created_at, d.updated_at, d.last_confirmed_at, d.last_confirmed_by, d.approved_option_id
+       FROM decisions d WHERE d.id = ? AND d.project_id = ?`).get(decisionId, payload.projectId);
+    }
+    catch {
+        row = db.prepare(`SELECT d.id, d.project_id, d.title, d.status, d.created_at, d.updated_at, d.last_confirmed_at, d.last_confirmed_by
+       FROM decisions d WHERE d.id = ? AND d.project_id = ?`).get(decisionId, payload.projectId);
+    }
     if (!row) {
         return res.status(404).json({ code: 'NOT_FOUND', message: 'Decision not found' });
     }

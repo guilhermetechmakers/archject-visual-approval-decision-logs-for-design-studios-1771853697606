@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/dialog'
 import { getLibraryFiles } from '@/api/library'
 import { getProject, updateProject, deleteProject, restoreProject } from '@/api/projects'
-import { getDecisions } from '@/api/decisions'
+import { getDecisions, cloneDecision, archiveDecision } from '@/api/decisions'
 import { DecisionCard } from '@/components/decisions'
 import { setLastProject } from '@/components/layout/sidebar'
 import { toast } from 'sonner'
@@ -104,6 +104,25 @@ export function ProjectWorkspace() {
     },
   })
 
+  const cloneMutation = useMutation({
+    mutationFn: (decisionId: string) => cloneDecision(decisionId, projectId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['decisions', projectId] })
+      toast.success('Decision cloned')
+      navigate(`/dashboard/projects/${projectId}/decisions/${data.decisionId}`)
+    },
+    onError: (e: { message?: string }) => toast.error(e?.message ?? 'Failed to clone'),
+  })
+
+  const archiveMutation = useMutation({
+    mutationFn: (decisionId: string) => archiveDecision(decisionId, projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['decisions', projectId] })
+      toast.success('Decision archived')
+    },
+    onError: (e: { message?: string }) => toast.error(e?.message ?? 'Failed to archive'),
+  })
+
   const handleEditOpen = useCallback(() => {
     setEditName(project?.name ?? '')
     setEditDescription(project?.description ?? '')
@@ -121,9 +140,21 @@ export function ProjectWorkspace() {
     ? decisions.filter(
         (d) =>
           d.title.toLowerCase().includes(decisionFilter.toLowerCase()) ||
-          d.status.toLowerCase().includes(decisionFilter.toLowerCase())
+          String(d.status).toLowerCase().includes(decisionFilter.toLowerCase())
       )
     : decisions
+
+  const pendingCount = decisions.filter(
+    (d) => d.status === 'pending' || d.status === 'in_review'
+  ).length
+  const now = Date.now()
+  const decisionsWithDaysOpen = filteredDecisions.map((d) => {
+    const created = new Date(d.createdAt).getTime()
+    const daysOpen = Math.floor((now - created) / (24 * 60 * 60 * 1000))
+    const dueDate = d.dueDate ? new Date(d.dueDate).getTime() : null
+    const isOverdue = dueDate ? now > dueDate : false
+    return { ...d, daysOpen, isOverdue }
+  })
 
   const { data: libraryFiles = [] } = useQuery({
     queryKey: ['library-files', projectId, 'workspace'],
@@ -209,16 +240,37 @@ export function ProjectWorkspace() {
         </div>
       </div>
 
+      {/* Quick stats */}
+      {!decisionsLoading && decisions.length > 0 && (
+        <div className="flex flex-wrap gap-4">
+          <div className="rounded-lg border border-border bg-card px-4 py-2">
+            <span className="text-sm text-muted-foreground">Pending approvals</span>
+            <p className="text-lg font-semibold">{pendingCount}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card px-4 py-2">
+            <span className="text-sm text-muted-foreground">Total decisions</span>
+            <p className="text-lg font-semibold">{decisions.length}</p>
+          </div>
+        </div>
+      )}
+
       {/* Two-column layout: Decision Cards (left) | Drawings, Templates, Settings (right) */}
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Decision Cards - left pane with visual previews */}
         <div className="lg:col-span-8">
           <Card>
             <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <FileCheck className="h-5 w-5" />
-                Decisions
-              </CardTitle>
+              <div className="flex flex-wrap items-center gap-3">
+                <CardTitle className="flex items-center gap-2">
+                  <FileCheck className="h-5 w-5" />
+                  Decisions
+                </CardTitle>
+                {pendingCount > 0 && (
+                  <span className="rounded-full bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning">
+                    {pendingCount} pending
+                  </span>
+                )}
+              </div>
               <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <div className="relative flex-1 max-w-xs">
                   <Search
@@ -271,12 +323,16 @@ export function ProjectWorkspace() {
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {filteredDecisions.map((d) => (
+                  {decisionsWithDaysOpen.map((d) => (
                     <DecisionCard
                       key={d.id}
                       decision={d}
                       projectId={projectId!}
                       showActions
+                      onClone={(id) => cloneMutation.mutate(id)}
+                      onArchive={(id) => archiveMutation.mutate(id)}
+                      daysOpen={d.daysOpen}
+                      isOverdue={d.isOverdue}
                     />
                   ))}
                 </div>

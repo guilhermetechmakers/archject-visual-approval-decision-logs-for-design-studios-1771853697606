@@ -23,6 +23,17 @@ export interface DecisionHistoryEntry {
   details?: Record<string, unknown>
 }
 
+export interface DecisionComment {
+  id: string
+  decisionId: string
+  parentCommentId?: string | null
+  authorId: string
+  authorName: string
+  text: string
+  timestamp: string
+  attachments?: string[]
+}
+
 export async function getDecisions(projectId: string, includeDeleted?: boolean): Promise<Decision[]> {
   const qs = includeDeleted ? '?includeDeleted=true' : ''
   return api.get<Decision[]>(`/projects/${projectId}/decisions${qs}`)
@@ -82,5 +93,55 @@ export async function getDecisionAttachments(
 ): Promise<{ attachments: DecisionAttachment[] }> {
   return api.get<{ attachments: DecisionAttachment[] }>(
     `/projects/${projectId}/decisions/${decisionId}/attachments`
+  )
+}
+
+export async function cloneDecision(
+  decisionId: string,
+  projectId?: string
+): Promise<{ decisionId: string; clonedFrom: string; projectId: string; status: string }> {
+  return api.post<{ decisionId: string; clonedFrom: string; projectId: string; status: string }>(
+    `/decisions/${decisionId}/clone`,
+    projectId ? { projectId } : {}
+  )
+}
+
+export async function archiveDecision(
+  decisionId: string,
+  _projectId?: string
+): Promise<{ decisionId: string; archived: boolean; archivedAt?: string }> {
+  return api.post<{ decisionId: string; archived: boolean; archivedAt?: string }>(
+    `/decisions/${decisionId}/archive`,
+    {}
+  )
+}
+
+export async function getDecisionShareLink(
+  projectId: string,
+  decisionId: string
+): Promise<{ decisionId: string; clientLink: string }> {
+  return api.post<{ decisionId: string; clientLink: string }>(
+    `/projects/${projectId}/decisions/${decisionId}/share`,
+    {}
+  )
+}
+
+export async function getDecisionComments(
+  projectId: string,
+  decisionId: string
+): Promise<DecisionComment[]> {
+  return api.get<DecisionComment[]>(
+    `/projects/${projectId}/decisions/${decisionId}/comments`
+  )
+}
+
+export async function postDecisionComment(
+  projectId: string,
+  decisionId: string,
+  body: { text: string; parentCommentId?: string }
+): Promise<DecisionComment> {
+  return api.post<DecisionComment>(
+    `/projects/${projectId}/decisions/${decisionId}/comments`,
+    body
   )
 }

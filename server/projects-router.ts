@@ -143,6 +143,34 @@ projectsRouter.get(`${PROJECTS_BASE}/:id`, requireAuth, (req: Request, res: Resp
   })
 })
 
+// GET /api/projects/:id/activity - recent activity feed for project decisions
+projectsRouter.get(`${PROJECTS_BASE}/:id/activity`, requireAuth, (req: Request, res: Response) => {
+  const { id: projectId } = req.params
+  const limit = Math.min(20, Math.max(1, parseInt((req.query.limit as string) || '10', 10)))
+
+  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+  if (!project) return res.status(404).json({ code: 'NOT_FOUND', message: 'Project not found' })
+
+  const rows = db.prepare(
+    `SELECT a.id, a.decision_id, a.action, a.performed_by, a.performed_at, d.title as decision_title
+     FROM decision_audit_log a
+     JOIN decisions d ON d.id = a.decision_id AND d.project_id = ?
+     WHERE d.deleted_at IS NULL OR d.deleted_at = ''
+     ORDER BY a.performed_at DESC LIMIT ?`
+  ).all(projectId, limit) as { id: string; decision_id: string; action: string; performed_by: string | null; performed_at: string; decision_title: string }[]
+
+  res.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      decisionId: r.decision_id,
+      decisionTitle: r.decision_title,
+      action: r.action,
+      performedBy: r.performed_by,
+      timestamp: r.performed_at,
+    })),
+  })
+})
+
 // PATCH /api/projects/:id - update project
 projectsRouter.patch(`${PROJECTS_BASE}/:id`, requireAuth, (req: Request, res: Response) => {
   const { id } = req.params

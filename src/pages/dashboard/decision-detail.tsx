@@ -1,15 +1,31 @@
 import { useState, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Share2, Download, Check, MessageSquare, Paperclip, ListTodo, FileText, Link2, X } from 'lucide-react'
+import { Share2, Download, Check, MessageSquare, Paperclip, ListTodo, FileText, Link2, X, Archive, CopyPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { LoadingOverlay } from '@/components/loading-overlay'
 import { FilePreviewPanel, AttachmentPicker } from '@/components/library'
+import { CommentThread } from '@/components/client-portal'
 import { createExport } from '@/api/exports-decision-logs'
-import { getDecision, getDecisionHistory, getDecisionAttachments } from '@/api/decisions'
+import {
+  getDecision,
+  getDecisionHistory,
+  getDecisionAttachments,
+  getDecisionComments,
+  postDecisionComment,
+  getDecisionShareLink,
+  cloneDecision,
+  archiveDecision,
+} from '@/api/decisions'
 import { downloadLibraryFile, attachFileToDecision, removeAttachmentFromDecision } from '@/api/library'
 import { toast } from 'sonner'
 import type { Decision } from '@/types'
@@ -97,6 +113,54 @@ export function DecisionDetail() {
   })
   const attachments = attachmentsData?.attachments ?? []
 
+  const { data: comments = [], refetch: refetchComments } = useQuery({
+    queryKey: ['decision-comments', projectId, decisionId],
+    queryFn: () => getDecisionComments(projectId!, decisionId!),
+    enabled: !!projectId && !!decisionId,
+  })
+
+  const postCommentMutation = useMutation({
+    mutationFn: (body: { text: string; parentCommentId?: string }) =>
+      postDecisionComment(projectId!, decisionId!, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['decision-comments', projectId, decisionId] })
+      refetchComments()
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Failed to add comment'),
+  })
+
+  const shareLinkMutation = useMutation({
+    mutationFn: () => getDecisionShareLink(projectId!, decisionId!),
+    onSuccess: (data) => {
+      navigator.clipboard?.writeText(data.clientLink).then(
+        () => toast.success('Client link copied to clipboard'),
+        () => toast.error('Failed to copy link')
+      )
+    },
+    onError: () => toast.error('Failed to generate share link'),
+  })
+
+  const cloneMutation = useMutation({
+    mutationFn: () => cloneDecision(decisionId!, projectId ?? undefined),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['decisions', projectId] })
+      toast.success('Decision cloned')
+      navigate(`/dashboard/projects/${projectId}/decisions/${data.decisionId}`)
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Failed to clone'),
+  })
+
+  const archiveMutation = useMutation({
+    mutationFn: () => archiveDecision(decisionId!, projectId ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['decisions', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['decision', projectId, decisionId] })
+      toast.success('Decision archived')
+      navigate(`/dashboard/projects/${projectId}`)
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Failed to archive'),
+  })
+
   const attachMutation = useMutation({
     mutationFn: (fileId: string) =>
       attachFileToDecision(projectId!, fileId, decisionId!),
@@ -149,8 +213,18 @@ export function DecisionDetail() {
             <h1 className="mt-2 text-2xl font-bold">{decision.title}</h1>
           )}
           <div className="mt-2 flex items-center gap-2">
-            <Badge variant={decision.status === 'approved' ? 'success' : decision.status === 'pending' ? 'warning' : 'secondary'}>
-              {decision.status}
+            <Badge
+              variant={
+                decision.status === 'approved'
+                  ? 'success'
+                  : decision.status === 'rejected'
+                    ? 'destructive'
+                    : decision.status === 'pending' || decision.status === 'in_review'
+                      ? 'warning'
+                      : 'secondary'
+              }
+            >
+              {decision.status.replace(/_/g, ' ')}
             </Badge>
             {decision.approvedAt && (
               <span className="text-sm text-muted-foreground">
@@ -164,17 +238,12 @@ export function DecisionDetail() {
           <Button
             variant="outline"
             size="sm"
-            aria-label="Share decision link"
-            onClick={() => {
-              const url = window.location.href
-              navigator.clipboard?.writeText(url).then(
-                () => toast.success('Link copied to clipboard'),
-                () => toast.error('Failed to copy link')
-              )
-            }}
+            aria-label="Copy client share link"
+            onClick={() => shareLinkMutation.mutate()}
+            disabled={shareLinkMutation.isPending}
           >
             <Share2 className="mr-2 h-4 w-4" />
-            Share link
+            {shareLinkMutation.isPending ? 'Generating…' : 'Copy client link'}
           </Button>
           <Button size="sm" onClick={handleExport} aria-label="Export decision log">
             <Download className="mr-2 h-4 w-4" />
@@ -192,6 +261,30 @@ export function DecisionDetail() {
             <ListTodo className="mr-2 h-4 w-4" />
             Create follow-up task
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" aria-label="More actions">
+                More
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => cloneMutation.mutate()}
+                disabled={cloneMutation.isPending}
+              >
+                <CopyPlus className="mr-2 h-4 w-4" />
+                Clone decision
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => archiveMutation.mutate()}
+                disabled={archiveMutation.isPending}
+                className="text-destructive focus:text-destructive"
+              >
+                <Archive className="mr-2 h-4 w-4" />
+                Archive
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -247,6 +340,11 @@ export function DecisionDetail() {
                       {opt.description}
                     </p>
                   )}
+                  {opt.costImpact && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Cost: {opt.costImpact}
+                    </p>
+                  )}
                 </div>
               )
             })}
@@ -264,16 +362,22 @@ export function DecisionDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <MessageSquare className="h-12 w-12 text-muted-foreground" />
-              <p className="mt-4 font-medium">No comments yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Add a comment to discuss with the client
-              </p>
-              <Button variant="outline" size="sm" className="mt-4">
-                Add comment
-              </Button>
-            </div>
+            <CommentThread
+              comments={comments.map((c) => ({
+                id: c.id,
+                decisionId: c.decisionId,
+                parentCommentId: c.parentCommentId,
+                authorId: c.authorId,
+                authorName: c.authorName,
+                content: c.text,
+                createdAt: c.timestamp,
+                attachments: [],
+              }))}
+              onPostComment={(content, parentCommentId) =>
+                postCommentMutation.mutate({ text: content, parentCommentId })
+              }
+              isLoading={postCommentMutation.isPending}
+            />
           </CardContent>
         </Card>
         <Card>

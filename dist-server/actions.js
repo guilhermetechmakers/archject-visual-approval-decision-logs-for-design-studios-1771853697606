@@ -67,19 +67,38 @@ actionsRouter.post('/actions/:actionId/confirm', (req, res) => {
         if (!userId) {
             return res.status(401).json({ code: 'UNAUTHORIZED', message: 'Authentication required' });
         }
-        lastConfirmedBy = JSON.stringify({ userId, clientName: null });
+        lastConfirmedBy = JSON.stringify({ userId, clientName: null, optionId: optionId ?? null });
     }
     const referenceId = `conf-${crypto.randomUUID().slice(0, 8)}`;
     const now = new Date().toISOString();
-    db.prepare(`UPDATE decisions SET
-      status = 'approved',
-      last_confirmed_at = ?,
-      last_confirmed_by = ?,
-      confirmation_reference_id = ?,
-      confirmed_context = ?,
-      decision_made_at = ?,
-      reviewer_id = ?
-    WHERE id = ?`).run(now, lastConfirmedBy, referenceId, confirmedContext, now, userId ?? null, actionId);
+    try {
+        db.prepare(`UPDATE decisions SET
+        status = 'approved',
+        last_confirmed_at = ?,
+        last_confirmed_by = ?,
+        confirmation_reference_id = ?,
+        confirmed_context = ?,
+        decision_made_at = ?,
+        reviewer_id = ?,
+        approved_option_id = ?
+      WHERE id = ?`).run(now, lastConfirmedBy, referenceId, confirmedContext, now, userId ?? null, optionId ?? null, actionId);
+    }
+    catch (e) {
+        if (String(e).includes('no such column')) {
+            db.prepare(`UPDATE decisions SET
+          status = 'approved',
+          last_confirmed_at = ?,
+          last_confirmed_by = ?,
+          confirmation_reference_id = ?,
+          confirmed_context = ?,
+          decision_made_at = ?,
+          reviewer_id = ?
+        WHERE id = ?`).run(now, lastConfirmedBy, referenceId, confirmedContext, now, userId ?? null, actionId);
+        }
+        else {
+            throw e;
+        }
+    }
     const auditId = crypto.randomUUID();
     db.prepare(`INSERT INTO audit_log (id, project_id, actor_type, actor_id, client_token_id, action_type, reference_id, payload, immutable)
      VALUES (?, ?, ?, ?, ?, 'decision_approved', ?, ?, 1)`).run(auditId, decision.project_id, confirmedContext === 'client_token' ? 'client_token' : 'user', userId ?? null, confirmedContext === 'client_token' ? token?.slice(0, 20) : null, referenceId, JSON.stringify({ decisionId: actionId, optionId: optionId ?? null }));

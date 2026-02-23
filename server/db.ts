@@ -664,6 +664,40 @@ export function initDb() {
   } catch (e) {
     if (!String(e).includes('already exists')) throw e
   }
+
+  // 029: Decision Objects extended (options image_url/drawing_ids/cost_impact, clone/version/archival)
+  const migration029Path = path.join(process.cwd(), 'server', 'migrations', '029_decision_objects_extended.sql')
+  if (fs.existsSync(migration029Path)) {
+    const sql = fs.readFileSync(migration029Path, 'utf-8')
+    const statements = sql
+      .split(';')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    for (const stmt of statements) {
+      try {
+        db.exec(stmt + ';')
+      } catch (e) {
+        if (!String(e).includes('duplicate column name') && !String(e).includes('already exists')) throw e
+      }
+    }
+  }
+
+  // 030: approved_option_id for decisions
+  const migration030Path = path.join(process.cwd(), 'server', 'migrations', '030_approved_option_id.sql')
+  if (fs.existsSync(migration030Path)) {
+    const sql = fs.readFileSync(migration030Path, 'utf-8')
+    const statements = sql
+      .split(';')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    for (const stmt of statements) {
+      try {
+        db.exec(stmt + ';')
+      } catch (e) {
+        if (!String(e).includes('duplicate column name') && !String(e).includes('already exists')) throw e
+      }
+    }
+  }
 }
 
 function backfillSearchIndex() {

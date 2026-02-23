@@ -16,7 +16,15 @@ export interface Project {
   pendingApprovalsCount?: number
 }
 
-export type DecisionStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'archived'
+export type DecisionStatus =
+  | 'draft'
+  | 'pending'
+  | 'published'
+  | 'in_review'
+  | 'approved'
+  | 'rejected'
+  | 'archived'
+  | 'voided'
 
 export interface DecisionOption {
   id: string
@@ -24,6 +32,66 @@ export interface DecisionOption {
   imageUrl?: string
   description?: string
   selected?: boolean
+  drawingIds?: string[]
+  priceImpact?: string
+  costImpact?: string
+  isDefault?: boolean
+  isRecommended?: boolean
+  metadata?: Record<string, unknown>
+}
+
+export interface ReviewerAssignment {
+  userId?: string
+  role?: string
+  order: number
+  required: boolean
+  responseStatus?: 'pending' | 'approved' | 'rejected' | 'commented'
+  responseTimestamp?: string
+}
+
+export interface ApprovalEvent {
+  eventId: string
+  optionId?: string
+  approverId: string
+  action: 'commented' | 'approved' | 'rejected' | 'pending'
+  timestamp: string
+  ip?: string
+}
+
+export interface DecisionComment {
+  id: string
+  authorId: string
+  text: string
+  parentOptionId?: string | null
+  timestamp: string
+  attachments?: string[]
+}
+
+export interface DecisionReminder {
+  id: string
+  recipientId: string
+  schedule: string
+  lastSent?: string
+  status: 'active' | 'sent' | 'cancelled'
+}
+
+export interface DecisionAttachment {
+  id: string
+  type: 'image' | 'drawing' | 'document'
+  url: string
+  name: string
+  size: number
+  uploadedAt: string
+}
+
+export interface AuditEntry {
+  id: string
+  action: string
+  actorId?: string
+  targetDecisionId: string
+  details?: Record<string, unknown>
+  timestamp: string
+  ip?: string
 }
 
 export interface Decision {
@@ -33,12 +101,30 @@ export interface Decision {
   description?: string
   options: DecisionOption[]
   status: DecisionStatus
+  templateId?: string | null
+  templateVersion?: number
   approvedOptionId?: string
   approvedAt?: string
   approvedByName?: string
+  reviewers?: ReviewerAssignment[]
+  approvals?: ApprovalEvent[]
+  comments?: DecisionComment[]
+  reminders?: DecisionReminder[]
+  auditTrail?: AuditEntry[]
+  attachments?: DecisionAttachment[]
+  version?: number
+  versionNumber?: number
+  clonedFromDecisionId?: string | null
+  isArchived?: boolean
+  archivedAt?: string | null
+  archivedBy?: string | null
   createdAt: string
   updatedAt: string
+  createdBy?: string
+  updatedBy?: string
   dueDate?: string
+  etag?: string
+  metadata?: Record<string, unknown>
 }
 
 export interface Template {

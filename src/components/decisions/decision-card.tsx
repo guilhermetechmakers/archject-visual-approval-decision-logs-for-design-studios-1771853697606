@@ -5,6 +5,8 @@ import {
   Check,
   ChevronRight,
   MoreHorizontal,
+  CopyPlus,
+  Archive,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -32,8 +34,8 @@ function statusVariant(
   status: Decision['status']
 ): 'success' | 'warning' | 'secondary' | 'destructive' {
   if (status === 'approved') return 'success'
-  if (status === 'pending') return 'warning'
   if (status === 'rejected') return 'destructive'
+  if (status === 'pending' || status === 'in_review') return 'warning'
   return 'secondary'
 }
 
@@ -48,6 +50,14 @@ export interface DecisionCardProps {
   className?: string
   /** Optional: base path for links (default: /dashboard) */
   basePath?: string
+  /** Optional: clone handler */
+  onClone?: (decisionId: string) => void
+  /** Optional: archive handler */
+  onArchive?: (decisionId: string) => void
+  /** Optional: days since creation */
+  daysOpen?: number
+  /** Optional: whether past due date */
+  isOverdue?: boolean
 }
 
 export function DecisionCard({
@@ -57,6 +67,10 @@ export function DecisionCard({
   showActions = true,
   className,
   basePath = '/dashboard',
+  onClone,
+  onArchive,
+  daysOpen,
+  isOverdue,
 }: DecisionCardProps) {
   const navigate = useNavigate()
   const detailPath = `${basePath}/projects/${projectId}/decisions/${decision.id}`
@@ -113,7 +127,7 @@ export function DecisionCard({
             variant={statusVariant(decision.status)}
             className="shrink-0"
           >
-            {decision.status}
+            {String(decision.status).replace(/_/g, ' ')}
           </Badge>
         </CardHeader>
         <CardContent className="pt-0">
@@ -140,9 +154,19 @@ export function DecisionCard({
               </span>
             )}
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+          <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>Updated {formatDate(decision.updatedAt)}</span>
-            <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
+            {(daysOpen !== undefined || isOverdue) && (
+              <span
+                className={cn(
+                  'shrink-0 rounded px-1.5 py-0.5',
+                  isOverdue ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
+                )}
+              >
+                {isOverdue ? 'Overdue' : daysOpen !== undefined && daysOpen > 0 ? `${daysOpen}d open` : null}
+              </span>
+            )}
+            <ChevronRight className="h-4 w-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
           </div>
         </CardContent>
       </Link>
@@ -189,6 +213,21 @@ export function DecisionCard({
               <DropdownMenuItem onClick={() => navigate('/dashboard/exports')}>
                 Export decision log
               </DropdownMenuItem>
+              {onClone && (
+                <DropdownMenuItem onClick={() => onClone(decision.id)}>
+                  <CopyPlus className="mr-2 h-4 w-4" />
+                  Clone
+                </DropdownMenuItem>
+              )}
+              {onArchive && (
+                <DropdownMenuItem
+                  onClick={() => onArchive(decision.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archive
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
