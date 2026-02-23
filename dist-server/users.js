@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { db } from './db.js';
-import { getUserIdFromAccessToken, revokeAllRefreshTokensForUser, revokeAllSessionsForUser } from './auth-utils.js';
+import { getUserIdFromAccessToken, revokeAllRefreshTokensForUser, revokeAllSessionsForUser, revokeRefreshTokensForSession, logSessionAudit, } from './auth-utils.js';
 import { sendPasswordChangedEmail } from './mailer.js';
 import { logAudit } from './twofa.js';
 import { get2faStatus, maskPhone, regenerateRecoveryCodes, verify2faForUser, verifyRecoveryCode, } from './twofa.js';
@@ -54,7 +54,7 @@ usersRouter.get('/me', requireAuth, (req, res) => {
         const twofaEnabled = user['2fa_enabled'] === 1;
         const twofaMethod = user['2fa_method'] ?? null;
         const phoneMasked = user.phone_number ? maskPhone(user.phone_number) : null;
-        const sessions = db.prepare(`SELECT id, ip, user_agent, last_active_at, created_at
+        const sessions = db.prepare(`SELECT id, ip, user_agent, last_active_at, created_at, device_name, platform, geo_city, geo_country
        FROM sessions WHERE user_id = ? AND revoked_at IS NULL ORDER BY last_active_at DESC`).all(userId);
         const name = `${user.first_name} ${user.last_name}`.trim();
         return res.json({
@@ -85,6 +85,10 @@ usersRouter.get('/me', requireAuth, (req, res) => {
                 user_agent: s.user_agent,
                 last_active_at: s.last_active_at,
                 created_at: s.created_at,
+                device_name: s.device_name ?? null,
+                platform: s.platform ?? 'web',
+                geo_city: s.geo_city ?? null,
+                geo_country: s.geo_country ?? null,
             })),
         });
     }
@@ -213,8 +217,10 @@ usersRouter.put('/me/password', requireAuth, async (req, res) => {
 usersRouter.get('/me/sessions', requireAuth, (req, res) => {
     try {
         const userId = req.userId;
-        const sessions = db.prepare(`SELECT id, ip, user_agent, last_active_at, created_at
-       FROM sessions WHERE user_id = ? AND revoked_at IS NULL ORDER BY last_active_at DESC`).all(userId);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '50', 10)));
+        const offset = Math.max(0, parseInt(req.query.offset || '0', 10));
+        const sessions = db.prepare(`SELECT id, ip, user_agent, last_active_at, created_at, device_name, platform, geo_city, geo_country
+       FROM sessions WHERE user_id = ? AND revoked_at IS NULL ORDER BY last_active_at DESC LIMIT ? OFFSET ?`).all(userId, limit, offset);
         return res.json({
             sessions: sessions.map((s) => ({
                 id: s.id,
@@ -222,6 +228,10 @@ usersRouter.get('/me/sessions', requireAuth, (req, res) => {
                 user_agent: s.user_agent,
                 last_active_at: s.last_active_at,
                 created_at: s.created_at,
+                device_name: s.device_name ?? null,
+                platform: s.platform ?? 'web',
+                geo_city: s.geo_city ?? null,
+                geo_country: s.geo_country ?? null,
             })),
         });
     }
@@ -234,15 +244,49 @@ usersRouter.post('/me/sessions/:id/revoke', requireAuth, (req, res) => {
     try {
         const userId = req.userId;
         const sessionId = req.params.id;
+        const { reason } = req.body ?? {};
         const session = db.prepare('SELECT id FROM sessions WHERE id = ? AND user_id = ?').get(sessionId, userId);
         if (!session) {
             return res.status(404).json({ code: 'SESSION_NOT_FOUND', message: 'Session not found' });
         }
-        db.prepare('UPDATE sessions SET revoked_at = datetime("now") WHERE id = ?').run(sessionId);
+        const revokeReason = typeof reason === 'string' ? reason.slice(0, 512) : null;
+        const hasRevokeReason = db.prepare("SELECT 1 FROM pragma_table_info('sessions') WHERE name='revoke_reason'").get();
+        if (hasRevokeReason) {
+            db.prepare('UPDATE sessions SET revoked_at = datetime("now"), revoke_reason = ? WHERE id = ?').run(revokeReason, sessionId);
+        }
+        else {
+            db.prepare('UPDATE sessions SET revoked_at = datetime("now") WHERE id = ?').run(sessionId);
+        }
+        revokeRefreshTokensForSession(sessionId);
+        logSessionAudit(userId, sessionId, 'revoke', { reason: revokeReason });
         return res.json({ message: 'Session revoked' });
     }
     catch (err) {
         console.error('[Users] Revoke session error:', err);
+        return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
+    }
+});
+usersRouter.post('/me/sessions/revoke-all', requireAuth, async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { password } = req.body ?? {};
+        if (!password || typeof password !== 'string') {
+            return res.status(400).json({
+                code: 'VALIDATION_ERROR',
+                message: 'Password is required to sign out of all devices',
+            });
+        }
+        const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId);
+        if (!user?.password_hash || !(await bcrypt.compare(password, user.password_hash))) {
+            return res.status(401).json({ code: 'INVALID_PASSWORD', message: 'Invalid password' });
+        }
+        revokeAllRefreshTokensForUser(userId);
+        revokeAllSessionsForUser(userId);
+        logSessionAudit(userId, null, 'logout', { action: 'revoke_all' });
+        return res.json({ message: 'All sessions revoked' });
+    }
+    catch (err) {
+        console.error('[Users] Revoke all sessions error:', err);
         return res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' });
     }
 });

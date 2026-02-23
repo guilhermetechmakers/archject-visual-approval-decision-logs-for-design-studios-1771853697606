@@ -24,6 +24,10 @@ import {
   revokeAllSessionsForUser,
   createSession,
   getUserIdFromAccessToken,
+  markRefreshTokenRotated,
+  updateSessionLastActive,
+  updateSessionJti,
+  logSessionAudit,
 } from './auth-utils.js'
 import {
   createSessionTempToken,
@@ -199,7 +203,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       })
     }
 
-    const { email, password, rememberMe } = req.body
+    const { email, password, rememberMe, device_name } = req.body
     if (!email || !password) {
       return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Email and password are required' })
     }
@@ -230,10 +234,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     if (twofaEnabled) {
       const deviceToken = req.cookies?.[DEVICE_TOKEN_COOKIE]
       if (deviceToken && validateDeviceToken(user.id, deviceToken)) {
-        const accessToken = createAccessToken(user.id, user.email)
+        const sessionId = createSession(user.id, ip, req.get('user-agent'), {
+          device_name: typeof device_name === 'string' ? device_name.slice(0, 100) : undefined,
+        })
         const refreshToken = createRefreshToken()
-        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
-        createSession(user.id, ip, req.get('user-agent'))
+        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId)
+        const accessToken = createAccessToken(user.id, user.email, sessionId)
+        const decoded = jwt.decode(accessToken) as { jti?: string }
+        if (decoded?.jti) updateSessionJti(sessionId, decoded.jti)
+        logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') })
         setRefreshTokenCookie(res, refreshToken)
         return res.json({
           accessToken,
@@ -257,15 +266,21 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       })
     }
 
-    const accessToken = createAccessToken(user.id, user.email)
+    const sessionId = createSession(user.id, ip, req.get('user-agent'), {
+      device_name: typeof device_name === 'string' ? device_name.slice(0, 100) : undefined,
+    })
     const refreshToken = createRefreshToken()
-    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
-    createSession(user.id, ip, req.get('user-agent'))
+    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId)
+    const accessToken = createAccessToken(user.id, user.email, sessionId)
+    const decoded = jwt.decode(accessToken) as { jti?: string }
+    if (decoded?.jti) updateSessionJti(sessionId, decoded.jti)
+    logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') })
     setRefreshTokenCookie(res, refreshToken)
 
     return res.json({
       accessToken,
       sessionToken: accessToken, // backward compat
+      session_id: sessionId,
       user: {
         id: user.id,
         email: user.email,
@@ -334,10 +349,13 @@ authRouter.post('/2fa/verify', async (req: Request, res: Response) => {
       'SELECT id, email, first_name, last_name FROM users WHERE id = ?'
     ).get(session.userId) as { id: string; email: string; first_name: string; last_name: string }
 
-    const accessToken = createAccessToken(user.id, user.email)
+    const sessionId = createSession(user.id, ip, req.get('user-agent'), { platform: 'web' })
     const refreshToken = createRefreshToken()
-    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
-    createSession(user.id, ip, req.get('user-agent'))
+    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId)
+    const accessToken = createAccessToken(user.id, user.email, sessionId)
+    const decoded = jwt.decode(accessToken) as { jti?: string }
+    if (decoded?.jti) updateSessionJti(sessionId, decoded.jti)
+    logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') })
     setRefreshTokenCookie(res, refreshToken)
 
     if (remember_device) {
@@ -578,10 +596,13 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
     }
 
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
-    const accessToken = createAccessToken(user.id, user.email)
+    const sessionId = createSession(user.id, ip, req.get('user-agent'), { platform: 'web' })
     const refreshToken = createRefreshToken()
-    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
-    createSession(user.id, ip, req.get('user-agent'))
+    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId)
+    const accessToken = createAccessToken(user.id, user.email, sessionId)
+    const decoded = jwt.decode(accessToken) as { jti?: string }
+    if (decoded?.jti) updateSessionJti(sessionId, decoded.jti)
+    logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') })
     setRefreshTokenCookie(res, refreshToken)
 
     return res.json({
@@ -769,7 +790,20 @@ authRouter.post('/refresh', (req: Request, res: Response) => {
       clearRefreshTokenCookie(res)
       return res.status(401).json({ code: 'INVALID_REFRESH_TOKEN', message: 'Invalid or expired refresh token' })
     }
-    const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(result.userId) as {
+    // Reuse detection: revoke all sessions and tokens for user
+    if (!result.valid && 'reuseDetected' in result && result.reuseDetected) {
+      revokeAllRefreshTokensForUser(result.userId)
+      revokeAllSessionsForUser(result.userId)
+      logSessionAudit(result.userId, null, 'rotation_reuse', { ip: req.ip })
+      clearRefreshTokenCookie(res)
+      return res.status(401).json({
+        code: 'REFRESH_TOKEN_REUSE',
+        message: 'Token reuse detected. All sessions have been revoked for security.',
+      })
+    }
+    const userId = result.userId
+    const sessionId = (result as { valid: true; userId: string; sessionId: string | null }).sessionId
+    const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(userId) as {
       id: string
       email: string
       first_name: string
@@ -779,15 +813,22 @@ authRouter.post('/refresh', (req: Request, res: Response) => {
       clearRefreshTokenCookie(res)
       return res.status(401).json({ code: 'USER_NOT_FOUND', message: 'User not found' })
     }
-    revokeRefreshToken(refreshToken)
+    const tokenHash = hashToken(refreshToken)
     const newRefreshToken = createRefreshToken()
-    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown'
-    storeRefreshToken(user.id, newRefreshToken, ip, req.get('user-agent'))
+    const newTokenId = storeRefreshToken(user.id, newRefreshToken, req.ip ?? undefined, req.get('user-agent'), sessionId ?? undefined)
+    markRefreshTokenRotated(tokenHash, newTokenId)
+    if (sessionId) {
+      updateSessionLastActive(sessionId)
+    }
     setRefreshTokenCookie(res, newRefreshToken)
-    const accessToken = createAccessToken(user.id, user.email)
+    const accessToken = createAccessToken(user.id, user.email, sessionId ?? undefined)
+    const decoded = jwt.decode(accessToken) as { jti?: string }
+    if (sessionId && decoded?.jti) updateSessionJti(sessionId, decoded.jti)
+    logSessionAudit(user.id, sessionId, 'refresh', {})
     return res.json({
       accessToken,
       sessionToken: accessToken,
+      session_id: sessionId,
       user: {
         id: user.id,
         email: user.email,
@@ -946,10 +987,13 @@ async function handlePasswordReset(
   }
   logAudit(user.id, 'PASSWORD_RESET_COMPLETED', {}, ip)
   await sendPasswordChangedEmail({ firstName: user.first_name, email: user.email })
-  const accessToken = createAccessToken(user.id, user.email)
+  const sessionId = createSession(user.id, ip, req.get('user-agent'))
   const refreshToken = createRefreshToken()
-  storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'))
-  createSession(user.id, ip, req.get('user-agent'))
+  storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId)
+  const accessToken = createAccessToken(user.id, user.email, sessionId)
+  const decoded = jwt.decode(accessToken) as { jti?: string }
+  if (decoded?.jti) updateSessionJti(sessionId, decoded.jti)
+  logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') })
   setRefreshTokenCookie(res, refreshToken)
   res.json({
     message: 'Password reset successfully',

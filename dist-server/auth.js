@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import { db } from './db.js';
 import { sendVerificationEmail, sendPasswordResetEmail, sendPasswordChangedEmail } from './mailer.js';
 import { checkResendRateLimit, checkAuthRateLimit, checkPasswordResetRequestLimit, checkPasswordResetSubmitLimit, } from './rate-limit.js';
-import { hashToken, createAccessToken, createRefreshToken, setRefreshTokenCookie, clearRefreshTokenCookie, getRefreshTokenFromRequest, storeRefreshToken, validateRefreshToken, revokeRefreshToken, revokeAllRefreshTokensForUser, revokeAllSessionsForUser, createSession, getUserIdFromAccessToken, } from './auth-utils.js';
+import { hashToken, createAccessToken, createRefreshToken, setRefreshTokenCookie, clearRefreshTokenCookie, getRefreshTokenFromRequest, storeRefreshToken, validateRefreshToken, revokeRefreshToken, revokeAllRefreshTokensForUser, revokeAllSessionsForUser, createSession, getUserIdFromAccessToken, markRefreshTokenRotated, updateSessionLastActive, updateSessionJti, logSessionAudit, } from './auth-utils.js';
 import { createSessionTempToken, validateSessionTempToken, consumeSessionTempToken, createDeviceToken, validateDeviceToken, get2faStatus, verify2faForUser, verifyRecoveryCode, maskPhone, sendSMSOTP, check2faVerifyLockout, record2faVerifyAttempt, clear2faVerifyAttempts, logAudit, setupTOTP, enableTOTP, enableSMS, disable2FA, normalizePhone, isValidPhone, } from './twofa.js';
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
 const DEVICE_TOKEN_COOKIE = 'archject_device';
@@ -127,7 +127,7 @@ authRouter.post('/login', async (req, res) => {
                 next_allowed_attempt_at: authLimit.nextAllowedAt ? new Date(authLimit.nextAllowedAt).toISOString() : undefined,
             });
         }
-        const { email, password, rememberMe } = req.body;
+        const { email, password, rememberMe, device_name } = req.body;
         if (!email || !password) {
             return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'Email and password are required' });
         }
@@ -146,10 +146,16 @@ authRouter.post('/login', async (req, res) => {
         if (twofaEnabled) {
             const deviceToken = req.cookies?.[DEVICE_TOKEN_COOKIE];
             if (deviceToken && validateDeviceToken(user.id, deviceToken)) {
-                const accessToken = createAccessToken(user.id, user.email);
+                const sessionId = createSession(user.id, ip, req.get('user-agent'), {
+                    device_name: typeof device_name === 'string' ? device_name.slice(0, 100) : undefined,
+                });
                 const refreshToken = createRefreshToken();
-                storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'));
-                createSession(user.id, ip, req.get('user-agent'));
+                storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId);
+                const accessToken = createAccessToken(user.id, user.email, sessionId);
+                const decoded = jwt.decode(accessToken);
+                if (decoded?.jti)
+                    updateSessionJti(sessionId, decoded.jti);
+                logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') });
                 setRefreshTokenCookie(res, refreshToken);
                 return res.json({
                     accessToken,
@@ -172,14 +178,21 @@ authRouter.post('/login', async (req, res) => {
                 phone_masked: user.phone_number ? maskPhone(user.phone_number) : null,
             });
         }
-        const accessToken = createAccessToken(user.id, user.email);
+        const sessionId = createSession(user.id, ip, req.get('user-agent'), {
+            device_name: typeof device_name === 'string' ? device_name.slice(0, 100) : undefined,
+        });
         const refreshToken = createRefreshToken();
-        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'));
-        createSession(user.id, ip, req.get('user-agent'));
+        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId);
+        const accessToken = createAccessToken(user.id, user.email, sessionId);
+        const decoded = jwt.decode(accessToken);
+        if (decoded?.jti)
+            updateSessionJti(sessionId, decoded.jti);
+        logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') });
         setRefreshTokenCookie(res, refreshToken);
         return res.json({
             accessToken,
             sessionToken: accessToken, // backward compat
+            session_id: sessionId,
             user: {
                 id: user.id,
                 email: user.email,
@@ -236,10 +249,14 @@ authRouter.post('/2fa/verify', async (req, res) => {
         clear2faVerifyAttempts(session.userId, ip);
         consumeSessionTempToken(session_temp_token);
         const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(session.userId);
-        const accessToken = createAccessToken(user.id, user.email);
+        const sessionId = createSession(user.id, ip, req.get('user-agent'), { platform: 'web' });
         const refreshToken = createRefreshToken();
-        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'));
-        createSession(user.id, ip, req.get('user-agent'));
+        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId);
+        const accessToken = createAccessToken(user.id, user.email, sessionId);
+        const decoded = jwt.decode(accessToken);
+        if (decoded?.jti)
+            updateSessionJti(sessionId, decoded.jti);
+        logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') });
         setRefreshTokenCookie(res, refreshToken);
         if (remember_device) {
             const deviceFingerprint = `${ip}-${req.get('user-agent') ?? 'unknown'}`;
@@ -437,10 +454,14 @@ authRouter.post('/verify-email', async (req, res) => {
         db.prepare('UPDATE users SET email_verified = 1, updated_at = ? WHERE id = ?').run(new Date().toISOString(), row.user_id);
         const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(row.user_id);
         const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-        const accessToken = createAccessToken(user.id, user.email);
+        const sessionId = createSession(user.id, ip, req.get('user-agent'), { platform: 'web' });
         const refreshToken = createRefreshToken();
-        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'));
-        createSession(user.id, ip, req.get('user-agent'));
+        storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId);
+        const accessToken = createAccessToken(user.id, user.email, sessionId);
+        const decoded = jwt.decode(accessToken);
+        if (decoded?.jti)
+            updateSessionJti(sessionId, decoded.jti);
+        logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') });
         setRefreshTokenCookie(res, refreshToken);
         return res.json({
             status: 'verified',
@@ -591,20 +612,41 @@ authRouter.post('/refresh', (req, res) => {
             clearRefreshTokenCookie(res);
             return res.status(401).json({ code: 'INVALID_REFRESH_TOKEN', message: 'Invalid or expired refresh token' });
         }
-        const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(result.userId);
+        // Reuse detection: revoke all sessions and tokens for user
+        if (!result.valid && 'reuseDetected' in result && result.reuseDetected) {
+            revokeAllRefreshTokensForUser(result.userId);
+            revokeAllSessionsForUser(result.userId);
+            logSessionAudit(result.userId, null, 'rotation_reuse', { ip: req.ip });
+            clearRefreshTokenCookie(res);
+            return res.status(401).json({
+                code: 'REFRESH_TOKEN_REUSE',
+                message: 'Token reuse detected. All sessions have been revoked for security.',
+            });
+        }
+        const userId = result.userId;
+        const sessionId = result.sessionId;
+        const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(userId);
         if (!user) {
             clearRefreshTokenCookie(res);
             return res.status(401).json({ code: 'USER_NOT_FOUND', message: 'User not found' });
         }
-        revokeRefreshToken(refreshToken);
+        const tokenHash = hashToken(refreshToken);
         const newRefreshToken = createRefreshToken();
-        const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-        storeRefreshToken(user.id, newRefreshToken, ip, req.get('user-agent'));
+        const newTokenId = storeRefreshToken(user.id, newRefreshToken, req.ip ?? undefined, req.get('user-agent'), sessionId ?? undefined);
+        markRefreshTokenRotated(tokenHash, newTokenId);
+        if (sessionId) {
+            updateSessionLastActive(sessionId);
+        }
         setRefreshTokenCookie(res, newRefreshToken);
-        const accessToken = createAccessToken(user.id, user.email);
+        const accessToken = createAccessToken(user.id, user.email, sessionId ?? undefined);
+        const decoded = jwt.decode(accessToken);
+        if (sessionId && decoded?.jti)
+            updateSessionJti(sessionId, decoded.jti);
+        logSessionAudit(user.id, sessionId, 'refresh', {});
         return res.json({
             accessToken,
             sessionToken: accessToken,
+            session_id: sessionId,
             user: {
                 id: user.id,
                 email: user.email,
@@ -741,10 +783,14 @@ async function handlePasswordReset(req, res, token, newPassword) {
     const user = db.prepare('SELECT id, email, first_name, last_name FROM users WHERE id = ?').get(row.user_id);
     logAudit(user.id, 'PASSWORD_RESET_COMPLETED', {}, ip);
     await sendPasswordChangedEmail({ firstName: user.first_name, email: user.email });
-    const accessToken = createAccessToken(user.id, user.email);
+    const sessionId = createSession(user.id, ip, req.get('user-agent'));
     const refreshToken = createRefreshToken();
-    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'));
-    createSession(user.id, ip, req.get('user-agent'));
+    storeRefreshToken(user.id, refreshToken, ip, req.get('user-agent'), sessionId);
+    const accessToken = createAccessToken(user.id, user.email, sessionId);
+    const decoded = jwt.decode(accessToken);
+    if (decoded?.jti)
+        updateSessionJti(sessionId, decoded.jti);
+    logSessionAudit(user.id, sessionId, 'login', { ip, user_agent: req.get('user-agent') });
     setRefreshTokenCookie(res, refreshToken);
     res.json({
         message: 'Password reset successfully',

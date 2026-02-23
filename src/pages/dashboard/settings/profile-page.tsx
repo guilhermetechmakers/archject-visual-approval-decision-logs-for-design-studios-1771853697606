@@ -2,23 +2,21 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  Shield,
   Key,
   Smartphone,
-  Monitor,
-  Unplug,
   Plug,
   RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getMe, revokeSession } from '@/api/users'
+import { getMe } from '@/api/users'
 import {
   ProfileCard,
   PasswordChangeModal,
   AccountDeletionPanel,
   OAuthDisconnectModal,
+  SecuritySessionsCard,
 } from '@/components/profile'
 import {
   TOTPSetupModal,
@@ -34,15 +32,6 @@ const PROVIDERS = [
   { id: 'apple', name: 'Apple', icon: 'A' },
   { id: 'microsoft', name: 'Microsoft', icon: 'M' },
 ] as const
-
-function formatUserAgent(ua: string | null): string {
-  if (!ua) return 'Unknown device'
-  if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome'
-  if (ua.includes('Firefox')) return 'Firefox'
-  if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari'
-  if (ua.includes('Edg')) return 'Edge'
-  return 'Browser'
-}
 
 export function ProfilePage() {
   const queryClient = useQueryClient()
@@ -60,16 +49,6 @@ export function ProfilePage() {
     queryKey: ['user-profile'],
     queryFn: getMe,
   })
-
-  const handleRevokeSession = async (sessionId: string) => {
-    try {
-      await revokeSession(sessionId)
-      queryClient.invalidateQueries({ queryKey: ['user-profile'] })
-      toast.success('Session signed out')
-    } catch {
-      toast.error('Failed to revoke session')
-    }
-  }
 
   if (isLoading || !profile) {
     return (
@@ -95,8 +74,8 @@ export function ProfilePage() {
       <Card className="card-hover">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Security
+            <Key className="h-5 w-5" />
+            Password & 2FA
           </CardTitle>
           <CardDescription>Change password and manage two-factor authentication</CardDescription>
         </CardHeader>
@@ -206,6 +185,8 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
+      <SecuritySessionsCard />
+
       <Card className="card-hover">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -271,49 +252,6 @@ export function ProfilePage() {
               )
             })}
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="card-hover">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Monitor className="h-5 w-5" />
-            Active sessions
-          </CardTitle>
-          <CardDescription>Manage your active sessions and sign out from other devices</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {profile.sessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active sessions</p>
-          ) : (
-            <div className="space-y-3">
-              {profile.sessions.map((s) => (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:bg-muted/30"
-                >
-                  <div className="flex items-center gap-3">
-                    <Monitor className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">{formatUserAgent(s.user_agent)}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {s.ip ?? 'Unknown IP'} · Last active {new Date(s.last_active_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleRevokeSession(s.id)}
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Unplug className="mr-1 h-4 w-4" />
-                    Sign out
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
 

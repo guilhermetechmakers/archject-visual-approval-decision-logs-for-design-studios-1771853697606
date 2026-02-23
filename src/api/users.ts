@@ -32,6 +32,10 @@ export interface UserProfile {
     user_agent: string | null
     last_active_at: string
     created_at: string
+    device_name?: string | null
+    platform?: 'web' | 'ios' | 'android' | 'api' | 'other'
+    geo_city?: string | null
+    geo_country?: string | null
   }[]
 }
 
@@ -62,8 +66,12 @@ export async function changePassword(data: ChangePasswordRequest): Promise<{ mes
   return api.post<{ message: string }>('/users/me/password', data)
 }
 
-export async function revokeSession(sessionId: string): Promise<{ message: string }> {
-  return api.post<{ message: string }>(`/users/me/sessions/${sessionId}/revoke`)
+export async function revokeSession(sessionId: string, reason?: string): Promise<{ message: string }> {
+  return api.post<{ message: string }>(`/users/me/sessions/${sessionId}/revoke`, { reason })
+}
+
+export async function revokeAllSessions(password: string): Promise<{ message: string }> {
+  return api.post<{ message: string }>('/users/me/sessions/revoke-all', { password })
 }
 
 export async function disconnectOAuth(provider: string): Promise<void> {

@@ -90,6 +90,28 @@ export interface AdminSession {
   lastActiveAt: string
 }
 
+export interface UserSession {
+  id: string
+  sessionId: string
+  userId: string
+  userName: string
+  userEmail: string
+  device: string
+  ip: string
+  platform: string
+  geoCountry?: string | null
+  geoCity?: string | null
+  lastActiveAt: string
+  createdAt: string
+  revoked: boolean
+}
+
+export interface UserSessionsMetrics {
+  activeSessions: number
+  byPlatform: { platform: string; count: number }[]
+  byCountry: { country: string; count: number }[]
+}
+
 export interface SupportTicket {
   id: string
   projectId: string | null
@@ -261,6 +283,60 @@ export const adminApi = {
   revokeSession: (sessionId: string) => adminFetch<{ success: boolean }>(`${ADMIN_BASE}/sessions/${sessionId}`, { method: 'DELETE' }),
   revokeAllSessions: (userId: string) =>
     adminFetch<{ success: boolean }>(`${ADMIN_BASE}/sessions/revoke-all?userId=${userId}`, { method: 'POST' }),
+
+  getUserSessions: (params?: {
+    userId?: string
+    email?: string
+    ip?: string
+    platform?: string
+    status?: string
+    from?: string
+    to?: string
+    page?: number
+    perPage?: number
+  }) => {
+    const search = new URLSearchParams()
+    if (params?.userId) search.set('userId', params.userId)
+    if (params?.email) search.set('email', params.email)
+    if (params?.ip) search.set('ip', params.ip)
+    if (params?.platform) search.set('platform', params.platform)
+    if (params?.status) search.set('status', params.status)
+    if (params?.from) search.set('from', params.from)
+    if (params?.to) search.set('to', params.to)
+    if (params?.page) search.set('page', String(params.page))
+    if (params?.perPage) search.set('perPage', String(params.perPage))
+    return adminFetch<{ sessions: UserSession[]; total: number; page: number; perPage: number }>(
+      `${ADMIN_BASE}/user-sessions?${search}`
+    )
+  },
+  getUserSessionsMetrics: () =>
+    adminFetch<UserSessionsMetrics>(`${ADMIN_BASE}/user-sessions/metrics`),
+  revokeUserSession: (sessionId: string) =>
+    adminFetch<{ success: boolean }>(`${ADMIN_BASE}/user-sessions/${sessionId}/revoke`, { method: 'POST' }),
+  bulkRevokeUserSessions: (sessionIds: string[]) =>
+    adminFetch<{ results: { sessionId: string; success: boolean }[] }>(
+      `${ADMIN_BASE}/user-sessions/bulk-revoke`,
+      { method: 'POST', body: JSON.stringify({ sessionIds }) }
+    ),
+  exportUserSessions: async (params?: {
+    userId?: string
+    from?: string
+    to?: string
+    format?: 'csv' | 'json'
+  }) => {
+    const search = new URLSearchParams()
+    if (params?.userId) search.set('userId', params.userId)
+    if (params?.from) search.set('from', params.from)
+    if (params?.to) search.set('to', params.to)
+    if (params?.format) search.set('format', params.format)
+    const token = getAdminToken()
+    const res = await fetch(`${API_BASE}${ADMIN_BASE}/user-sessions/export?${search}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error('Export failed')
+    return res.blob()
+  },
 
   getTickets: (params?: { status?: string; priority?: string; page?: number; perPage?: number }) => {
     const search = new URLSearchParams()

@@ -3,6 +3,12 @@ import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { db } from './db.js'
+import {
+  revokeAllRefreshTokensForUser,
+  revokeAllSessionsForUser,
+  revokeRefreshTokensForSession,
+  logSessionAudit,
+} from './auth-utils.js'
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production'
 const ADMIN_JWT_EXPIRY = '8h'
@@ -535,6 +541,224 @@ adminRouter.post('/sessions/revoke-all', requireAdmin(), (req: Request, res: Res
   if (!userId) return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'userId required' })
   db.prepare('DELETE FROM admin_sessions WHERE admin_id = ?').run(userId)
   res.json({ success: true })
+})
+
+// User sessions (platform-wide monitoring)
+adminRouter.get('/user-sessions', requireAdmin(), (req: Request, res: Response) => {
+  try {
+    const userId = req.query.userId as string | undefined
+    const email = req.query.email as string | undefined
+    const ip = req.query.ip as string | undefined
+    const platform = req.query.platform as string | undefined
+    const status = req.query.status as string | undefined
+    const from = req.query.from as string | undefined
+    const to = req.query.to as string | undefined
+    const page = Math.max(1, parseInt((req.query.page as string) || '1', 10))
+    const perPage = Math.min(100, Math.max(1, parseInt((req.query.perPage as string) || '20', 10)))
+
+    let where = '1=1'
+    const params: unknown[] = []
+    if (userId) {
+      where += ' AND s.user_id = ?'
+      params.push(userId)
+    }
+    if (email) {
+      where += ' AND u.email LIKE ?'
+      params.push(`%${email}%`)
+    }
+    if (ip) {
+      where += ' AND s.ip LIKE ?'
+      params.push(`%${ip}%`)
+    }
+    if (platform) {
+      where += ' AND s.platform = ?'
+      params.push(platform)
+    }
+    if (status === 'revoked') {
+      where += ' AND s.revoked_at IS NOT NULL'
+    } else if (status === 'active') {
+      where += ' AND s.revoked_at IS NULL'
+    }
+    if (from) {
+      where += ' AND s.created_at >= ?'
+      params.push(from)
+    }
+    if (to) {
+      where += ' AND s.created_at <= ?'
+      params.push(to)
+    }
+
+    const countRow = db.prepare(
+      `SELECT COUNT(*) as c FROM sessions s JOIN users u ON s.user_id = u.id WHERE ${where}`
+    ).get(...params) as { c: number }
+
+    const rows = db.prepare(
+      `SELECT s.id, s.user_id, s.ip, s.user_agent, s.device_name, s.platform, s.geo_city, s.geo_country,
+              s.created_at, s.last_active_at, s.revoked_at,
+              u.email, u.first_name, u.last_name
+       FROM sessions s JOIN users u ON s.user_id = u.id
+       WHERE ${where} ORDER BY s.last_active_at DESC LIMIT ? OFFSET ?`
+    ).all(...params, perPage, (page - 1) * perPage) as {
+      id: string
+      user_id: string
+      ip: string | null
+      user_agent: string | null
+      device_name: string | null
+      platform: string | null
+      geo_city: string | null
+      geo_country: string | null
+      created_at: string
+      last_active_at: string
+      revoked_at: string | null
+      email: string
+      first_name: string
+      last_name: string
+    }[]
+
+    const sessions = rows.map((r) => ({
+      id: r.id,
+      sessionId: r.id,
+      userId: r.user_id,
+      userName: `${r.first_name} ${r.last_name}`.trim() || r.email,
+      userEmail: r.email,
+      device: r.device_name || (r.user_agent ? r.user_agent.slice(0, 50) : 'Unknown'),
+      ip: r.ip || '—',
+      platform: r.platform || 'web',
+      geoCountry: r.geo_country,
+      geoCity: r.geo_city,
+      lastActiveAt: r.last_active_at,
+      createdAt: r.created_at,
+      revoked: !!r.revoked_at,
+    }))
+
+    res.json({ sessions, total: countRow.c, page, perPage })
+  } catch (e) {
+    console.error('[Admin] user-sessions:', e)
+    res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+adminRouter.get('/user-sessions/metrics', requireAdmin(), (req: Request, res: Response) => {
+  try {
+    const activeSessions = db.prepare(
+      'SELECT COUNT(*) as c FROM sessions WHERE revoked_at IS NULL'
+    ).get() as { c: number }
+    const byPlatform = db.prepare(
+      `SELECT COALESCE(platform, 'web') as platform, COUNT(*) as c FROM sessions WHERE revoked_at IS NULL
+       GROUP BY COALESCE(platform, 'web')`
+    ).all() as { platform: string; c: number }[]
+    const byCountry = db.prepare(
+      `SELECT geo_country, COUNT(*) as c FROM sessions WHERE revoked_at IS NULL AND geo_country IS NOT NULL AND geo_country != ''
+       GROUP BY geo_country ORDER BY c DESC LIMIT 10`
+    ).all() as { geo_country: string; c: number }[]
+
+    res.json({
+      activeSessions: activeSessions.c,
+      byPlatform: byPlatform.map((p) => ({ platform: p.platform || 'web', count: p.c })),
+      byCountry: byCountry.map((c) => ({ country: c.geo_country, count: c.c })),
+    })
+  } catch (e) {
+    console.error('[Admin] user-sessions/metrics:', e)
+    res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+adminRouter.post('/user-sessions/:id/revoke', requireAdmin(), (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const session = db.prepare('SELECT id, user_id FROM sessions WHERE id = ?').get(id) as {
+      id: string
+      user_id: string
+    } | undefined
+    if (!session) {
+      return res.status(404).json({ code: 'NOT_FOUND', message: 'Session not found' })
+    }
+    db.prepare('UPDATE sessions SET revoked_at = datetime("now") WHERE id = ?').run(id)
+    revokeRefreshTokensForSession(id)
+    logSessionAudit(session.user_id, id, 'revoke', { admin: true })
+    res.json({ success: true })
+  } catch (e) {
+    console.error('[Admin] user-sessions revoke:', e)
+    res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+adminRouter.post('/user-sessions/bulk-revoke', requireAdmin(), (req: Request, res: Response) => {
+  try {
+    const { sessionIds } = req.body
+    if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
+      return res.status(400).json({ code: 'VALIDATION_ERROR', message: 'sessionIds array required' })
+    }
+    const results: { sessionId: string; success: boolean }[] = []
+    for (const sid of sessionIds.slice(0, 100)) {
+      const session = db.prepare('SELECT id, user_id FROM sessions WHERE id = ?').get(sid) as {
+        id: string
+        user_id: string
+      } | undefined
+      if (session) {
+        db.prepare('UPDATE sessions SET revoked_at = datetime("now") WHERE id = ?').run(sid)
+        revokeRefreshTokensForSession(sid)
+        logSessionAudit(session.user_id, sid, 'revoke', { admin: true, bulk: true })
+        results.push({ sessionId: sid, success: true })
+      } else {
+        results.push({ sessionId: sid, success: false })
+      }
+    }
+    res.json({ results })
+  } catch (e) {
+    console.error('[Admin] user-sessions bulk-revoke:', e)
+    res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
+})
+
+adminRouter.get('/user-sessions/export', requireAdmin(), (req: Request, res: Response) => {
+  try {
+    const format = (req.query.format as string) || 'csv'
+    const userId = req.query.userId as string | undefined
+    const from = req.query.from as string | undefined
+    const to = req.query.to as string | undefined
+
+    let where = '1=1'
+    const params: unknown[] = []
+    if (userId) {
+      where += ' AND s.user_id = ?'
+      params.push(userId)
+    }
+    if (from) {
+      where += ' AND s.created_at >= ?'
+      params.push(from)
+    }
+    if (to) {
+      where += ' AND s.created_at <= ?'
+      params.push(to)
+    }
+
+    const rows = db.prepare(
+      `SELECT s.id, s.user_id, s.ip, s.user_agent, s.device_name, s.platform, s.geo_city, s.geo_country,
+              s.created_at, s.last_active_at, s.revoked_at,
+              u.email, u.first_name, u.last_name
+       FROM sessions s JOIN users u ON s.user_id = u.id
+       WHERE ${where} ORDER BY s.last_active_at DESC LIMIT 10000`
+    ).all(...params) as Record<string, unknown>[]
+
+    if (format === 'json') {
+      return res.json({ sessions: rows })
+    }
+
+    const headers = ['id', 'user_id', 'email', 'ip', 'platform', 'geo_country', 'created_at', 'last_active_at', 'revoked']
+    const csv = [
+      headers.join(','),
+      ...rows.map((r) =>
+        headers.map((h) => JSON.stringify(String(r[h] ?? ''))).join(',')
+      ),
+    ].join('\n')
+    res.setHeader('Content-Type', 'text/csv')
+    res.setHeader('Content-Disposition', 'attachment; filename=user-sessions.csv')
+    res.send(csv)
+  } catch (e) {
+    console.error('[Admin] user-sessions export:', e)
+    res.status(500).json({ code: 'INTERNAL_ERROR', message: 'An error occurred' })
+  }
 })
 
 adminRouter.get('/tickets', requireAdmin(), (req: Request, res: Response) => {
